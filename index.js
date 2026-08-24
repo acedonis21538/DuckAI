@@ -460,7 +460,7 @@ function buildPersonalityPrompt() {
         '- Do not abandon an argument halfway through without a reason.\n' +
         '- If you change your position, explain why.\n' +
         '- Answer the complete question rather than only one part.\n' +
-        '- Match the user's language.\n' +
+        '- Match the language used by the user.\n' +
         '- Do not constantly mention that you are an AI.\n' +
         '- Do not overuse emojis.\n' +
         '- Avoid repetitive phrases.\n' +
