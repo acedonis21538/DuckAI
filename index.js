@@ -62,13 +62,22 @@ const client = new Client({
 });
 
 // ─────────────────────────────────────────────
-// PERSONALITY STORAGE
+// FILES
 // ─────────────────────────────────────────────
 
 const personalityPath = path.join(
     __dirname,
     'personality.json'
 );
+
+const userMemoryPath = path.join(
+    __dirname,
+    'user_memory.json'
+);
+
+// ─────────────────────────────────────────────
+// GLOBAL PERSONALITY
+// ─────────────────────────────────────────────
 
 const defaultPersonality = {
     loving: 85,
@@ -124,7 +133,8 @@ function loadPersonality() {
     }
 }
 
-let personalityValues = loadPersonality();
+let personalityValues =
+    loadPersonality();
 
 function savePersonality() {
     fs.writeFileSync(
@@ -135,6 +145,307 @@ function savePersonality() {
             2
         )
     );
+}
+
+// ─────────────────────────────────────────────
+// USER MEMORY
+// ─────────────────────────────────────────────
+
+function createEmptyUserProfile(user) {
+    return {
+        userId: user.id,
+        username: user.username,
+        displayName:
+            user.globalName ||
+            user.username,
+
+        personality: {
+            confidence: 0,
+            traits: {}
+        },
+
+        personalDetails: [],
+
+        interests: [],
+
+        preferences: [],
+
+        dislikes: [],
+
+        importantContext: [],
+
+        lastSeen: new Date().toISOString(),
+
+        messageCount: 0
+    };
+}
+
+function loadUserMemory() {
+    try {
+        if (!fs.existsSync(userMemoryPath)) {
+            fs.writeFileSync(
+                userMemoryPath,
+                JSON.stringify(
+                    {},
+                    null,
+                    2
+                )
+            );
+
+            return {};
+        }
+
+        const data = JSON.parse(
+            fs.readFileSync(
+                userMemoryPath,
+                'utf8'
+            )
+        );
+
+        return data || {};
+
+    } catch (error) {
+        console.error(
+            '❌ User memory loading error:',
+            error
+        );
+
+        return {};
+    }
+}
+
+const userMemory =
+    loadUserMemory();
+
+function saveUserMemory() {
+    try {
+        fs.writeFileSync(
+            userMemoryPath,
+            JSON.stringify(
+                userMemory,
+                null,
+                2
+            )
+        );
+    } catch (error) {
+        console.error(
+            '❌ User memory save error:',
+            error
+        );
+    }
+}
+
+function getUserProfile(user) {
+    if (!userMemory[user.id]) {
+        userMemory[user.id] =
+            createEmptyUserProfile(user);
+    }
+
+    const profile =
+        userMemory[user.id];
+
+    profile.username =
+        user.username;
+
+    profile.displayName =
+        user.globalName ||
+        user.username;
+
+    profile.lastSeen =
+        new Date().toISOString();
+
+    return profile;
+}
+
+// ─────────────────────────────────────────────
+// MEMORY SAFETY
+// ─────────────────────────────────────────────
+
+function cleanMemoryArray(
+    array,
+    maxItems = 30
+) {
+    if (!Array.isArray(array)) {
+        return [];
+    }
+
+    const cleaned =
+        array
+            .filter(
+                item =>
+                    typeof item === 'string' &&
+                    item.trim().length > 0
+            )
+            .map(
+                item =>
+                    item.trim()
+            );
+
+    return [
+        ...new Set(cleaned)
+    ].slice(-maxItems);
+}
+
+function sanitizeMemoryUpdate(
+    update
+) {
+    if (
+        !update ||
+        typeof update !== 'object'
+    ) {
+        return null;
+    }
+
+    const safe = {};
+
+    if (
+        Array.isArray(
+            update.personalDetails
+        )
+    ) {
+        safe.personalDetails =
+            cleanMemoryArray(
+                update.personalDetails
+            );
+    }
+
+    if (
+        Array.isArray(
+            update.interests
+        )
+    ) {
+        safe.interests =
+            cleanMemoryArray(
+                update.interests
+            );
+    }
+
+    if (
+        Array.isArray(
+            update.preferences
+        )
+    ) {
+        safe.preferences =
+            cleanMemoryArray(
+                update.preferences
+            );
+    }
+
+    if (
+        Array.isArray(
+            update.dislikes
+        )
+    ) {
+        safe.dislikes =
+            cleanMemoryArray(
+                update.dislikes
+            );
+    }
+
+    if (
+        Array.isArray(
+            update.importantContext
+        )
+    ) {
+        safe.importantContext =
+            cleanMemoryArray(
+                update.importantContext
+            );
+    }
+
+    if (
+        update.personality &&
+        typeof update.personality === 'object'
+    ) {
+        safe.personality = {
+            traits:
+                typeof update.personality.traits === 'object' &&
+                update.personality.traits !== null
+                    ? update.personality.traits
+                    : {}
+        };
+    }
+
+    return safe;
+}
+
+function applyMemoryUpdate(
+    user,
+    update
+) {
+    const profile =
+        getUserProfile(user);
+
+    const safe =
+        sanitizeMemoryUpdate(
+            update
+        );
+
+    if (!safe) {
+        return;
+    }
+
+    const fields = [
+        'personalDetails',
+        'interests',
+        'preferences',
+        'dislikes',
+        'importantContext'
+    ];
+
+    for (const field of fields) {
+        if (
+            Array.isArray(
+                safe[field]
+            ) &&
+            safe[field].length > 0
+        ) {
+            profile[field] =
+                cleanMemoryArray(
+                    [
+                        ...(profile[field] || []),
+                        ...safe[field]
+                    ]
+                );
+        }
+    }
+
+    if (
+        safe.personality &&
+        safe.personality.traits
+    ) {
+        for (
+            const [
+                trait,
+                value
+            ] of Object.entries(
+                safe.personality.traits
+            )
+        ) {
+            if (
+                typeof trait === 'string' &&
+                typeof value === 'string'
+            ) {
+                profile.personality.traits[
+                    trait
+                ] = value;
+            }
+        }
+
+        profile.personality.confidence =
+            Math.min(
+                100,
+                (
+                    profile.personality.confidence ||
+                    0
+                ) + 1
+            );
+    }
+
+    profile.messageCount =
+        (profile.messageCount || 0) + 1;
+
+    saveUserMemory();
 }
 
 // ─────────────────────────────────────────────
@@ -261,19 +572,109 @@ function buildTraitInstruction(
 }
 
 // ─────────────────────────────────────────────
+// USER MEMORY PROMPT
+// ─────────────────────────────────────────────
+
+function buildUserMemoryPrompt(
+    user
+) {
+    const profile =
+        getUserProfile(user);
+
+    return (
+        '\nUSER PROFILE\n' +
+        'The person currently speaking is:\n' +
+        '- Discord username: ' +
+        profile.username +
+        '\n' +
+        '- Display name: ' +
+        profile.displayName +
+        '\n' +
+
+        'Known personal details: ' +
+        (
+            profile.personalDetails.length
+                ? profile.personalDetails.join('; ')
+                : 'None known'
+        ) +
+        '\n' +
+
+        'Interests: ' +
+        (
+            profile.interests.length
+                ? profile.interests.join('; ')
+                : 'None known'
+        ) +
+        '\n' +
+
+        'Preferences: ' +
+        (
+            profile.preferences.length
+                ? profile.preferences.join('; ')
+                : 'None known'
+        ) +
+        '\n' +
+
+        'Dislikes: ' +
+        (
+            profile.dislikes.length
+                ? profile.dislikes.join('; ')
+                : 'None known'
+        ) +
+        '\n' +
+
+        'Important context: ' +
+        (
+            profile.importantContext.length
+                ? profile.importantContext.join('; ')
+                : 'None known'
+        ) +
+        '\n' +
+
+        'Personality observations: ' +
+        (
+            Object.keys(
+                profile.personality.traits || {}
+            ).length
+                ? Object.entries(
+                    profile.personality.traits
+                )
+                    .map(
+                        ([key, value]) =>
+                            key +
+                            ': ' +
+                            value
+                    )
+                    .join('; ')
+                : 'None known'
+        ) +
+        '\n\n' +
+
+        'Use this information naturally when relevant.\n' +
+        'Do not repeatedly mention that you remember these details.\n' +
+        'Do not assume unknown information.\n' +
+        'Do not treat uncertain personality observations as facts.\n'
+    );
+}
+
+// ─────────────────────────────────────────────
 // AI PERSONALITY PROMPT
 // ─────────────────────────────────────────────
 
-function buildPersonalityPrompt() {
+function buildPersonalityPrompt(
+    user
+) {
     let prompt =
         'You are DuckAI, a cute and friendly AI duck.\n\n';
 
     prompt +=
         'PERSONALITY CONFIGURATION\n' +
         'The following values control how strongly each trait should influence your behavior.\n' +
-        'Treat them as behavioral tendencies, not as rigid rules.\n\n';
+        'Treat them as behavioral tendencies, not rigid rules.\n\n';
 
-    for (const key of Object.keys(traits)) {
+    for (
+        const key of Object.keys(traits)
+    ) {
         prompt +=
             '- ' +
             buildTraitInstruction(
@@ -284,9 +685,16 @@ function buildPersonalityPrompt() {
     }
 
     prompt +=
+        buildUserMemoryPrompt(
+            user
+        );
+
+    prompt +=
         '\nBEHAVIOR RULES\n' +
         '- Adapt your personality naturally to the context.\n' +
-        '- Do not force a personality trait into every response.\n' +
+        '- Adapt naturally to the individual speaking to you.\n' +
+        '- Use known preferences and interests when they are relevant.\n' +
+        '- Do not pretend to know information that is not in the profile or conversation.\n' +
         '- Serious subjects should remain appropriately serious.\n' +
         '- Give genuine opinions instead of automatically agreeing.\n' +
         '- Be natural and conversational.\n' +
@@ -295,36 +703,165 @@ function buildPersonalityPrompt() {
         '- Occasionally use expressions such as "hehe", "aww", or "hmm".\n' +
         '- Match the user\'s language.\n' +
         '- Avoid repetitive responses.\n' +
-        '- Keep responses reasonably concise unless more detail is useful.';
+        '- Complete your thoughts before ending a response.\n' +
+        '- Think through the user\'s message before answering.\n' +
+        '- Give complete and coherent answers rather than stopping after the first thought.\n' +
+        '- When discussing an idea, opinion, problem or argument, consider the relevant points and reach a clear conclusion.\n' +
+        '- Keep track of what has already been said in the conversation.\n' +
+        '- Do not abandon an argument halfway through.\n' +
+        '- Do not contradict yourself without explaining why your position changed.\n' +
+        '- Do not use filler-only replies when a meaningful answer is appropriate.\n' +
+        '- Simple messages can receive short answers.\n' +
+        '- Complex questions should receive sufficiently developed answers.\n' +
+        '- Prioritize clarity, consistency and completeness over unnecessary brevity.';
 
     return prompt;
+}
+
+// ─────────────────────────────────────────────
+// MEMORY EXTRACTION
+// ─────────────────────────────────────────────
+
+async function updateUserMemory(
+    user,
+    message,
+    reply
+) {
+    try {
+        const profile =
+            getUserProfile(user);
+
+        const memoryResponse =
+            await groq.chat.completions.create({
+                model:
+                    'openai/gpt-oss-20b',
+
+                messages: [
+                    {
+                        role: 'system',
+                        content:
+                            'You are DuckAI\'s memory manager.\n' +
+                            'Extract only useful, reasonably stable information explicitly revealed by the user.\n' +
+                            'Do not invent facts.\n' +
+                            'Do not store passwords, API keys, tokens, financial credentials, authentication codes, private security information or similarly dangerous secrets.\n' +
+                            'Do not store extremely sensitive information unless it is clearly necessary for the conversation.\n' +
+                            'Personality observations should be cautious and based on repeated or clear behavior.\n\n' +
+                            'Return ONLY valid JSON with this structure:\n' +
+                            '{' +
+                            '"personalDetails":[],' +
+                            '"interests":[],' +
+                            '"preferences":[],' +
+                            '"dislikes":[],' +
+                            '"importantContext":[],' +
+                            '"personality":{"traits":{}}' +
+                            '}'
+                    },
+
+                    {
+                        role: 'user',
+                        content:
+                            'CURRENT PROFILE:\n' +
+                            JSON.stringify(
+                                profile
+                            ) +
+                            '\n\nUSER MESSAGE:\n' +
+                            message.content +
+                            '\n\nDUCKAI RESPONSE:\n' +
+                            reply
+                    }
+                ],
+
+                temperature: 0.2,
+
+                max_tokens: 700,
+
+                response_format: {
+                    type: 'json_object'
+                }
+            });
+
+        const content =
+            memoryResponse
+                .choices?.[0]
+                ?.message
+                ?.content;
+
+        if (!content) {
+            return;
+        }
+
+        let update;
+
+        try {
+            update =
+                JSON.parse(content);
+        } catch {
+            console.error(
+                '⚠️ Memory JSON could not be parsed.'
+            );
+
+            return;
+        }
+
+        applyMemoryUpdate(
+            user,
+            update
+        );
+
+    } catch (error) {
+        console.error(
+            '⚠️ Memory update error:',
+            error.message
+        );
+    }
 }
 
 // ─────────────────────────────────────────────
 // PERSONALITY PANEL
 // ─────────────────────────────────────────────
 
-function createPersonalityEmbed(page) {
-    const category = categories[page];
+function createPersonalityEmbed(
+    page
+) {
+    const category =
+        categories[page];
 
     let description =
         'Fine-tune how DuckAI behaves in conversations.\n' +
         'Adjust the characteristics below from 0 to 100.\n\n';
 
-    const pageTraits = Object.keys(traits).filter(
-        key => traits[key].category === category
-    );
+    const pageTraits =
+        Object.keys(traits).filter(
+            key =>
+                traits[key].category ===
+                category
+        );
 
-    for (const key of pageTraits) {
-        const trait = traits[key];
-        const value = personalityValues[key];
+    for (
+        const key of pageTraits
+    ) {
+        const trait =
+            traits[key];
 
-        const filled = Math.round(value / 10);
+        const value =
+            personalityValues[key];
+
+        const filled =
+            Math.round(
+                value / 10
+            );
 
         let bar = '';
 
-        for (let i = 0; i < 10; i++) {
-            bar += i < filled ? '▰' : '▱';
+        for (
+            let i = 0;
+            i < 10;
+            i++
+        ) {
+            bar +=
+                i < filled
+                    ? '▰'
+                    : '▱';
         }
 
         description +=
@@ -347,7 +884,9 @@ function createPersonalityEmbed(page) {
             '🦆 DuckAI • ' +
             category
         )
-        .setDescription(description)
+        .setDescription(
+            description
+        )
         .setFooter({
             text:
                 'Page ' +
@@ -362,7 +901,9 @@ function createPersonalityEmbed(page) {
 // PANEL BUTTONS
 // ─────────────────────────────────────────────
 
-function createPanelButtons(page) {
+function createPanelButtons(
+    page
+) {
     const previousButton =
         new ButtonBuilder()
             .setCustomId(
@@ -372,7 +913,9 @@ function createPanelButtons(page) {
             .setStyle(
                 ButtonStyle.Secondary
             )
-            .setDisabled(page === 0);
+            .setDisabled(
+                page === 0
+            );
 
     const pageButton =
         new ButtonBuilder()
@@ -401,7 +944,8 @@ function createPanelButtons(page) {
                 ButtonStyle.Secondary
             )
             .setDisabled(
-                page === categories.length - 1
+                page ===
+                categories.length - 1
             );
 
     const editButton =
@@ -448,12 +992,18 @@ function createPanelButtons(page) {
 // MODAL
 // ─────────────────────────────────────────────
 
-function createPersonalityModal(page) {
-    const category = categories[page];
+function createPersonalityModal(
+    page
+) {
+    const category =
+        categories[page];
 
-    const keys = Object.keys(traits).filter(
-        key => traits[key].category === category
-    );
+    const keys =
+        Object.keys(traits).filter(
+            key =>
+                traits[key].category ===
+                category
+        );
 
     const modal =
         new ModalBuilder()
@@ -466,8 +1016,11 @@ function createPersonalityModal(page) {
                 category
             );
 
-    for (const key of keys) {
-        const trait = traits[key];
+    for (
+        const key of keys
+    ) {
+        const trait =
+            traits[key];
 
         const input =
             new TextInputBuilder()
@@ -495,7 +1048,9 @@ function createPersonalityModal(page) {
 
         modal.addComponents(
             new ActionRowBuilder()
-                .addComponents(input)
+                .addComponents(
+                    input
+                )
         );
     }
 
@@ -506,10 +1061,15 @@ function createPersonalityModal(page) {
 // CONVERSATION MEMORY
 // ─────────────────────────────────────────────
 
-const conversations = new Set();
-const histories = new Map();
+const conversations =
+    new Set();
 
-function conversationKey(message) {
+const histories =
+    new Map();
+
+function conversationKey(
+    message
+) {
     return (
         message.channel.id +
         ':' +
@@ -521,7 +1081,9 @@ function conversationKey(message) {
 // TRIGGER
 // ─────────────────────────────────────────────
 
-function mentionsDuckAI(message) {
+function mentionsDuckAI(
+    message
+) {
     const mentioned =
         message.mentions.has(
             client.user
@@ -532,14 +1094,19 @@ function mentionsDuckAI(message) {
             message.content
         );
 
-    return mentioned || saysDuckAI;
+    return (
+        mentioned ||
+        saysDuckAI
+    );
 }
 
 // ─────────────────────────────────────────────
 // GOODBYE
 // ─────────────────────────────────────────────
 
-function isGoodbye(message) {
+function isGoodbye(
+    message
+) {
     const text =
         message.content
             .toLowerCase()
@@ -569,7 +1136,9 @@ function isGoodbye(message) {
         'talk to you later'
     ];
 
-    return goodbyes.includes(text);
+    return goodbyes.includes(
+        text
+    );
 }
 
 // ─────────────────────────────────────────────
@@ -581,18 +1150,34 @@ async function generateResponse(
     key
 ) {
     if (!histories.has(key)) {
-        histories.set(key, []);
+        histories.set(
+            key,
+            []
+        );
     }
 
-    const history = histories.get(key);
+    const history =
+        histories.get(key);
+
+    const user =
+        message.author;
+
+    const profile =
+        getUserProfile(user);
 
     history.push({
         role: 'user',
-        content: message.content
+        content:
+            '[' +
+            profile.displayName +
+            ' | Discord ID: ' +
+            profile.userId +
+            ']\n' +
+            message.content
     });
 
     const recentHistory =
-        history.slice(-20);
+        history.slice(-50);
 
     const response =
         await groq.chat.completions.create({
@@ -603,23 +1188,24 @@ async function generateResponse(
                 {
                     role: 'system',
                     content:
-                        buildPersonalityPrompt()
+                        buildPersonalityPrompt(
+                            user
+                        )
                 },
 
                 ...recentHistory
             ],
 
-            temperature: 0.8,
-            max_tokens: 500
+            temperature: 0.75,
+
+            max_tokens: 2000
         });
 
     const reply =
-        response.choices &&
-        response.choices[0] &&
-        response.choices[0].message &&
-        response.choices[0].message.content
-            ? response.choices[0].message.content.trim()
-            : '';
+        response.choices?.[0]
+            ?.message
+            ?.content
+            ?.trim() || '';
 
     if (!reply) {
         throw new Error(
@@ -629,17 +1215,21 @@ async function generateResponse(
 
     history.push({
         role: 'assistant',
-        content: reply
+        content:
+            reply
     });
 
-    if (history.length > 20) {
+    if (history.length > 50) {
         history.splice(
             0,
-            history.length - 20
+            history.length - 50
         );
     }
 
-    return reply;
+    return {
+        reply,
+        user
+    };
 }
 
 // ─────────────────────────────────────────────
@@ -659,26 +1249,29 @@ const customizeCommand =
 
 client.on(
     'interactionCreate',
-    async function(interaction) {
-
-        // /customize
+    async function(
+        interaction
+    ) {
 
         if (
             interaction.isChatInputCommand() &&
-            interaction.commandName === 'customize'
+            interaction.commandName ===
+                'customize'
         ) {
             await interaction.reply({
                 embeds: [
-                    createPersonalityEmbed(0)
+                    createPersonalityEmbed(
+                        0
+                    )
                 ],
                 components:
-                    createPanelButtons(0)
+                    createPanelButtons(
+                        0
+                    )
             });
 
             return;
         }
-
-        // PREVIOUS PAGE
 
         if (
             interaction.isButton() &&
@@ -686,13 +1279,18 @@ client.on(
                 'personality_previous'
         ) {
             const currentPage =
-                interaction.message.embeds[0] &&
-                interaction.message.embeds[0].footer &&
-                interaction.message.embeds[0].footer.text
+                interaction.message
+                    .embeds[0]
+                    ?.footer
+                    ?.text
                     ? Number(
-                        interaction.message.embeds[0]
-                            .footer.text
-                            .match(/Page (\d+)/)?.[1] || 1
+                        interaction.message
+                            .embeds[0]
+                            .footer
+                            .text
+                            .match(
+                                /Page (\d+)/
+                            )?.[1] || 1
                     ) - 1
                     : 0;
 
@@ -717,21 +1315,24 @@ client.on(
             return;
         }
 
-        // NEXT PAGE
-
         if (
             interaction.isButton() &&
             interaction.customId ===
                 'personality_next'
         ) {
             const currentPage =
-                interaction.message.embeds[0] &&
-                interaction.message.embeds[0].footer &&
-                interaction.message.embeds[0].footer.text
+                interaction.message
+                    .embeds[0]
+                    ?.footer
+                    ?.text
                     ? Number(
-                        interaction.message.embeds[0]
-                            .footer.text
-                            .match(/Page (\d+)/)?.[1] || 1
+                        interaction.message
+                            .embeds[0]
+                            .footer
+                            .text
+                            .match(
+                                /Page (\d+)/
+                            )?.[1] || 1
                     ) - 1
                     : 0;
 
@@ -756,8 +1357,6 @@ client.on(
             return;
         }
 
-        // EDIT CURRENT PAGE
-
         if (
             interaction.isButton() &&
             interaction.customId.startsWith(
@@ -772,13 +1371,13 @@ client.on(
                 );
 
             await interaction.showModal(
-                createPersonalityModal(page)
+                createPersonalityModal(
+                    page
+                )
             );
 
             return;
         }
-
-        // RESET
 
         if (
             interaction.isButton() &&
@@ -792,13 +1391,18 @@ client.on(
             savePersonality();
 
             const currentPage =
-                interaction.message.embeds[0] &&
-                interaction.message.embeds[0].footer &&
-                interaction.message.embeds[0].footer.text
+                interaction.message
+                    .embeds[0]
+                    ?.footer
+                    ?.text
                     ? Number(
-                        interaction.message.embeds[0]
-                            .footer.text
-                            .match(/Page (\d+)/)?.[1] || 1
+                        interaction.message
+                            .embeds[0]
+                            .footer
+                            .text
+                            .match(
+                                /Page (\d+)/
+                            )?.[1] || 1
                     ) - 1
                     : 0;
 
@@ -817,8 +1421,6 @@ client.on(
             return;
         }
 
-        // SAVE MODAL
-
         if (
             interaction.isModalSubmit() &&
             interaction.customId.startsWith(
@@ -836,15 +1438,20 @@ client.on(
                 categories[page];
 
             const keys =
-                Object.keys(traits).filter(
+                Object.keys(
+                    traits
+                ).filter(
                     key =>
-                        traits[key].category ===
+                        traits[key]
+                            .category ===
                         category
                 );
 
             const invalid = [];
 
-            for (const key of keys) {
+            for (
+                const key of keys
+            ) {
                 const raw =
                     interaction.fields
                         .getTextInputValue(
@@ -856,12 +1463,15 @@ client.on(
                     Number(raw);
 
                 if (
-                    !Number.isInteger(value) ||
+                    !Number.isInteger(
+                        value
+                    ) ||
                     value < 0 ||
                     value > 100
                 ) {
                     invalid.push(
-                        traits[key].name
+                        traits[key]
+                            .name
                     );
 
                     continue;
@@ -871,11 +1481,15 @@ client.on(
                     value;
             }
 
-            if (invalid.length > 0) {
+            if (
+                invalid.length > 0
+            ) {
                 await interaction.reply({
                     content:
                         '❌ Invalid value for: ' +
-                        invalid.join(', ') +
+                        invalid.join(
+                            ', '
+                        ) +
                         '. Use numbers from 0 to 100.',
                     ephemeral: true
                 });
@@ -908,23 +1522,42 @@ client.on(
 
 client.on(
     'messageCreate',
-    async function(message) {
+    async function(
+        message
+    ) {
 
-        if (message.author.bot) {
+        if (
+            message.author.bot
+        ) {
             return;
         }
 
         const key =
-            conversationKey(message);
+            conversationKey(
+                message
+            );
+
+        const user =
+            message.author;
+
+        getUserProfile(user);
 
         // START
 
         if (
-            mentionsDuckAI(message)
+            mentionsDuckAI(
+                message
+            )
         ) {
-            conversations.add(key);
+            conversations.add(
+                key
+            );
 
-            if (!histories.has(key)) {
+            if (
+                !histories.has(
+                    key
+                )
+            ) {
                 histories.set(
                     key,
                     []
@@ -941,7 +1574,9 @@ client.on(
         // IGNORE
 
         if (
-            !conversations.has(key)
+            !conversations.has(
+                key
+            )
         ) {
             return;
         }
@@ -949,10 +1584,17 @@ client.on(
         // GOODBYE
 
         if (
-            isGoodbye(message)
+            isGoodbye(
+                message
+            )
         ) {
-            conversations.delete(key);
-            histories.delete(key);
+            conversations.delete(
+                key
+            );
+
+            histories.delete(
+                key
+            );
 
             await message.reply(
                 '🦆 Okay, bye bye! See you later 🤍'
@@ -967,17 +1609,27 @@ client.on(
             await message.channel
                 .sendTyping();
 
-            const reply =
+            const result =
                 await generateResponse(
                     message,
                     key
                 );
 
             await message.reply(
-                reply
+                result.reply
             );
 
-        } catch (error) {
+            // Update persistent user memory
+            // after sending the response.
+            await updateUserMemory(
+                result.user,
+                message,
+                result.reply
+            );
+
+        } catch (
+            error
+        ) {
             console.error(
                 '❌ AI error:',
                 error
@@ -1012,15 +1664,18 @@ client.once(
         );
 
         try {
-            await client.application.commands.set([
-                customizeCommand
-            ]);
+            await client.application
+                .commands.set([
+                    customizeCommand
+                ]);
 
             console.log(
                 '✓ /customize registered.'
             );
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
             console.error(
                 '❌ Failed to register commands:',
                 error
@@ -1033,5 +1688,6 @@ client.once(
 // LOGIN
 // ─────────────────────────────────────────────
 
-client.login(TOKEN);
-
+client.login(
+    TOKEN
+);
