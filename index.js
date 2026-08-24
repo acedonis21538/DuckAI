@@ -84,11 +84,8 @@ const defaultPersonality = {
 };
 
 function loadPersonality() {
-
     try {
-
         if (!fs.existsSync(personalityPath)) {
-
             fs.writeFileSync(
                 personalityPath,
                 JSON.stringify(
@@ -116,7 +113,6 @@ function loadPersonality() {
         };
 
     } catch (error) {
-
         console.error(
             '❌ Personality loading error:',
             error
@@ -128,11 +124,9 @@ function loadPersonality() {
     }
 }
 
-let personalityValues =
-    loadPersonality();
+let personalityValues = loadPersonality();
 
 function savePersonality() {
-
     fs.writeFileSync(
         personalityPath,
         JSON.stringify(
@@ -148,103 +142,103 @@ function savePersonality() {
 // ─────────────────────────────────────────────
 
 const traits = {
-
     loving: {
         name: 'Loving',
         emoji: '🩷',
         description:
-            'Warmth, affection and emotional closeness.'
+            'Warmth, affection and emotional closeness.',
+        category: 'Social'
     },
 
     cheerful: {
         name: 'Cheerful',
         emoji: '😊',
         description:
-            'Positive, energetic and upbeat behavior.'
+            'Positive, energetic and upbeat behavior.',
+        category: 'Social'
     },
 
     realistic: {
         name: 'Realistic',
         emoji: '🧠',
         description:
-            'Honest, grounded and practical opinions.'
+            'Honest, grounded and practical opinions.',
+        category: 'Mind'
     },
 
     funny: {
         name: 'Funny',
         emoji: '😂',
         description:
-            'Humor, jokes and witty observations.'
+            'Humor, jokes and witty observations.',
+        category: 'Style'
     },
 
     friendly: {
         name: 'Friendly',
         emoji: '🫶',
         description:
-            'Approachable, welcoming and conversational.'
+            'Approachable, welcoming and conversational.',
+        category: 'Social'
     },
 
     serious: {
         name: 'Serious',
         emoji: '🧊',
         description:
-            'More thoughtful, direct and serious communication.'
+            'More thoughtful, direct and serious communication.',
+        category: 'Mind'
     },
 
     playful: {
         name: 'Playful',
         emoji: '😈',
         description:
-            'Teasing, playful energy and mischievous personality.'
+            'Teasing, playful energy and mischievous personality.',
+        category: 'Style'
     },
 
     calm: {
         name: 'Calm',
         emoji: '🧘',
         description:
-            'Relaxed, patient and composed behavior.'
+            'Relaxed, patient and composed behavior.',
+        category: 'Mind'
     },
 
     curious: {
         name: 'Curious',
         emoji: '🔎',
         description:
-            'Interest in the user and their ideas.'
+            'Interest in the user and their ideas.',
+        category: 'Mind'
     },
 
     spontaneous: {
         name: 'Spontaneous',
         emoji: '✨',
         description:
-            'Natural, unpredictable and less repetitive responses.'
+            'Natural, unpredictable and less repetitive responses.',
+        category: 'Style'
     }
 };
+
+const categories = [
+    'Social',
+    'Mind',
+    'Style'
+];
 
 // ─────────────────────────────────────────────
 // PERSONALITY DESCRIPTION
 // ─────────────────────────────────────────────
 
 function getIntensity(value) {
-
-    if (value <= 15) {
-        return 'very low';
-    }
-
-    if (value <= 35) {
-        return 'low';
-    }
-
-    if (value <= 55) {
-        return 'moderate';
-    }
-
-    if (value <= 75) {
-        return 'high';
-    }
-
-    if (value <= 90) {
-        return 'very high';
-    }
+    if (value <= 15) return 'very low';
+    if (value <= 35) return 'low';
+    if (value <= 55) return 'moderate';
+    if (value <= 75) return 'high';
+    if (value <= 90) return 'very high';
 
     return 'extremely high';
 }
@@ -253,7 +247,6 @@ function buildTraitInstruction(
     key,
     value
 ) {
-
     const trait = traits[key];
 
     return (
@@ -272,7 +265,6 @@ function buildTraitInstruction(
 // ─────────────────────────────────────────────
 
 function buildPersonalityPrompt() {
-
     let prompt =
         'You are DuckAI, a cute and friendly AI duck.\n\n';
 
@@ -282,7 +274,6 @@ function buildPersonalityPrompt() {
         'Treat them as behavioral tendencies, not as rigid rules.\n\n';
 
     for (const key of Object.keys(traits)) {
-
         prompt +=
             '- ' +
             buildTraitInstruction(
@@ -302,7 +293,7 @@ function buildPersonalityPrompt() {
         '- Do not constantly mention that you are an AI.\n' +
         '- Do not overuse emojis.\n' +
         '- Occasionally use expressions such as "hehe", "aww", or "hmm".\n' +
-        "- Match the user's language.\n" +
+        '- Match the user\'s language.\n' +
         '- Avoid repetitive responses.\n' +
         '- Keep responses reasonably concise unless more detail is useful.';
 
@@ -313,29 +304,27 @@ function buildPersonalityPrompt() {
 // PERSONALITY PANEL
 // ─────────────────────────────────────────────
 
-function createPersonalityEmbed() {
+function createPersonalityEmbed(page) {
+    const category = categories[page];
 
     let description =
-        '### 🦆 Personality Settings\n' +
-        'Customize how DuckAI behaves in conversations.\n\n';
+        'Fine-tune how DuckAI behaves in conversations.\n' +
+        'Adjust the characteristics below from 0 to 100.\n\n';
 
-    for (const key of Object.keys(traits)) {
+    const pageTraits = Object.keys(traits).filter(
+        key => traits[key].category === category
+    );
 
+    for (const key of pageTraits) {
         const trait = traits[key];
-        const value =
-            personalityValues[key];
+        const value = personalityValues[key];
+
+        const filled = Math.round(value / 10);
 
         let bar = '';
 
-        const filled =
-            Math.round(value / 10);
-
         for (let i = 0; i < 10; i++) {
-
-            bar +=
-                i < filled
-                    ? '▰'
-                    : '▱';
+            bar += i < filled ? '▰' : '▱';
         }
 
         description +=
@@ -354,13 +343,18 @@ function createPersonalityEmbed() {
 
     return new EmbedBuilder()
         .setColor(0x9BE7FF)
-        .setTitle('🦆 DuckAI • Personality')
-        .setDescription(
-            description
+        .setTitle(
+            '🦆 DuckAI • ' +
+            category
         )
+        .setDescription(description)
         .setFooter({
             text:
-                'Use Edit Personality to change the values.'
+                'Page ' +
+                (page + 1) +
+                ' of ' +
+                categories.length +
+                ' • Changes save automatically'
         });
 }
 
@@ -368,49 +362,84 @@ function createPersonalityEmbed() {
 // PANEL BUTTONS
 // ─────────────────────────────────────────────
 
-function createPanelButtons() {
+function createPanelButtons(page) {
+    const previousButton =
+        new ButtonBuilder()
+            .setCustomId(
+                'personality_previous'
+            )
+            .setLabel('←')
+            .setStyle(
+                ButtonStyle.Secondary
+            )
+            .setDisabled(page === 0);
+
+    const pageButton =
+        new ButtonBuilder()
+            .setCustomId(
+                'personality_page'
+            )
+            .setLabel(
+                categories[page] +
+                ' • ' +
+                (page + 1) +
+                '/' +
+                categories.length
+            )
+            .setStyle(
+                ButtonStyle.Secondary
+            )
+            .setDisabled(true);
+
+    const nextButton =
+        new ButtonBuilder()
+            .setCustomId(
+                'personality_next'
+            )
+            .setLabel('→')
+            .setStyle(
+                ButtonStyle.Secondary
+            )
+            .setDisabled(
+                page === categories.length - 1
+            );
+
+    const editButton =
+        new ButtonBuilder()
+            .setCustomId(
+                'personality_edit_' +
+                page
+            )
+            .setLabel(
+                '✎ Edit ' +
+                categories[page]
+            )
+            .setStyle(
+                ButtonStyle.Primary
+            );
+
+    const resetButton =
+        new ButtonBuilder()
+            .setCustomId(
+                'personality_reset'
+            )
+            .setLabel('↻ Reset')
+            .setStyle(
+                ButtonStyle.Secondary
+            );
 
     return [
-
         new ActionRowBuilder()
             .addComponents(
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        'personality_edit_1'
-                    )
-                    .setLabel(
-                        '🩷 Edit 1–5'
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        'personality_edit_2'
-                    )
-                    .setLabel(
-                        '✨ Edit 6–10'
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    )
+                previousButton,
+                pageButton,
+                nextButton
             ),
 
         new ActionRowBuilder()
             .addComponents(
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        'personality_reset'
-                    )
-                    .setLabel(
-                        '↻ Reset'
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                editButton,
+                resetButton
             )
     ];
 }
@@ -419,22 +448,12 @@ function createPanelButtons() {
 // MODAL
 // ─────────────────────────────────────────────
 
-function createPersonalityModal(
-    page
-) {
+function createPersonalityModal(page) {
+    const category = categories[page];
 
-    const keys =
-        Object.keys(traits);
-
-    const start =
-        page === 1
-            ? 0
-            : 5;
-
-    const end =
-        page === 1
-            ? 5
-            : 10;
+    const keys = Object.keys(traits).filter(
+        key => traits[key].category === category
+    );
 
     const modal =
         new ModalBuilder()
@@ -443,18 +462,11 @@ function createPersonalityModal(
                 page
             )
             .setTitle(
-                '🦆 DuckAI • Edit ' +
-                page +
-                '/2'
+                '🦆 Edit • ' +
+                category
             );
 
-    for (
-        let i = start;
-        i < end;
-        i++
-    ) {
-
-        const key = keys[i];
+    for (const key of keys) {
         const trait = traits[key];
 
         const input =
@@ -494,16 +506,10 @@ function createPersonalityModal(
 // CONVERSATION MEMORY
 // ─────────────────────────────────────────────
 
-const conversations =
-    new Set();
+const conversations = new Set();
+const histories = new Map();
 
-const histories =
-    new Map();
-
-function conversationKey(
-    message
-) {
-
+function conversationKey(message) {
     return (
         message.channel.id +
         ':' +
@@ -515,10 +521,7 @@ function conversationKey(
 // TRIGGER
 // ─────────────────────────────────────────────
 
-function mentionsDuckAI(
-    message
-) {
-
+function mentionsDuckAI(message) {
     const mentioned =
         message.mentions.has(
             client.user
@@ -529,18 +532,14 @@ function mentionsDuckAI(
             message.content
         );
 
-    return mentioned ||
-        saysDuckAI;
+    return mentioned || saysDuckAI;
 }
 
 // ─────────────────────────────────────────────
 // GOODBYE
 // ─────────────────────────────────────────────
 
-function isGoodbye(
-    message
-) {
-
+function isGoodbye(message) {
     const text =
         message.content
             .toLowerCase()
@@ -570,9 +569,7 @@ function isGoodbye(
         'talk to you later'
     ];
 
-    return goodbyes.includes(
-        text
-    );
+    return goodbyes.includes(text);
 }
 
 // ─────────────────────────────────────────────
@@ -583,22 +580,15 @@ async function generateResponse(
     message,
     key
 ) {
-
     if (!histories.has(key)) {
-
-        histories.set(
-            key,
-            []
-        );
+        histories.set(key, []);
     }
 
-    const history =
-        histories.get(key);
+    const history = histories.get(key);
 
     history.push({
         role: 'user',
-        content:
-            message.content
+        content: message.content
     });
 
     const recentHistory =
@@ -606,12 +596,10 @@ async function generateResponse(
 
     const response =
         await groq.chat.completions.create({
-
             model:
                 'openai/gpt-oss-20b',
 
             messages: [
-
                 {
                     role: 'system',
                     content:
@@ -622,7 +610,6 @@ async function generateResponse(
             ],
 
             temperature: 0.8,
-
             max_tokens: 500
         });
 
@@ -635,7 +622,6 @@ async function generateResponse(
             : '';
 
     if (!reply) {
-
         throw new Error(
             'Groq returned an empty response.'
         );
@@ -647,7 +633,6 @@ async function generateResponse(
     });
 
     if (history.length > 20) {
-
         history.splice(
             0,
             history.length - 20
@@ -674,56 +659,120 @@ const customizeCommand =
 
 client.on(
     'interactionCreate',
-    async function (
-        interaction
-    ) {
+    async function(interaction) {
 
         // /customize
 
         if (
             interaction.isChatInputCommand() &&
-            interaction.commandName ===
-                'customize'
+            interaction.commandName === 'customize'
         ) {
-
             await interaction.reply({
-
                 embeds: [
-                    createPersonalityEmbed()
+                    createPersonalityEmbed(0)
                 ],
-
                 components:
-                    createPanelButtons()
+                    createPanelButtons(0)
             });
 
             return;
         }
 
-        // EDIT PAGE 1
+        // PREVIOUS PAGE
 
         if (
             interaction.isButton() &&
             interaction.customId ===
-                'personality_edit_1'
+                'personality_previous'
         ) {
+            const currentPage =
+                interaction.message.embeds[0] &&
+                interaction.message.embeds[0].footer &&
+                interaction.message.embeds[0].footer.text
+                    ? Number(
+                        interaction.message.embeds[0]
+                            .footer.text
+                            .match(/Page (\d+)/)?.[1] || 1
+                    ) - 1
+                    : 0;
 
-            await interaction.showModal(
-                createPersonalityModal(1)
-            );
+            const newPage =
+                Math.max(
+                    0,
+                    currentPage - 1
+                );
+
+            await interaction.update({
+                embeds: [
+                    createPersonalityEmbed(
+                        newPage
+                    )
+                ],
+                components:
+                    createPanelButtons(
+                        newPage
+                    )
+            });
 
             return;
         }
 
-        // EDIT PAGE 2
+        // NEXT PAGE
 
         if (
             interaction.isButton() &&
             interaction.customId ===
-                'personality_edit_2'
+                'personality_next'
         ) {
+            const currentPage =
+                interaction.message.embeds[0] &&
+                interaction.message.embeds[0].footer &&
+                interaction.message.embeds[0].footer.text
+                    ? Number(
+                        interaction.message.embeds[0]
+                            .footer.text
+                            .match(/Page (\d+)/)?.[1] || 1
+                    ) - 1
+                    : 0;
+
+            const newPage =
+                Math.min(
+                    categories.length - 1,
+                    currentPage + 1
+                );
+
+            await interaction.update({
+                embeds: [
+                    createPersonalityEmbed(
+                        newPage
+                    )
+                ],
+                components:
+                    createPanelButtons(
+                        newPage
+                    )
+            });
+
+            return;
+        }
+
+        // EDIT CURRENT PAGE
+
+        if (
+            interaction.isButton() &&
+            interaction.customId.startsWith(
+                'personality_edit_'
+            )
+        ) {
+            const page =
+                Number(
+                    interaction.customId
+                        .split('_')
+                        .pop()
+                );
 
             await interaction.showModal(
-                createPersonalityModal(2)
+                createPersonalityModal(page)
             );
 
             return;
@@ -736,22 +785,33 @@ client.on(
             interaction.customId ===
                 'personality_reset'
         ) {
-
-            personalityValues =
-                {
-                    ...defaultPersonality
-                };
+            personalityValues = {
+                ...defaultPersonality
+            };
 
             savePersonality();
 
+            const currentPage =
+                interaction.message.embeds[0] &&
+                interaction.message.embeds[0].footer &&
+                interaction.message.embeds[0].footer.text
+                    ? Number(
+                        interaction.message.embeds[0]
+                            .footer.text
+                            .match(/Page (\d+)/)?.[1] || 1
+                    ) - 1
+                    : 0;
+
             await interaction.update({
-
                 embeds: [
-                    createPersonalityEmbed()
+                    createPersonalityEmbed(
+                        currentPage
+                    )
                 ],
-
                 components:
-                    createPanelButtons()
+                    createPanelButtons(
+                        currentPage
+                    )
             });
 
             return;
@@ -765,7 +825,6 @@ client.on(
                 'personality_modal_'
             )
         ) {
-
             const page =
                 Number(
                     interaction.customId
@@ -773,30 +832,19 @@ client.on(
                         .pop()
                 );
 
+            const category =
+                categories[page];
+
             const keys =
-                Object.keys(traits);
-
-            const start =
-                page === 1
-                    ? 0
-                    : 5;
-
-            const end =
-                page === 1
-                    ? 5
-                    : 10;
+                Object.keys(traits).filter(
+                    key =>
+                        traits[key].category ===
+                        category
+                );
 
             const invalid = [];
 
-            for (
-                let i = start;
-                i < end;
-                i++
-            ) {
-
-                const key =
-                    keys[i];
-
+            for (const key of keys) {
                 const raw =
                     interaction.fields
                         .getTextInputValue(
@@ -808,13 +856,10 @@ client.on(
                     Number(raw);
 
                 if (
-                    !Number.isInteger(
-                        value
-                    ) ||
+                    !Number.isInteger(value) ||
                     value < 0 ||
                     value > 100
                 ) {
-
                     invalid.push(
                         traits[key].name
                     );
@@ -826,17 +871,12 @@ client.on(
                     value;
             }
 
-            if (
-                invalid.length > 0
-            ) {
-
+            if (invalid.length > 0) {
                 await interaction.reply({
-
                     content:
                         '❌ Invalid value for: ' +
                         invalid.join(', ') +
                         '. Use numbers from 0 to 100.',
-
                     ephemeral: true
                 });
 
@@ -846,16 +886,17 @@ client.on(
             savePersonality();
 
             await interaction.reply({
-
                 content:
                     '🦆 Personality updated successfully! 🤍',
-
                 embeds: [
-                    createPersonalityEmbed()
+                    createPersonalityEmbed(
+                        page
+                    )
                 ],
-
                 components:
-                    createPanelButtons()
+                    createPanelButtons(
+                        page
+                    )
             });
         }
     }
@@ -867,37 +908,23 @@ client.on(
 
 client.on(
     'messageCreate',
-    async function (
-        message
-    ) {
+    async function(message) {
 
-        if (
-            message.author.bot
-        ) {
+        if (message.author.bot) {
             return;
         }
 
         const key =
-            conversationKey(
-                message
-            );
+            conversationKey(message);
 
         // START
 
         if (
-            mentionsDuckAI(
-                message
-            )
+            mentionsDuckAI(message)
         ) {
+            conversations.add(key);
 
-            conversations.add(
-                key
-            );
-
-            if (
-                !histories.has(key)
-            ) {
-
+            if (!histories.has(key)) {
                 histories.set(
                     key,
                     []
@@ -914,9 +941,7 @@ client.on(
         // IGNORE
 
         if (
-            !conversations.has(
-                key
-            )
+            !conversations.has(key)
         ) {
             return;
         }
@@ -924,18 +949,10 @@ client.on(
         // GOODBYE
 
         if (
-            isGoodbye(
-                message
-            )
+            isGoodbye(message)
         ) {
-
-            conversations.delete(
-                key
-            );
-
-            histories.delete(
-                key
-            );
+            conversations.delete(key);
+            histories.delete(key);
 
             await message.reply(
                 '🦆 Okay, bye bye! See you later 🤍'
@@ -947,7 +964,6 @@ client.on(
         // AI
 
         try {
-
             await message.channel
                 .sendTyping();
 
@@ -961,10 +977,7 @@ client.on(
                 reply
             );
 
-        } catch (
-            error
-        ) {
-
+        } catch (error) {
             console.error(
                 '❌ AI error:',
                 error
@@ -983,7 +996,7 @@ client.on(
 
 client.once(
     'ready',
-    async function () {
+    async function() {
 
         console.log(
             '────────────────────────────'
@@ -999,20 +1012,15 @@ client.once(
         );
 
         try {
-
-            await client.application
-                .commands.set([
-                    customizeCommand
-                ]);
+            await client.application.commands.set([
+                customizeCommand
+            ]);
 
             console.log(
                 '✓ /customize registered.'
             );
 
-        } catch (
-            error
-        ) {
-
+        } catch (error) {
             console.error(
                 '❌ Failed to register commands:',
                 error
@@ -1025,6 +1033,5 @@ client.once(
 // LOGIN
 // ─────────────────────────────────────────────
 
-client.login(
-    TOKEN
-);
+client.login(TOKEN);
+
