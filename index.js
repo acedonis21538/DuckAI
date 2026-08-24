@@ -1,4 +1,3 @@
-```js
 require('dotenv').config();
 
 const fs = require('fs');
@@ -1029,4 +1028,3 @@ client.once(
 client.login(
     TOKEN
 );
-```
