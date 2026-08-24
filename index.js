@@ -8,11 +8,30 @@ const {
 
 const OpenAI = require('openai');
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// ─────────────────────────────────────────────
+// ENV
+// ─────────────────────────────────────────────
 
-const openai = new OpenAI({
-    apiKey: OPENAI_API_KEY
+const TOKEN = process.env.DISCORD_TOKEN;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+if (!TOKEN) {
+    console.error('❌ DISCORD_TOKEN is missing from .env');
+    process.exit(1);
+}
+
+if (!GROQ_API_KEY) {
+    console.error('❌ GROQ_API_KEY is missing from .env');
+    process.exit(1);
+}
+
+// ─────────────────────────────────────────────
+// GROQ
+// ─────────────────────────────────────────────
+
+const groq = new OpenAI({
+    apiKey: GROQ_API_KEY,
+    baseURL: 'https://api.groq.com/openai/v1'
 });
 
 // ─────────────────────────────────────────────
@@ -53,19 +72,21 @@ Your personality:
 - You are affectionate and warm.
 - You are cheerful and positive.
 - You are realistic and honest when giving opinions.
-- You have a good sense of humor.
+- You are funny and enjoy light humor.
 - You are friendly and easy to talk to.
 - You can be serious when the subject is serious.
-- You are slightly playful and teasing, but never inappropriate.
+- You are playful and slightly teasing, but never inappropriate.
 - You are calm and patient.
 - You are curious and interested in the person you're talking to.
 - You are spontaneous and natural.
 
-Speak naturally like a real conversation.
+Speak naturally, like a real conversation between friends.
+
 Do not constantly mention that you are an AI.
 Do not overuse emojis.
 Occasionally use cute expressions such as "hehe", "aww", or "hmm".
-When someone asks for your opinion, actually give an opinion instead of avoiding the question.
+When someone asks for your opinion, actually give an opinion.
+Do not always agree with the user just to be nice.
 Match the user's language.
 Keep responses reasonably concise unless more detail is useful.
 `;
@@ -134,23 +155,35 @@ async function generateResponse(message, key) {
         content: message.content
     });
 
-    // Keep the conversation from becoming enormous
+    // Keep only the latest messages
     const recentHistory = history.slice(-20);
 
-    const response = await openai.responses.create({
-        model: 'gpt-5.6-luna',
-        instructions: personality,
-        input: recentHistory
+    const response = await groq.chat.completions.create({
+        model: 'openai/gpt-oss-20b',
+        messages: [
+            {
+                role: 'system',
+                content: personality
+            },
+            ...recentHistory
+        ],
+        temperature: 0.8,
+        max_tokens: 500
     });
 
-    const reply = response.output_text;
+    const reply =
+        response.choices?.[0]?.message?.content?.trim();
+
+    if (!reply) {
+        throw new Error('Groq returned an empty response.');
+    }
 
     history.push({
         role: 'assistant',
         content: reply
     });
 
-    // Keep memory limited
+    // Prevent unlimited memory growth
     if (history.length > 20) {
         history.splice(0, history.length - 20);
     }
@@ -164,6 +197,7 @@ async function generateResponse(message, key) {
 
 client.on('messageCreate', async message => {
 
+    // Ignore bots
     if (message.author.bot) return;
 
     const key = conversationKey(message);
