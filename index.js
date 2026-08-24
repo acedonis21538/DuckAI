@@ -63,7 +63,7 @@ const client = new Client({
 });
 
 // ─────────────────────────────────────────────
-// PERSONALITY
+// PERSONALITY STORAGE
 // ─────────────────────────────────────────────
 
 const personalityPath = path.join(
@@ -85,18 +85,30 @@ const defaultPersonality = {
 };
 
 function loadPersonality() {
+
     try {
+
         if (!fs.existsSync(personalityPath)) {
+
             fs.writeFileSync(
                 personalityPath,
-                JSON.stringify(defaultPersonality, null, 2)
+                JSON.stringify(
+                    defaultPersonality,
+                    null,
+                    2
+                )
             );
 
-            return { ...defaultPersonality };
+            return {
+                ...defaultPersonality
+            };
         }
 
         const data = JSON.parse(
-            fs.readFileSync(personalityPath, 'utf8')
+            fs.readFileSync(
+                personalityPath,
+                'utf8'
+            )
         );
 
         return {
@@ -105,80 +117,198 @@ function loadPersonality() {
         };
 
     } catch (error) {
+
         console.error(
-            '❌ Failed to load personality.json:',
+            '❌ Personality loading error:',
             error
         );
 
-        return { ...defaultPersonality };
+        return {
+            ...defaultPersonality
+        };
     }
 }
 
-let personalityValues = loadPersonality();
+let personalityValues =
+    loadPersonality();
 
 function savePersonality() {
+
     fs.writeFileSync(
         personalityPath,
-        JSON.stringify(personalityValues, null, 2)
+        JSON.stringify(
+            personalityValues,
+            null,
+            2
+        )
     );
 }
 
 // ─────────────────────────────────────────────
-// PERSONALITY TRAITS
+// TRAITS
 // ─────────────────────────────────────────────
 
-const traits = [
-    {
-        key: 'loving',
+const traits = {
+
+    loving: {
+        name: 'Loving',
         emoji: '🩷',
-        name: 'Loving'
+        description:
+            'Warmth, affection and emotional closeness.'
     },
-    {
-        key: 'cheerful',
+
+    cheerful: {
+        name: 'Cheerful',
         emoji: '😊',
-        name: 'Cheerful'
+        description:
+            'Positive, energetic and upbeat behavior.'
     },
-    {
-        key: 'realistic',
+
+    realistic: {
+        name: 'Realistic',
         emoji: '🧠',
-        name: 'Realistic'
+        description:
+            'Honest, grounded and practical opinions.'
     },
-    {
-        key: 'funny',
+
+    funny: {
+        name: 'Funny',
         emoji: '😂',
-        name: 'Funny'
+        description:
+            'Humor, jokes and witty observations.'
     },
-    {
-        key: 'friendly',
+
+    friendly: {
+        name: 'Friendly',
         emoji: '🫶',
-        name: 'Friendly'
+        description:
+            'Approachable, welcoming and conversational.'
     },
-    {
-        key: 'serious',
+
+    serious: {
+        name: 'Serious',
         emoji: '🧊',
-        name: 'Serious'
+        description:
+            'More thoughtful, direct and serious communication.'
     },
-    {
-        key: 'playful',
+
+    playful: {
+        name: 'Playful',
         emoji: '😈',
-        name: 'Playful'
+        description:
+            'Teasing, playful energy and mischievous personality.'
     },
-    {
-        key: 'calm',
+
+    calm: {
+        name: 'Calm',
         emoji: '🧘',
-        name: 'Calm'
+        description:
+            'Relaxed, patient and composed behavior.'
     },
-    {
-        key: 'curious',
+
+    curious: {
+        name: 'Curious',
         emoji: '🔎',
-        name: 'Curious'
+        description:
+            'Interest in the user and their ideas.'
     },
-    {
-        key: 'spontaneous',
+
+    spontaneous: {
+        name: 'Spontaneous',
         emoji: '✨',
-        name: 'Spontaneous'
+        description:
+            'Natural, unpredictable and less repetitive responses.'
     }
-];
+};
+
+// ─────────────────────────────────────────────
+// PERSONALITY DESCRIPTION
+// ─────────────────────────────────────────────
+
+function getIntensity(value) {
+
+    if (value <= 15) {
+        return 'very low';
+    }
+
+    if (value <= 35) {
+        return 'low';
+    }
+
+    if (value <= 55) {
+        return 'moderate';
+    }
+
+    if (value <= 75) {
+        return 'high';
+    }
+
+    if (value <= 90) {
+        return 'very high';
+    }
+
+    return 'extremely high';
+}
+
+function buildTraitInstruction(
+    key,
+    value
+) {
+
+    const trait = traits[key];
+
+    return (
+        trait.name +
+        ' (' +
+        value +
+        '% — ' +
+        getIntensity(value) +
+        '): ' +
+        trait.description
+    );
+}
+
+// ─────────────────────────────────────────────
+// AI PERSONALITY PROMPT
+// ─────────────────────────────────────────────
+
+function buildPersonalityPrompt() {
+
+    let prompt =
+        'You are DuckAI, a cute and friendly AI duck.\n\n';
+
+    prompt +=
+        'PERSONALITY CONFIGURATION\n' +
+        'The following values control how strongly each trait should influence your behavior.\n' +
+        'Treat them as behavioral tendencies, not as rigid rules.\n\n';
+
+    for (const key of Object.keys(traits)) {
+
+        prompt +=
+            '- ' +
+            buildTraitInstruction(
+                key,
+                personalityValues[key]
+            ) +
+            '\n';
+    }
+
+    prompt +=
+        '\nBEHAVIOR RULES\n' +
+        '- Adapt your personality naturally to the context.\n' +
+        '- Do not force a personality trait into every response.\n' +
+        '- Serious subjects should remain appropriately serious.\n' +
+        '- Give genuine opinions instead of automatically agreeing.\n' +
+        '- Be natural and conversational.\n' +
+        '- Do not constantly mention that you are an AI.\n' +
+        '- Do not overuse emojis.\n' +
+        '- Occasionally use expressions such as "hehe", "aww", or "hmm".\n' +
+        "- Match the user's language.\n" +
+        '- Avoid repetitive responses.\n' +
+        '- Keep responses reasonably concise unless more detail is useful.';
+
+    return prompt;
+}
 
 // ─────────────────────────────────────────────
 // PERSONALITY PANEL
@@ -186,94 +316,171 @@ const traits = [
 
 function createPersonalityEmbed() {
 
-    let description = '';
+    let description =
+        '### 🦆 Personality Settings\n' +
+        'Customize how DuckAI behaves in conversations.\n\n';
 
-    for (const trait of traits) {
+    for (const key of Object.keys(traits)) {
+
+        const trait = traits[key];
+        const value =
+            personalityValues[key];
+
+        let bar = '';
+
+        const filled =
+            Math.round(value / 10);
+
+        for (let i = 0; i < 10; i++) {
+
+            bar +=
+                i < filled
+                    ? '▰'
+                    : '▱';
+        }
+
         description +=
             trait.emoji +
             ' **' +
             trait.name +
-            '** — ' +
-            personalityValues[trait.key] +
-            '%\n';
+            '**\n' +
+            '`' +
+            bar +
+            '` **' +
+            value +
+            '%**\n' +
+            trait.description +
+            '\n\n';
     }
 
     return new EmbedBuilder()
-        .setTitle('🦆 DuckAI Personality')
+        .setColor(0x9BE7FF)
+        .setTitle('🦆 DuckAI • Personality')
         .setDescription(
-            description +
-            '\nUse the buttons below to customize DuckAI.'
+            description
         )
         .setFooter({
-            text: 'Every value can be set from 0% to 100%.'
+            text:
+                'Use Edit Personality to change the values.'
         });
 }
 
 // ─────────────────────────────────────────────
-// MAIN BUTTONS
+// PANEL BUTTONS
 // ─────────────────────────────────────────────
 
-function createMainButtons() {
+function createPanelButtons() {
 
-    return new ActionRowBuilder()
-        .addComponents(
+    return [
 
-            new ButtonBuilder()
-                .setCustomId('edit_page_1')
-                .setLabel('⚙️ Edit Page 1')
-                .setStyle(ButtonStyle.Primary),
+        new ActionRowBuilder()
+            .addComponents(
 
-            new ButtonBuilder()
-                .setCustomId('edit_page_2')
-                .setLabel('⚙️ Edit Page 2')
-                .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(
+                        'personality_edit_1'
+                    )
+                    .setLabel(
+                        '🩷 Edit 1–5'
+                    )
+                    .setStyle(
+                        ButtonStyle.Primary
+                    ),
 
-            new ButtonBuilder()
-                .setCustomId('personality_reset')
-                .setLabel('🔄 Reset')
-                .setStyle(ButtonStyle.Secondary)
-        );
+                new ButtonBuilder()
+                    .setCustomId(
+                        'personality_edit_2'
+                    )
+                    .setLabel(
+                        '✨ Edit 6–10'
+                    )
+                    .setStyle(
+                        ButtonStyle.Primary
+                    )
+            ),
+
+        new ActionRowBuilder()
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        'personality_reset'
+                    )
+                    .setLabel(
+                        '↻ Reset'
+                    )
+                    .setStyle(
+                        ButtonStyle.Secondary
+                    )
+            )
+    ];
 }
 
 // ─────────────────────────────────────────────
-// PAGE MODALS
+// MODAL
 // ─────────────────────────────────────────────
 
-function createPersonalityModal(page) {
+function createPersonalityModal(
+    page
+) {
 
-    const start = page === 1 ? 0 : 5;
-    const end = page === 1 ? 5 : 10;
+    const keys =
+        Object.keys(traits);
 
-    const modal = new ModalBuilder()
-        .setCustomId(
-            'personality_modal_' + page
-        )
-        .setTitle(
-            '🦆 DuckAI - Page ' + page
-        );
+    const start =
+        page === 1
+            ? 0
+            : 5;
 
-    for (let i = start; i < end; i++) {
+    const end =
+        page === 1
+            ? 5
+            : 10;
 
-        const trait = traits[i];
-
-        const input = new TextInputBuilder()
-            .setCustomId(trait.key)
-            .setLabel(
-                trait.emoji +
-                ' ' +
-                trait.name +
-                ' (0-100)'
+    const modal =
+        new ModalBuilder()
+            .setCustomId(
+                'personality_modal_' +
+                page
             )
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setValue(
-                String(
-                    personalityValues[trait.key]
+            .setTitle(
+                '🦆 DuckAI • Edit ' +
+                page +
+                '/2'
+            );
+
+    for (
+        let i = start;
+        i < end;
+        i++
+    ) {
+
+        const key = keys[i];
+        const trait = traits[key];
+
+        const input =
+            new TextInputBuilder()
+                .setCustomId(key)
+                .setLabel(
+                    trait.emoji +
+                    ' ' +
+                    trait.name +
+                    ' • 0–100'
                 )
-            )
-            .setMinLength(1)
-            .setMaxLength(3)
-            .setPlaceholder('0 - 100');
+                .setStyle(
+                    TextInputStyle.Short
+                )
+                .setRequired(true)
+                .setValue(
+                    String(
+                        personalityValues[key]
+                    )
+                )
+                .setPlaceholder(
+                    'Enter a value from 0 to 100'
+                )
+                .setMinLength(1)
+                .setMaxLength(3);
 
         modal.addComponents(
             new ActionRowBuilder()
@@ -285,79 +492,18 @@ function createPersonalityModal(page) {
 }
 
 // ─────────────────────────────────────────────
-// AI PERSONALITY PROMPT
+// CONVERSATION MEMORY
 // ─────────────────────────────────────────────
 
-function buildPersonalityPrompt() {
+const conversations =
+    new Set();
 
-    return (
-        'You are DuckAI, a cute and friendly AI duck.\n\n' +
+const histories =
+    new Map();
 
-        'Your personality levels are:\n' +
-
-        'Loving: ' +
-        personalityValues.loving +
-        '%\n' +
-
-        'Cheerful: ' +
-        personalityValues.cheerful +
-        '%\n' +
-
-        'Realistic: ' +
-        personalityValues.realistic +
-        '%\n' +
-
-        'Funny: ' +
-        personalityValues.funny +
-        '%\n' +
-
-        'Friendly: ' +
-        personalityValues.friendly +
-        '%\n' +
-
-        'Serious: ' +
-        personalityValues.serious +
-        '%\n' +
-
-        'Playful: ' +
-        personalityValues.playful +
-        '%\n' +
-
-        'Calm: ' +
-        personalityValues.calm +
-        '%\n' +
-
-        'Curious: ' +
-        personalityValues.curious +
-        '%\n' +
-
-        'Spontaneous: ' +
-        personalityValues.spontaneous +
-        '%\n\n' +
-
-        'Higher percentages mean that trait should appear more strongly. ' +
-        'Lower percentages mean that trait should appear less strongly.\n\n' +
-
-        'Be affectionate, natural and easy to talk to.\n' +
-        'Give genuine opinions instead of always agreeing.\n' +
-        'Be playful and slightly teasing while remaining appropriate.\n' +
-        'Be serious when the subject requires it.\n' +
-        'Do not constantly mention that you are an AI.\n' +
-        'Do not overuse emojis.\n' +
-        'Occasionally use expressions such as "hehe", "aww", or "hmm".\n' +
-        "Match the user's language.\n" +
-        'Keep responses reasonably concise unless more detail is useful.'
-    );
-}
-
-// ─────────────────────────────────────────────
-// CONVERSATIONS
-// ─────────────────────────────────────────────
-
-const conversations = new Set();
-const histories = new Map();
-
-function conversationKey(message) {
+function conversationKey(
+    message
+) {
 
     return (
         message.channel.id +
@@ -367,32 +513,43 @@ function conversationKey(message) {
 }
 
 // ─────────────────────────────────────────────
-// TRIGGERS
+// TRIGGER
 // ─────────────────────────────────────────────
 
-function mentionsDuckAI(message) {
+function mentionsDuckAI(
+    message
+) {
 
     const mentioned =
-        message.mentions.has(client.user);
+        message.mentions.has(
+            client.user
+        );
 
     const saysDuckAI =
         /\bduck\s*ai\b/i.test(
             message.content
         );
 
-    return mentioned || saysDuckAI;
+    return mentioned ||
+        saysDuckAI;
 }
 
 // ─────────────────────────────────────────────
 // GOODBYE
 // ─────────────────────────────────────────────
 
-function isGoodbye(message) {
+function isGoodbye(
+    message
+) {
 
-    const text = message.content
-        .toLowerCase()
-        .trim()
-        .replace(/[.!?,;]+$/g, '');
+    const text =
+        message.content
+            .toLowerCase()
+            .trim()
+            .replace(
+                /[.!?,;]+$/g,
+                ''
+            );
 
     const goodbyes = [
         'bye',
@@ -414,24 +571,35 @@ function isGoodbye(message) {
         'talk to you later'
     ];
 
-    return goodbyes.includes(text);
+    return goodbyes.includes(
+        text
+    );
 }
 
 // ─────────────────────────────────────────────
 // AI RESPONSE
 // ─────────────────────────────────────────────
 
-async function generateResponse(message, key) {
+async function generateResponse(
+    message,
+    key
+) {
 
     if (!histories.has(key)) {
-        histories.set(key, []);
+
+        histories.set(
+            key,
+            []
+        );
     }
 
-    const history = histories.get(key);
+    const history =
+        histories.get(key);
 
     history.push({
         role: 'user',
-        content: message.content
+        content:
+            message.content
     });
 
     const recentHistory =
@@ -440,18 +608,22 @@ async function generateResponse(message, key) {
     const response =
         await groq.chat.completions.create({
 
-            model: 'openai/gpt-oss-20b',
+            model:
+                'openai/gpt-oss-20b',
 
             messages: [
+
                 {
                     role: 'system',
                     content:
                         buildPersonalityPrompt()
                 },
+
                 ...recentHistory
             ],
 
             temperature: 0.8,
+
             max_tokens: 500
         });
 
@@ -464,6 +636,7 @@ async function generateResponse(message, key) {
             : '';
 
     if (!reply) {
+
         throw new Error(
             'Groq returned an empty response.'
         );
@@ -475,6 +648,7 @@ async function generateResponse(message, key) {
     });
 
     if (history.length > 20) {
+
         history.splice(
             0,
             history.length - 20
@@ -485,7 +659,7 @@ async function generateResponse(message, key) {
 }
 
 // ─────────────────────────────────────────────
-// SLASH COMMAND
+// /CUSTOMIZE
 // ─────────────────────────────────────────────
 
 const customizeCommand =
@@ -501,22 +675,26 @@ const customizeCommand =
 
 client.on(
     'interactionCreate',
-    async function (interaction) {
+    async function (
+        interaction
+    ) {
 
         // /customize
 
         if (
             interaction.isChatInputCommand() &&
-            interaction.commandName === 'customize'
+            interaction.commandName ===
+                'customize'
         ) {
 
             await interaction.reply({
+
                 embeds: [
                     createPersonalityEmbed()
                 ],
-                components: [
-                    createMainButtons()
-                ]
+
+                components:
+                    createPanelButtons()
             });
 
             return;
@@ -526,7 +704,8 @@ client.on(
 
         if (
             interaction.isButton() &&
-            interaction.customId === 'edit_page_1'
+            interaction.customId ===
+                'personality_edit_1'
         ) {
 
             await interaction.showModal(
@@ -540,7 +719,8 @@ client.on(
 
         if (
             interaction.isButton() &&
-            interaction.customId === 'edit_page_2'
+            interaction.customId ===
+                'personality_edit_2'
         ) {
 
             await interaction.showModal(
@@ -558,19 +738,21 @@ client.on(
                 'personality_reset'
         ) {
 
-            personalityValues = {
-                ...defaultPersonality
-            };
+            personalityValues =
+                {
+                    ...defaultPersonality
+                };
 
             savePersonality();
 
             await interaction.update({
+
                 embeds: [
                     createPersonalityEmbed()
                 ],
-                components: [
-                    createMainButtons()
-                ]
+
+                components:
+                    createPanelButtons()
             });
 
             return;
@@ -592,11 +774,18 @@ client.on(
                         .pop()
                 );
 
+            const keys =
+                Object.keys(traits);
+
             const start =
-                page === 1 ? 0 : 5;
+                page === 1
+                    ? 0
+                    : 5;
 
             const end =
-                page === 1 ? 5 : 10;
+                page === 1
+                    ? 5
+                    : 10;
 
             const invalid = [];
 
@@ -606,42 +795,49 @@ client.on(
                 i++
             ) {
 
-                const trait = traits[i];
+                const key =
+                    keys[i];
 
                 const raw =
                     interaction.fields
                         .getTextInputValue(
-                            trait.key
+                            key
                         )
                         .trim();
 
-                const value = Number(raw);
+                const value =
+                    Number(raw);
 
                 if (
-                    !Number.isInteger(value) ||
+                    !Number.isInteger(
+                        value
+                    ) ||
                     value < 0 ||
                     value > 100
                 ) {
 
                     invalid.push(
-                        trait.name
+                        traits[key].name
                     );
 
                     continue;
                 }
 
-                personalityValues[
-                    trait.key
-                ] = value;
+                personalityValues[key] =
+                    value;
             }
 
-            if (invalid.length > 0) {
+            if (
+                invalid.length > 0
+            ) {
 
                 await interaction.reply({
+
                     content:
                         '❌ Invalid value for: ' +
                         invalid.join(', ') +
-                        '. Use whole numbers from 0 to 100.',
+                        '. Use numbers from 0 to 100.',
+
                     ephemeral: true
                 });
 
@@ -651,17 +847,17 @@ client.on(
             savePersonality();
 
             await interaction.reply({
+
                 content:
-                    '🦆 Personality updated! 🤍',
+                    '🦆 Personality updated successfully! 🤍',
+
                 embeds: [
                     createPersonalityEmbed()
                 ],
-                components: [
-                    createMainButtons()
-                ]
-            });
 
-            return;
+                components:
+                    createPanelButtons()
+            });
         }
     }
 );
@@ -672,21 +868,41 @@ client.on(
 
 client.on(
     'messageCreate',
-    async function (message) {
+    async function (
+        message
+    ) {
 
-        if (message.author.bot) return;
+        if (
+            message.author.bot
+        ) {
+            return;
+        }
 
         const key =
-            conversationKey(message);
+            conversationKey(
+                message
+            );
 
-        // START CONVERSATION
+        // START
 
-        if (mentionsDuckAI(message)) {
+        if (
+            mentionsDuckAI(
+                message
+            )
+        ) {
 
-            conversations.add(key);
+            conversations.add(
+                key
+            );
 
-            if (!histories.has(key)) {
-                histories.set(key, []);
+            if (
+                !histories.has(key)
+            ) {
+
+                histories.set(
+                    key,
+                    []
+                );
             }
 
             await message.reply(
@@ -696,16 +912,31 @@ client.on(
             return;
         }
 
-        // IGNORE OUTSIDE CONVERSATION
+        // IGNORE
 
-        if (!conversations.has(key)) return;
+        if (
+            !conversations.has(
+                key
+            )
+        ) {
+            return;
+        }
 
         // GOODBYE
 
-        if (isGoodbye(message)) {
+        if (
+            isGoodbye(
+                message
+            )
+        ) {
 
-            conversations.delete(key);
-            histories.delete(key);
+            conversations.delete(
+                key
+            );
+
+            histories.delete(
+                key
+            );
 
             await message.reply(
                 '🦆 Okay, bye bye! See you later 🤍'
@@ -718,7 +949,8 @@ client.on(
 
         try {
 
-            await message.channel.sendTyping();
+            await message.channel
+                .sendTyping();
 
             const reply =
                 await generateResponse(
@@ -726,9 +958,13 @@ client.on(
                     key
                 );
 
-            await message.reply(reply);
+            await message.reply(
+                reply
+            );
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
                 '❌ AI error:',
@@ -765,21 +1001,21 @@ client.once(
 
         try {
 
-            // Registers ONLY /customize
-            // as the global command list.
-
-            await client.application.commands.set([
-                customizeCommand
-            ]);
+            await client.application
+                .commands.set([
+                    customizeCommand
+                ]);
 
             console.log(
                 '✓ /customize registered.'
             );
 
-        } catch (error) {
+        } catch (
+            error
+        ) {
 
             console.error(
-                '❌ Failed to register /customize:',
+                '❌ Failed to register commands:',
                 error
             );
         }
@@ -790,5 +1026,7 @@ client.once(
 // LOGIN
 // ─────────────────────────────────────────────
 
-client.login(TOKEN);
+client.login(
+    TOKEN
+);
 ```
