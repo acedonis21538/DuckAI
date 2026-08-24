@@ -1,3 +1,4 @@
+```js
 require('dotenv').config();
 
 const fs = require('fs');
@@ -62,7 +63,7 @@ const client = new Client({
 });
 
 // ─────────────────────────────────────────────
-// PERSONALITY FILE
+// PERSONALITY
 // ─────────────────────────────────────────────
 
 const personalityPath = path.join(
@@ -123,53 +124,93 @@ function savePersonality() {
 }
 
 // ─────────────────────────────────────────────
-// PERSONALITY INFO
+// PERSONALITY TRAITS
 // ─────────────────────────────────────────────
 
-const personalityInfo = [
-    ['loving', '🩷', 'Loving'],
-    ['cheerful', '😊', 'Cheerful'],
-    ['realistic', '🧠', 'Realistic'],
-    ['funny', '😂', 'Funny'],
-    ['friendly', '🫶', 'Friendly'],
-    ['serious', '🧊', 'Serious'],
-    ['playful', '😈', 'Playful'],
-    ['calm', '🧘', 'Calm'],
-    ['curious', '🔎', 'Curious'],
-    ['spontaneous', '✨', 'Spontaneous']
+const traits = [
+    {
+        key: 'loving',
+        emoji: '🩷',
+        name: 'Loving'
+    },
+    {
+        key: 'cheerful',
+        emoji: '😊',
+        name: 'Cheerful'
+    },
+    {
+        key: 'realistic',
+        emoji: '🧠',
+        name: 'Realistic'
+    },
+    {
+        key: 'funny',
+        emoji: '😂',
+        name: 'Funny'
+    },
+    {
+        key: 'friendly',
+        emoji: '🫶',
+        name: 'Friendly'
+    },
+    {
+        key: 'serious',
+        emoji: '🧊',
+        name: 'Serious'
+    },
+    {
+        key: 'playful',
+        emoji: '😈',
+        name: 'Playful'
+    },
+    {
+        key: 'calm',
+        emoji: '🧘',
+        name: 'Calm'
+    },
+    {
+        key: 'curious',
+        emoji: '🔎',
+        name: 'Curious'
+    },
+    {
+        key: 'spontaneous',
+        emoji: '✨',
+        name: 'Spontaneous'
+    }
 ];
 
-const pageOne = personalityInfo.slice(0, 5);
-const pageTwo = personalityInfo.slice(5, 10);
-
 // ─────────────────────────────────────────────
-// PERSONALITY EMBED
+// PERSONALITY PANEL
 // ─────────────────────────────────────────────
 
-function createPersonalityEmbed(page = 0) {
+function createPersonalityEmbed() {
 
-    const pageInfo = page === 0
-        ? pageOne
-        : pageTwo;
+    let description = '';
 
-    const lines = pageInfo.map(
-        ([key, emoji, name]) =>
-            `${emoji} **${name}** — ${personalityValues[key]}%`
-    );
+    for (const trait of traits) {
+        description +=
+            trait.emoji +
+            ' **' +
+            trait.name +
+            '** — ' +
+            personalityValues[trait.key] +
+            '%\n';
+    }
 
     return new EmbedBuilder()
         .setTitle('🦆 DuckAI Personality')
         .setDescription(
-            `${lines.join('\n')}\n\n` +
-            `Page ${page + 1}/2`
+            description +
+            '\nUse the buttons below to customize DuckAI.'
         )
         .setFooter({
-            text: 'Set each personality trait from 0% to 100%.'
+            text: 'Every value can be set from 0% to 100%.'
         });
 }
 
 // ─────────────────────────────────────────────
-// MAIN PANEL BUTTONS
+// MAIN BUTTONS
 // ─────────────────────────────────────────────
 
 function createMainButtons() {
@@ -178,12 +219,12 @@ function createMainButtons() {
         .addComponents(
 
             new ButtonBuilder()
-                .setCustomId('personality_page_1')
+                .setCustomId('edit_page_1')
                 .setLabel('⚙️ Edit Page 1')
                 .setStyle(ButtonStyle.Primary),
 
             new ButtonBuilder()
-                .setCustomId('personality_page_2')
+                .setCustomId('edit_page_2')
                 .setLabel('⚙️ Edit Page 2')
                 .setStyle(ButtonStyle.Primary),
 
@@ -195,84 +236,40 @@ function createMainButtons() {
 }
 
 // ─────────────────────────────────────────────
-// PAGE BUTTONS
-// ─────────────────────────────────────────────
-
-function createPageButtons(page) {
-
-    const row = new ActionRowBuilder();
-
-    if (page === 0) {
-
-        row.addComponents(
-
-            new ButtonBuilder()
-                .setCustomId('personality_page_1')
-                .setLabel('⚙️ Edit')
-                .setStyle(ButtonStyle.Primary),
-
-            new ButtonBuilder()
-                .setCustomId('personality_page_2')
-                .setLabel('➡️ Page 2')
-                .setStyle(ButtonStyle.Secondary),
-
-            new ButtonBuilder()
-                .setCustomId('personality_back')
-                .setLabel('↩️ Back')
-                .setStyle(ButtonStyle.Secondary)
-        );
-
-    } else {
-
-        row.addComponents(
-
-            new ButtonBuilder()
-                .setCustomId('personality_page_1')
-                .setLabel('⬅️ Page 1')
-                .setStyle(ButtonStyle.Secondary),
-
-            new ButtonBuilder()
-                .setCustomId('personality_page_2')
-                .setLabel('⚙️ Edit')
-                .setStyle(ButtonStyle.Primary),
-
-            new ButtonBuilder()
-                .setCustomId('personality_back')
-                .setLabel('↩️ Back')
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-
-    return row;
-}
-
-// ─────────────────────────────────────────────
-// EDIT MODAL
+// PAGE MODALS
 // ─────────────────────────────────────────────
 
 function createPersonalityModal(page) {
 
-    const traits = page === 0
-        ? pageOne
-        : pageTwo;
+    const start = page === 1 ? 0 : 5;
+    const end = page === 1 ? 5 : 10;
 
     const modal = new ModalBuilder()
         .setCustomId(
-            `personality_modal_${page}`
+            'personality_modal_' + page
         )
         .setTitle(
-            `🦆 DuckAI — Page ${page + 1}`
+            '🦆 DuckAI - Page ' + page
         );
 
-    for (const [key, emoji, name] of traits) {
+    for (let i = start; i < end; i++) {
+
+        const trait = traits[i];
 
         const input = new TextInputBuilder()
-            .setCustomId(key)
-            .setLabel(`${emoji} ${name} (0-100)`)
+            .setCustomId(trait.key)
+            .setLabel(
+                trait.emoji +
+                ' ' +
+                trait.name +
+                ' (0-100)'
+            )
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setValue(
-                String(personalityValues[key])
+                String(
+                    personalityValues[trait.key]
+                )
             )
             .setMinLength(1)
             .setMaxLength(3)
@@ -288,41 +285,69 @@ function createPersonalityModal(page) {
 }
 
 // ─────────────────────────────────────────────
-// PERSONALITY PROMPT
+// AI PERSONALITY PROMPT
 // ─────────────────────────────────────────────
 
 function buildPersonalityPrompt() {
 
-    return `
-You are DuckAI, a cute and friendly AI duck.
+    return (
+        'You are DuckAI, a cute and friendly AI duck.\n\n' +
 
-Your personality is controlled by these levels:
+        'Your personality levels are:\n' +
 
-🩷 Loving: ${personalityValues.loving}%
-😊 Cheerful: ${personalityValues.cheerful}%
-🧠 Realistic: ${personalityValues.realistic}%
-😂 Funny: ${personalityValues.funny}%
-🫶 Friendly: ${personalityValues.friendly}%
-🧊 Serious: ${personalityValues.serious}%
-😈 Playful: ${personalityValues.playful}%
-🧘 Calm: ${personalityValues.calm}%
-🔎 Curious: ${personalityValues.curious}%
-✨ Spontaneous: ${personalityValues.spontaneous}%
+        'Loving: ' +
+        personalityValues.loving +
+        '%\n' +
 
-Treat these percentages as relative personality tendencies.
-Higher percentages mean that trait should appear more strongly.
-Lower percentages mean that trait should appear less strongly.
+        'Cheerful: ' +
+        personalityValues.cheerful +
+        '%\n' +
 
-You are affectionate, natural and easy to talk to.
-You can give genuine opinions instead of always agreeing.
-You can be playful and slightly teasing, while remaining appropriate.
-You can be serious when the subject requires it.
-Do not constantly mention that you are an AI.
-Do not overuse emojis.
-Occasionally use expressions such as "hehe", "aww", or "hmm".
-Match the user's language.
-Keep responses reasonably concise unless more detail is useful.
-`;
+        'Realistic: ' +
+        personalityValues.realistic +
+        '%\n' +
+
+        'Funny: ' +
+        personalityValues.funny +
+        '%\n' +
+
+        'Friendly: ' +
+        personalityValues.friendly +
+        '%\n' +
+
+        'Serious: ' +
+        personalityValues.serious +
+        '%\n' +
+
+        'Playful: ' +
+        personalityValues.playful +
+        '%\n' +
+
+        'Calm: ' +
+        personalityValues.calm +
+        '%\n' +
+
+        'Curious: ' +
+        personalityValues.curious +
+        '%\n' +
+
+        'Spontaneous: ' +
+        personalityValues.spontaneous +
+        '%\n\n' +
+
+        'Higher percentages mean that trait should appear more strongly. ' +
+        'Lower percentages mean that trait should appear less strongly.\n\n' +
+
+        'Be affectionate, natural and easy to talk to.\n' +
+        'Give genuine opinions instead of always agreeing.\n' +
+        'Be playful and slightly teasing while remaining appropriate.\n' +
+        'Be serious when the subject requires it.\n' +
+        'Do not constantly mention that you are an AI.\n' +
+        'Do not overuse emojis.\n' +
+        'Occasionally use expressions such as "hehe", "aww", or "hmm".\n' +
+        "Match the user's language.\n" +
+        'Keep responses reasonably concise unless more detail is useful.'
+    );
 }
 
 // ─────────────────────────────────────────────
@@ -333,7 +358,12 @@ const conversations = new Set();
 const histories = new Map();
 
 function conversationKey(message) {
-    return `${message.channel.id}:${message.author.id}`;
+
+    return (
+        message.channel.id +
+        ':' +
+        message.author.id
+    );
 }
 
 // ─────────────────────────────────────────────
@@ -346,7 +376,9 @@ function mentionsDuckAI(message) {
         message.mentions.has(client.user);
 
     const saysDuckAI =
-        /\bduck\s*ai\b/i.test(message.content);
+        /\bduck\s*ai\b/i.test(
+            message.content
+        );
 
     return mentioned || saysDuckAI;
 }
@@ -413,7 +445,8 @@ async function generateResponse(message, key) {
             messages: [
                 {
                     role: 'system',
-                    content: buildPersonalityPrompt()
+                    content:
+                        buildPersonalityPrompt()
                 },
                 ...recentHistory
             ],
@@ -423,7 +456,12 @@ async function generateResponse(message, key) {
         });
 
     const reply =
-        response.choices?.[0]?.message?.content?.trim();
+        response.choices &&
+        response.choices[0] &&
+        response.choices[0].message &&
+        response.choices[0].message.content
+            ? response.choices[0].message.content.trim()
+            : '';
 
     if (!reply) {
         throw new Error(
@@ -463,11 +501,9 @@ const customizeCommand =
 
 client.on(
     'interactionCreate',
-    async interaction => {
+    async function (interaction) {
 
-        // ─────────────────────────────────────
         // /customize
-        // ─────────────────────────────────────
 
         if (
             interaction.isChatInputCommand() &&
@@ -476,7 +512,7 @@ client.on(
 
             await interaction.reply({
                 embeds: [
-                    createPersonalityEmbed(0)
+                    createPersonalityEmbed()
                 ],
                 components: [
                     createMainButtons()
@@ -486,35 +522,11 @@ client.on(
             return;
         }
 
-        // ─────────────────────────────────────
-        // PAGE 1
-        // ─────────────────────────────────────
+        // EDIT PAGE 1
 
         if (
             interaction.isButton() &&
-            interaction.customId ===
-                'personality_page_1'
-        ) {
-
-            // If this is the main "Edit Page 1"
-            // button, open the modal.
-            // If it is the navigation button,
-            // also open the modal.
-            await interaction.showModal(
-                createPersonalityModal(0)
-            );
-
-            return;
-        }
-
-        // ─────────────────────────────────────
-        // PAGE 2
-        // ─────────────────────────────────────
-
-        if (
-            interaction.isButton() &&
-            interaction.customId ===
-                'personality_page_2'
+            interaction.customId === 'edit_page_1'
         ) {
 
             await interaction.showModal(
@@ -524,31 +536,21 @@ client.on(
             return;
         }
 
-        // ─────────────────────────────────────
-        // BACK
-        // ─────────────────────────────────────
+        // EDIT PAGE 2
 
         if (
             interaction.isButton() &&
-            interaction.customId ===
-                'personality_back'
+            interaction.customId === 'edit_page_2'
         ) {
 
-            await interaction.update({
-                embeds: [
-                    createPersonalityEmbed(0)
-                ],
-                components: [
-                    createMainButtons()
-                ]
-            });
+            await interaction.showModal(
+                createPersonalityModal(2)
+            );
 
             return;
         }
 
-        // ─────────────────────────────────────
         // RESET
-        // ─────────────────────────────────────
 
         if (
             interaction.isButton() &&
@@ -564,7 +566,7 @@ client.on(
 
             await interaction.update({
                 embeds: [
-                    createPersonalityEmbed(0)
+                    createPersonalityEmbed()
                 ],
                 components: [
                     createMainButtons()
@@ -574,9 +576,7 @@ client.on(
             return;
         }
 
-        // ─────────────────────────────────────
-        // SAVE PAGE
-        // ─────────────────────────────────────
+        // SAVE MODAL
 
         if (
             interaction.isModalSubmit() &&
@@ -592,18 +592,27 @@ client.on(
                         .pop()
                 );
 
-            const traits =
-                page === 0
-                    ? pageOne
-                    : pageTwo;
+            const start =
+                page === 1 ? 0 : 5;
+
+            const end =
+                page === 1 ? 5 : 10;
 
             const invalid = [];
 
-            for (const [key] of traits) {
+            for (
+                let i = start;
+                i < end;
+                i++
+            ) {
+
+                const trait = traits[i];
 
                 const raw =
                     interaction.fields
-                        .getTextInputValue(key)
+                        .getTextInputValue(
+                            trait.key
+                        )
                         .trim();
 
                 const value = Number(raw);
@@ -614,18 +623,25 @@ client.on(
                     value > 100
                 ) {
 
-                    invalid.push(key);
+                    invalid.push(
+                        trait.name
+                    );
+
                     continue;
                 }
 
-                personalityValues[key] = value;
+                personalityValues[
+                    trait.key
+                ] = value;
             }
 
             if (invalid.length > 0) {
 
                 await interaction.reply({
                     content:
-                        '❌ Please enter whole numbers between 0 and 100 for every trait.',
+                        '❌ Invalid value for: ' +
+                        invalid.join(', ') +
+                        '. Use whole numbers from 0 to 100.',
                     ephemeral: true
                 });
 
@@ -636,12 +652,12 @@ client.on(
 
             await interaction.reply({
                 content:
-                    `🦆 Page ${page + 1} saved! 🤍`,
+                    '🦆 Personality updated! 🤍',
                 embeds: [
-                    createPersonalityEmbed(page)
+                    createPersonalityEmbed()
                 ],
                 components: [
-                    createPageButtons(page)
+                    createMainButtons()
                 ]
             });
 
@@ -656,17 +672,14 @@ client.on(
 
 client.on(
     'messageCreate',
-    async message => {
+    async function (message) {
 
-        // Ignore bots
         if (message.author.bot) return;
 
         const key =
             conversationKey(message);
 
-        // ─────────────────────────────────────
         // START CONVERSATION
-        // ─────────────────────────────────────
 
         if (mentionsDuckAI(message)) {
 
@@ -683,15 +696,11 @@ client.on(
             return;
         }
 
-        // ─────────────────────────────────────
         // IGNORE OUTSIDE CONVERSATION
-        // ─────────────────────────────────────
 
         if (!conversations.has(key)) return;
 
-        // ─────────────────────────────────────
         // GOODBYE
-        // ─────────────────────────────────────
 
         if (isGoodbye(message)) {
 
@@ -705,9 +714,7 @@ client.on(
             return;
         }
 
-        // ─────────────────────────────────────
         // AI
-        // ─────────────────────────────────────
 
         try {
 
@@ -741,14 +748,15 @@ client.on(
 
 client.once(
     'ready',
-    async () => {
+    async function () {
 
         console.log(
             '────────────────────────────'
         );
 
         console.log(
-            `🦆 DuckAI online as ${client.user.tag}`
+            '🦆 DuckAI online as ' +
+            client.user.tag
         );
 
         console.log(
@@ -756,6 +764,9 @@ client.once(
         );
 
         try {
+
+            // Registers ONLY /customize
+            // as the global command list.
 
             await client.application.commands.set([
                 customizeCommand
@@ -780,3 +791,4 @@ client.once(
 // ─────────────────────────────────────────────
 
 client.login(TOKEN);
+```
