@@ -28,8 +28,6 @@ const client = new Client({
 // CONVERSATIONS
 // ─────────────────────────────────────────────
 
-// Guarda quem está atualmente numa conversa com a DuckAI.
-// A chave é o ID do canal + ID do utilizador.
 const conversations = new Set();
 
 function conversationKey(message) {
@@ -86,6 +84,11 @@ function isGoodbye(message) {
 // ─────────────────────────────────────────────
 
 client.on('messageCreate', async message => {
+
+    // DEBUG
+    console.log(
+        `📩 ${message.id} | ${message.author.tag} | ${JSON.stringify(message.content)}`
+    );
 
     // Ignorar mensagens de bots
     if (message.author.bot) return;
