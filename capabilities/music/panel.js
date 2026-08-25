@@ -13,12 +13,13 @@ const music =
     require('./index');
 
 // ============================================================
-// BUILD PANEL
+// BUILD
 // ============================================================
 
 function buildMusicPanel(
     guildId
 ) {
+
     const song =
         music.getCurrentSong(
             guildId
@@ -31,13 +32,17 @@ function buildMusicPanel(
             )
             .setDescription(
                 song
-                    ? `🎵 **${song.title || song.query}**\n👤 ${song.artist || 'Unknown artist'}`
+                    ? (
+                        `🎵 **${song.title || song.query}**\n` +
+                        `👤 ${song.artist || 'Unknown artist'}`
+                    )
                     : '🎵 Nenhuma música a tocar.'
             );
 
     if (
         song?.track?.artwork?.['150x150']
     ) {
+
         embed.setThumbnail(
             song.track.artwork[
                 '150x150'
@@ -91,18 +96,25 @@ function buildMusicPanel(
             );
 
     return {
-        embeds: [embed],
-        components: [row]
+
+        embeds: [
+            embed
+        ],
+
+        components: [
+            row
+        ]
     };
 }
 
 // ============================================================
-// SHOW PANEL
+// SHOW
 // ============================================================
 
 async function showMusicPanel(
     message
 ) {
+
     if (!message) {
         return null;
     }
@@ -115,10 +127,33 @@ async function showMusicPanel(
 }
 
 // ============================================================
+// UPDATE
+// ============================================================
+
+async function updateMusicPanel(
+    message
+) {
+
+    if (!message) {
+        return null;
+    }
+
+    return message.edit(
+        buildMusicPanel(
+            message.guildId
+        )
+    );
+}
+
+// ============================================================
 // EXPORTS
 // ============================================================
 
 module.exports = {
+
     buildMusicPanel,
-    showMusicPanel
+
+    showMusicPanel,
+
+    updateMusicPanel
 };

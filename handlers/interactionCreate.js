@@ -9,7 +9,7 @@ const panel =
     require('../capabilities/music/panel');
 
 // ============================================================
-// HANDLE INTERACTION
+// HANDLE
 // ============================================================
 
 async function handleInteraction(
@@ -32,10 +32,21 @@ async function handleInteraction(
 
     try {
 
-        let result;
-
         const guildId =
             interaction.guildId;
+
+        if (!guildId) {
+
+            await interaction.reply({
+                content:
+                    '🦆 Este controlo só funciona num servidor.',
+                ephemeral: true
+            });
+
+            return;
+        }
+
+        let result;
 
         switch (
             interaction.customId
@@ -88,26 +99,32 @@ async function handleInteraction(
             );
 
         await interaction.reply({
+
             content:
                 response ||
                 '🦆 Feito!',
+
             ephemeral: true
         });
 
-        // Atualizar painel depois do controlo
+        // ----------------------------------------------------
+        // UPDATE PANEL
+        // ----------------------------------------------------
 
         if (
             interaction.message &&
             result.success
         ) {
 
-            await interaction.message.edit(
-                panel.buildMusicPanel(
-                    guildId
+            await interaction.message
+                .edit(
+                    panel.buildMusicPanel(
+                        guildId
+                    )
                 )
-            ).catch(
-                () => {}
-            );
+                .catch(
+                    () => {}
+                );
         }
 
     } catch (error) {
@@ -117,24 +134,26 @@ async function handleInteraction(
             error
         );
 
+        const response = {
+            content:
+                '🦆 Ocorreu um erro ao controlar a música.',
+            ephemeral: true
+        };
+
         if (
             interaction.replied ||
             interaction.deferred
         ) {
 
-            await interaction.followUp({
-                content:
-                    '🦆 Ocorreu um erro ao controlar a música.',
-                ephemeral: true
-            });
+            await interaction.followUp(
+                response
+            );
 
         } else {
 
-            await interaction.reply({
-                content:
-                    '🦆 Ocorreu um erro ao controlar a música.',
-                ephemeral: true
-            });
+            await interaction.reply(
+                response
+            );
         }
     }
 }

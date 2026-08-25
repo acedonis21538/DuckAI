@@ -10,21 +10,33 @@ const OpenAI = require('openai');
 
 const memory = require('./core/memory');
 const personality = require('./core/personality');
+const router = require('./core/router');
 
 // ============================================================
 // ENV
 // ============================================================
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const TOKEN =
+    process.env.DISCORD_TOKEN;
+
+const GROQ_API_KEY =
+    process.env.GROQ_API_KEY;
 
 if (!TOKEN) {
-    console.error('❌ DISCORD_TOKEN is missing from .env');
+
+    console.error(
+        '❌ DISCORD_TOKEN is missing from .env'
+    );
+
     process.exit(1);
 }
 
 if (!GROQ_API_KEY) {
-    console.error('❌ GROQ_API_KEY is missing from .env');
+
+    console.error(
+        '❌ GROQ_API_KEY is missing from .env'
+    );
+
     process.exit(1);
 }
 
@@ -32,44 +44,61 @@ if (!GROQ_API_KEY) {
 // GROQ
 // ============================================================
 
-const groq = new OpenAI({
-    apiKey: GROQ_API_KEY,
-    baseURL: 'https://api.groq.com/openai/v1'
-});
+const groq =
+    new OpenAI({
+        apiKey:
+            GROQ_API_KEY,
 
-const AI_MODEL = 'openai/gpt-oss-20b';
+        baseURL:
+            'https://api.groq.com/openai/v1'
+    });
+
+const AI_MODEL =
+    'openai/gpt-oss-20b';
 
 // ============================================================
 // DISCORD
 // ============================================================
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent
-    ],
+const client =
+    new Client({
 
-    partials: [
-        Partials.Channel
-    ]
-});
+        intents: [
+
+            GatewayIntentBits.Guilds,
+
+            GatewayIntentBits.GuildMessages,
+
+            GatewayIntentBits.DirectMessages,
+
+            GatewayIntentBits.MessageContent
+        ],
+
+        partials: [
+            Partials.Channel
+        ]
+    });
 
 // ============================================================
 // CONVERSATIONS
 // ============================================================
 
-const conversations = new Set();
-const histories = new Map();
+const conversations =
+    new Set();
 
-const MAX_HISTORY_MESSAGES = 50;
+const histories =
+    new Map();
+
+const MAX_HISTORY_MESSAGES =
+    50;
 
 // ============================================================
 // CONVERSATION KEY
 // ============================================================
 
-function conversationKey(message) {
+function conversationKey(
+    message
+) {
 
     return (
         `${message.channel.id}:${message.author.id}`
@@ -80,9 +109,13 @@ function conversationKey(message) {
 // HISTORY
 // ============================================================
 
-function getHistory(key) {
+function getHistory(
+    key
+) {
 
-    if (!histories.has(key)) {
+    if (
+        !histories.has(key)
+    ) {
 
         histories.set(
             key,
@@ -90,14 +123,18 @@ function getHistory(key) {
         );
     }
 
-    return histories.get(key);
+    return histories.get(
+        key
+    );
 }
 
 // ============================================================
 // DUCKAI TRIGGER
 // ============================================================
 
-function mentionsDuckAI(message) {
+function mentionsDuckAI(
+    message
+) {
 
     const mentioned =
         message.mentions.has(
@@ -119,7 +156,9 @@ function mentionsDuckAI(message) {
 // GOODBYE
 // ============================================================
 
-function isGoodbye(message) {
+function isGoodbye(
+    message
+) {
 
     const text =
         message.content
@@ -131,6 +170,7 @@ function isGoodbye(message) {
             );
 
     const goodbyes = [
+
         'bye',
         'bye bye',
         'ok bye',
@@ -150,7 +190,9 @@ function isGoodbye(message) {
         'talk to you later'
     ];
 
-    return goodbyes.includes(text);
+    return goodbyes.includes(
+        text
+    );
 }
 
 // ============================================================
@@ -166,8 +208,11 @@ async function generateResponse(
         getHistory(key);
 
     history.push({
+
         role: 'user',
-        content: message.content
+
+        content:
+            message.content
     });
 
     const recentHistory =
@@ -183,7 +228,8 @@ async function generateResponse(
     const response =
         await groq.chat.completions.create({
 
-            model: AI_MODEL,
+            model:
+                AI_MODEL,
 
             messages: [
 
@@ -193,8 +239,10 @@ async function generateResponse(
 
                 {
                     role: 'system',
+
                     content:
-                        personality.buildPersonalityPrompt()
+                        personality
+                            .buildPersonalityPrompt()
                 },
 
                 // ------------------------------------------------
@@ -203,6 +251,7 @@ async function generateResponse(
 
                 {
                     role: 'system',
+
                     content: `
 CURRENT SPEAKER
 
@@ -233,9 +282,11 @@ Never list all known information unless asked.
                 ...recentHistory
             ],
 
-            temperature: 0.78,
+            temperature:
+                0.78,
 
-            max_tokens: 1400
+            max_tokens:
+                1400
         });
 
     const reply =
@@ -253,8 +304,11 @@ Never list all known information unless asked.
     }
 
     history.push({
+
         role: 'assistant',
-        content: reply
+
+        content:
+            reply
     });
 
     if (
@@ -280,14 +334,37 @@ client.on(
     'interactionCreate',
     async interaction => {
 
-        /*
-            Personality, memory and other commands
-            will eventually be moved into /commands.
+        // --------------------------------------------------------
+        // MUSIC BUTTONS
+        // --------------------------------------------------------
 
-            For now this handler is intentionally kept
-            minimal while the architecture is being separated.
-        */
+        if (
+            interaction.isButton() &&
+            interaction.customId.startsWith(
+                'music_'
+            )
+        ) {
 
+            try {
+
+                const musicInteraction =
+                    require(
+                        './core/interactionHandler'
+                    );
+
+                await musicInteraction
+                    .handleInteraction(
+                        interaction
+                    );
+
+            } catch (error) {
+
+                console.error(
+                    '❌ Interaction error:',
+                    error
+                );
+            }
+        }
     }
 );
 
@@ -299,33 +376,89 @@ client.on(
     'messageCreate',
     async message => {
 
-        // Ignore bots
-        if (message.author.bot) {
+        // ====================================================
+        // IGNORE BOTS
+        // ====================================================
+
+        if (
+            message.author.bot
+        ) {
+
             return;
         }
 
+        // ====================================================
+        // ROUTER / CAPABILITIES
+        // ====================================================
+
+        try {
+
+            const route =
+                await router.route(
+                    message
+                );
+
+            if (
+                route.type ===
+                'capability'
+            ) {
+
+                if (
+                    route.response
+                ) {
+
+                    await message.reply(
+                        route.response
+                    );
+                }
+
+                return;
+            }
+
+        } catch (error) {
+
+            console.error(
+                '❌ Router error:',
+                error
+            );
+
+            await message.reply(
+                '🦆 Não consegui executar essa capacidade.'
+            );
+
+            return;
+        }
+
+        // ====================================================
+        // CONVERSATION KEY
+        // ====================================================
+
         const key =
-            conversationKey(message);
+            conversationKey(
+                message
+            );
 
         // ====================================================
         // START CONVERSATION
         // ====================================================
 
         if (
-            mentionsDuckAI(message)
+            mentionsDuckAI(
+                message
+            )
         ) {
 
-            conversations.add(key);
+            conversations.add(
+                key
+            );
 
-            getHistory(key);
+            getHistory(
+                key
+            );
 
             await message.reply(
                 '🦆 Heyyy! DuckAI is here 🤍'
             );
-
-            /*
-                Memory extraction runs in the background.
-            */
 
             memory.updateUserMemory(
                 message
@@ -345,8 +478,11 @@ client.on(
         // ====================================================
 
         if (
-            !conversations.has(key)
+            !conversations.has(
+                key
+            )
         ) {
+
             return;
         }
 
@@ -355,11 +491,18 @@ client.on(
         // ====================================================
 
         if (
-            isGoodbye(message)
+            isGoodbye(
+                message
+            )
         ) {
 
-            conversations.delete(key);
-            histories.delete(key);
+            conversations.delete(
+                key
+            );
+
+            histories.delete(
+                key
+            );
 
             await message.reply(
                 '🦆 Okay, bye bye! See you later 🤍'
@@ -382,11 +525,13 @@ client.on(
                     key
                 );
 
-            await message.reply(reply);
+            await message.reply(
+                reply
+            );
 
-            /*
-                Update memory after responding.
-            */
+            // ------------------------------------------------
+            // UPDATE MEMORY
+            // ------------------------------------------------
 
             memory.updateUserMemory(
                 message
@@ -438,4 +583,6 @@ client.once(
 // LOGIN
 // ============================================================
 
-client.login(TOKEN);
+client.login(
+    TOKEN
+);

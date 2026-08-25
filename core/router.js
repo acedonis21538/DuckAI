@@ -11,63 +11,75 @@ const capabilities =
 
 const routes = {
 
-    music: [
-        'toca',
-        'tocar',
-        'ouve',
-        'ouvir',
-        'música',
-        'musica',
-        'song',
-        'play',
-        'pausa',
-        'pause',
-        'continua',
-        'resume',
-        'skip',
-        'salta',
-        'próxima',
-        'proxima',
-        'para a música',
-        'para a musica',
-        'stop music'
-    ],
+    music: {
+        keywords: [
+            'toca',
+            'tocar',
+            'ouve',
+            'ouvir',
+            'musica',
+            'música',
+            'song',
+            'play',
+            'playlist',
+            'pausa',
+            'pause',
+            'continua',
+            'resume',
+            'skip',
+            'salta',
+            'proxima',
+            'próxima',
+            'para a musica',
+            'para a música',
+            'stop music'
+        ]
+    },
 
-    images: [
-        'imagem',
-        'imagens',
-        'foto',
-        'fotos',
-        'picture',
-        'pictures',
-        'image',
-        'images',
-        'mostra-me',
-        'mostra me',
-        'quero ver'
-    ],
+    images: {
+        keywords: [
+            'imagem',
+            'imagens',
+            'foto',
+            'fotos',
+            'picture',
+            'pictures',
+            'image',
+            'images',
+            'mostra-me',
+            'mostra me',
+            'mostra',
+            'quero ver',
+            'procura uma foto',
+            'procura fotos'
+        ]
+    },
 
-    web: [
-        'pesquisa',
-        'pesquisar',
-        'procura',
-        'procurar',
-        'search',
-        'google',
-        'quem é',
-        'quem e',
-        'o que é',
-        'o que e',
-        'quando foi',
-        'onde fica'
-    ]
+    web: {
+        keywords: [
+            'pesquisa',
+            'pesquisar',
+            'procura',
+            'procurar',
+            'search',
+            'google',
+            'quem é',
+            'quem e',
+            'o que é',
+            'o que e',
+            'quando foi',
+            'onde fica'
+        ]
+    }
 };
 
 // ============================================================
 // NORMALIZE
 // ============================================================
 
-function normalize(text = '') {
+function normalize(
+    text = ''
+) {
 
     return text
         .toLowerCase()
@@ -87,10 +99,13 @@ function matchesRoute(
     text,
     keywords
 ) {
+
     return keywords.some(
         keyword =>
             text.includes(
-                normalize(keyword)
+                normalize(
+                    keyword
+                )
             )
     );
 }
@@ -111,22 +126,24 @@ function detectRoute(
     if (
         matchesRoute(
             text,
-            routes.music
+            routes.music.keywords
         )
     ) {
+
         return {
             type: 'capability',
             capability: 'music',
-            confidence: 0.95
+            confidence: 0.9
         };
     }
 
     if (
         matchesRoute(
             text,
-            routes.images
+            routes.images.keywords
         )
     ) {
+
         return {
             type: 'capability',
             capability: 'images',
@@ -137,9 +154,10 @@ function detectRoute(
     if (
         matchesRoute(
             text,
-            routes.web
+            routes.web.keywords
         )
     ) {
+
         return {
             type: 'capability',
             capability: 'web',
@@ -155,14 +173,14 @@ function detectRoute(
 }
 
 // ============================================================
-// MUSIC QUERY
+// EXTRACT MUSIC QUERY
 // ============================================================
 
 function extractMusicQuery(
-    text
+    content
 ) {
 
-    return text
+    return content
         .replace(
             /^(toca|tocar|ouve|ouvir|play|song)\s*/i,
             ''
@@ -192,20 +210,28 @@ async function executeMusic(
 
         return {
             response:
-                '🎵 Diz-me que música queres que toque.',
+                music.responses.getResponse(
+                    'play',
+                    false
+                ),
+
             file: null
         };
     }
 
-    const trackResult =
+    // --------------------------------------------------------
+    // AUDIUS SEARCH
+    // --------------------------------------------------------
+
+    const result =
         await music.findTrack(
             query
         );
 
     if (
-        !trackResult.success ||
-        !trackResult.track ||
-        !trackResult.url
+        !result.success ||
+        !result.track ||
+        !result.url
     ) {
 
         return {
@@ -214,51 +240,45 @@ async function executeMusic(
                     'play',
                     false
                 ),
+
             file: null
         };
     }
 
+    // --------------------------------------------------------
+    // PLAY
+    // --------------------------------------------------------
+
     const playback =
         await music.play({
-
             query,
-
             url:
-                trackResult.url,
+                result.url,
 
             track:
-                trackResult.track,
+                result.track,
 
             message
         });
 
-    if (!playback.success) {
-
-        return {
-            response:
-                playback.message ||
-                music.responses.getResponse(
-                    'play',
-                    false
-                ),
-            file: null
-        };
-    }
-
-    const response =
-        music.responses.getResponse(
-            'play',
-            true,
-            {
-                song:
-                    playback.song?.title ||
-                    query
-            }
-        );
-
     return {
-        response,
-        file: null
+
+        response:
+            music.responses.getResponse(
+                'play',
+                playback.success,
+                {
+                    song:
+                        playback.song?.title ||
+                        result.track.title ||
+                        query
+                }
+            ),
+
+        file:
+            null,
+
+        playback
     };
 }
 
@@ -276,20 +296,30 @@ async function route(
         );
 
     if (
+        detected.type !==
+        'capability'
+    ) {
+
+        return {
+            ...detected,
+            response: null,
+            file: null
+        };
+    }
+
+    if (
         detected.capability ===
         'music'
     ) {
 
         return {
             ...detected,
+
             ...(await executeMusic(
                 message
             ))
         };
     }
-
-    // Por enquanto as outras capabilities
-    // continuam disponíveis para o sistema.
 
     return {
         ...detected,
@@ -303,10 +333,16 @@ async function route(
 // ============================================================
 
 module.exports = {
+
     routes,
+
     normalize,
+
     matchesRoute,
+
     detectRoute,
+
     extractMusicQuery,
+
     route
 };

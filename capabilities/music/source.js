@@ -12,13 +12,14 @@ const AUDIUS_APP_NAME =
     'DuckAI';
 
 // ============================================================
-// AUDIUS REQUEST
+// REQUEST
 // ============================================================
 
 async function audiusRequest(
     endpoint,
     params = {}
 ) {
+
     const url =
         new URL(
             `${AUDIUS_API_URL}${endpoint}`
@@ -33,6 +34,7 @@ async function audiusRequest(
         const [key, value]
         of Object.entries(params)
     ) {
+
         if (
             value !== undefined &&
             value !== null
@@ -57,13 +59,14 @@ async function audiusRequest(
 }
 
 // ============================================================
-// SEARCH TRACKS
+// SEARCH
 // ============================================================
 
 async function searchTracks(
     query,
     limit = 5
 ) {
+
     if (
         typeof query !== 'string' ||
         !query.trim()
@@ -75,21 +78,19 @@ async function searchTracks(
     }
 
     try {
+
         const data =
             await audiusRequest(
                 '/tracks/search',
                 {
-                    query:
-                        query.trim(),
-
-                    limit:
-                        Math.min(
-                            Math.max(
-                                Number(limit) || 5,
-                                1
-                            ),
-                            10
-                        )
+                    query: query.trim(),
+                    limit: Math.min(
+                        Math.max(
+                            Number(limit) || 5,
+                            1
+                        ),
+                        10
+                    )
                 }
             );
 
@@ -103,6 +104,7 @@ async function searchTracks(
         };
 
     } catch (error) {
+
         console.error(
             '❌ Audius search failed:',
             error.message
@@ -120,6 +122,7 @@ async function searchTracks(
 // ============================================================
 
 async function getTrack(trackId) {
+
     if (!trackId) {
         return {
             success: false,
@@ -128,6 +131,7 @@ async function getTrack(trackId) {
     }
 
     try {
+
         const data =
             await audiusRequest(
                 `/tracks/${encodeURIComponent(trackId)}`
@@ -140,6 +144,7 @@ async function getTrack(trackId) {
         };
 
     } catch (error) {
+
         console.error(
             '❌ Audius track lookup failed:',
             error.message
@@ -157,6 +162,7 @@ async function getTrack(trackId) {
 // ============================================================
 
 function getStreamUrl(trackId) {
+
     if (!trackId) {
         return null;
     }
@@ -171,10 +177,11 @@ function getStreamUrl(trackId) {
 }
 
 // ============================================================
-// FIND BEST TRACK
+// FIND TRACK
 // ============================================================
 
 async function findTrack(query) {
+
     const result =
         await searchTracks(
             query,
@@ -209,6 +216,7 @@ async function findTrack(query) {
         success: true,
         query,
         track,
+
         url:
             getStreamUrl(
                 track.id
