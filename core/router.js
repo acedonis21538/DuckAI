@@ -227,7 +227,15 @@ async function executeMusic(
         await music.findTrack(
             query
         );
-
+console.log(
+    '🎵 MUSIC DEBUG:',
+    JSON.stringify({
+        query,
+        success: result.success,
+        track: result.track?.title || null,
+        url: Boolean(result.url)
+    })
+);
     if (
         !result.success ||
         !result.track ||
@@ -346,3 +354,4 @@ module.exports = {
 
     route
 };
+
