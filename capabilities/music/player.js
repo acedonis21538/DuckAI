@@ -7,32 +7,12 @@ const {
     createAudioPlayer,
     createAudioResource,
     NoSubscriberBehavior,
-    AudioPlayerStatus,
     StreamType
 } = require('@discordjs/voice');
 
-const fs =
-    require('fs');
-
-const path =
-    require('path');
-
-const crypto =
-    require('crypto');
-
 const {
-    spawn
-} = require('child_process');
-
-// ============================================================
-// TEMP
-// ============================================================
-
-const TEMP_DIR =
-    path.resolve(
-        __dirname,
-        '../../temp'
-    );
+    Readable
+} = require('stream');
 
 // ============================================================
 // SERVER STATE
@@ -47,46 +27,6 @@ const connections =
 const songs =
     new Map();
 
-const files =
-    new Map();
-
-// ============================================================
-// FFMPEG
-// ============================================================
-
-function getFFmpegPath() {
-
-    const configured =
-        process.env.FFMPEG_PATH;
-
-    if (configured) {
-        return configured;
-    }
-
-    return 'ffmpeg';
-}
-
-// ============================================================
-// TEMP DIRECTORY
-// ============================================================
-
-function ensureTempDirectory() {
-
-    if (
-        !fs.existsSync(
-            TEMP_DIR
-        )
-    ) {
-
-        fs.mkdirSync(
-            TEMP_DIR,
-            {
-                recursive: true
-            }
-        );
-    }
-}
-
 // ============================================================
 // GET PLAYER
 // ============================================================
@@ -97,11 +37,7 @@ function getPlayer(guildId) {
         return null;
     }
 
-    if (
-        !players.has(
-            guildId
-        )
-    ) {
+    if (!players.has(guildId)) {
 
         const player =
             createAudioPlayer({
@@ -123,7 +59,7 @@ function getPlayer(guildId) {
 }
 
 // ============================================================
-// CONNECT
+// CONNECT TO VOICE
 // ============================================================
 
 function connectToVoice(
@@ -158,6 +94,7 @@ function connectToVoice(
 
         connection =
             joinVoiceChannel({
+
                 channelId:
                     channel.id,
 
@@ -187,10 +124,10 @@ function connectToVoice(
 }
 
 // ============================================================
-// DOWNLOAD
+// GET AUDIO STREAM
 // ============================================================
 
-async function downloadAudio(
+async function getAudioStream(
     url
 ) {
 
@@ -204,35 +141,26 @@ async function downloadAudio(
         );
     }
 
-    ensureTempDirectory();
-
     const response =
         await fetch(url);
 
     if (!response.ok) {
 
         throw new Error(
-            `Audio download failed (${response.status}).`
+            `Audio stream failed (${response.status}).`
         );
     }
 
-    const filePath =
-        path.join(
-            TEMP_DIR,
-            `${crypto.randomUUID()}.mp3`
-        );
+    if (!response.body) {
 
-    const buffer =
-        Buffer.from(
-            await response.arrayBuffer()
+        throw new Error(
+            'Audio stream has no body.'
         );
+    }
 
-    fs.writeFileSync(
-        filePath,
-        buffer
+    return Readable.fromWeb(
+        response.body
     );
-
-    return filePath;
 }
 
 // ============================================================
@@ -250,9 +178,7 @@ async function play(
         message
     } = data;
 
-    if (
-        !message?.guildId
-    ) {
+    if (!message?.guildId) {
 
         return {
             success: false,
@@ -288,7 +214,7 @@ async function play(
     try {
 
         // ----------------------------------------------------
-        // VOICE
+        // CONNECT
         // ----------------------------------------------------
 
         const voice =
@@ -307,7 +233,7 @@ async function play(
         }
 
         // ----------------------------------------------------
-        // STOP CURRENT
+        // STOP CURRENT SONG
         // ----------------------------------------------------
 
         await stop({
@@ -315,36 +241,17 @@ async function play(
         });
 
         // ----------------------------------------------------
-        // DOWNLOAD
+        // GET STREAM
         // ----------------------------------------------------
 
-        const file =
-            await downloadAudio(
+        console.log(
+            `🎵 Starting Audius stream: ${query}`
+        );
+
+        const stream =
+            await getAudioStream(
                 url
             );
-
-        // ----------------------------------------------------
-        // CHECK FFMPEG
-        // ----------------------------------------------------
-
-        const ffmpeg =
-            getFFmpegPath();
-
-        if (
-            ffmpeg === 'ffmpeg'
-        ) {
-
-            /*
-                @discordjs/voice will need FFmpeg
-                for MP3/non-Opus audio.
-
-                The host must provide it.
-            */
-
-            console.log(
-                '🎵 Using system FFmpeg.'
-            );
-        }
 
         // ----------------------------------------------------
         // PLAYER
@@ -361,7 +268,7 @@ async function play(
 
         const resource =
             createAudioResource(
-                file,
+                stream,
                 {
                     inputType:
                         StreamType.Arbitrary
@@ -406,9 +313,8 @@ async function play(
             song
         );
 
-        files.set(
-            guildId,
-            file
+        console.log(
+            `🎶 Playing: ${song.title}`
         );
 
         return {
@@ -417,9 +323,7 @@ async function play(
 
             action: 'play',
 
-            song,
-
-            file
+            song
         };
 
     } catch (error) {
@@ -532,37 +436,9 @@ async function stop(
         );
 
     if (player) {
+
         player.stop();
     }
-
-    const file =
-        files.get(
-            guildId
-        );
-
-    if (
-        file &&
-        fs.existsSync(file)
-    ) {
-
-        try {
-
-            fs.unlinkSync(
-                file
-            );
-
-        } catch (error) {
-
-            console.error(
-                '❌ Failed to delete audio:',
-                error.message
-            );
-        }
-    }
-
-    files.delete(
-        guildId
-    );
 
     songs.delete(
         guildId
@@ -618,19 +494,13 @@ function getCurrentSong(
 // CURRENT FILE
 // ============================================================
 
-function getCurrentFile(
-    guildId
-) {
+function getCurrentFile() {
 
-    return (
-        files.get(
-            guildId
-        ) || null
-    );
+    return null;
 }
 
 // ============================================================
-// HAS SONG
+// HAS CURRENT SONG
 // ============================================================
 
 function hasCurrentSong(
@@ -665,8 +535,6 @@ module.exports = {
     getCurrentFile,
 
     hasCurrentSong,
-
-    downloadAudio,
 
     connectToVoice
 };
