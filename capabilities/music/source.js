@@ -12,7 +12,7 @@ const AUDIUS_APP_NAME =
     'DuckAI';
 
 // ============================================================
-// REQUEST
+// AUDIUS REQUEST
 // ============================================================
 
 async function audiusRequest(
@@ -39,6 +39,7 @@ async function audiusRequest(
             value !== undefined &&
             value !== null
         ) {
+
             url.searchParams.set(
                 key,
                 String(value)
@@ -50,6 +51,7 @@ async function audiusRequest(
         await fetch(url);
 
     if (!response.ok) {
+
         throw new Error(
             `Audius request failed (${response.status}).`
         );
@@ -59,7 +61,7 @@ async function audiusRequest(
 }
 
 // ============================================================
-// SEARCH
+// SEARCH TRACKS
 // ============================================================
 
 async function searchTracks(
@@ -71,9 +73,12 @@ async function searchTracks(
         typeof query !== 'string' ||
         !query.trim()
     ) {
+
         return {
             success: false,
-            results: []
+            results: [],
+            message:
+                'Music query is empty.'
         };
     }
 
@@ -83,20 +88,27 @@ async function searchTracks(
             await audiusRequest(
                 '/tracks/search',
                 {
-                    query: query.trim(),
-                    limit: Math.min(
-                        Math.max(
-                            Number(limit) || 5,
-                            1
-                        ),
-                        10
-                    )
+                    query:
+                        query.trim(),
+
+                    limit:
+                        Math.min(
+                            Math.max(
+                                Number(limit) || 5,
+                                1
+                            ),
+                            10
+                        )
                 }
             );
 
         return {
+
             success: true,
-            query: query.trim(),
+
+            query:
+                query.trim(),
+
             results:
                 Array.isArray(data.data)
                     ? data.data
@@ -111,8 +123,13 @@ async function searchTracks(
         );
 
         return {
+
             success: false,
-            results: []
+
+            results: [],
+
+            message:
+                'Music search failed.'
         };
     }
 }
@@ -121,12 +138,20 @@ async function searchTracks(
 // GET TRACK
 // ============================================================
 
-async function getTrack(trackId) {
+async function getTrack(
+    trackId
+) {
 
     if (!trackId) {
+
         return {
+
             success: false,
-            track: null
+
+            track: null,
+
+            message:
+                'No track ID provided.'
         };
     }
 
@@ -134,11 +159,15 @@ async function getTrack(trackId) {
 
         const data =
             await audiusRequest(
-                `/tracks/${encodeURIComponent(trackId)}`
+                `/tracks/${encodeURIComponent(
+                    trackId
+                )}`
             );
 
         return {
+
             success: true,
+
             track:
                 data.data || null
         };
@@ -151,25 +180,35 @@ async function getTrack(trackId) {
         );
 
         return {
+
             success: false,
-            track: null
+
+            track: null,
+
+            message:
+                'Track lookup failed.'
         };
     }
 }
 
 // ============================================================
-// STREAM URL
+// STREAM URL FALLBACK
 // ============================================================
 
-function getStreamUrl(trackId) {
+function getStreamUrl(
+    trackId
+) {
 
     if (!trackId) {
+
         return null;
     }
 
     return (
         `${AUDIUS_API_URL}` +
-        `/tracks/${encodeURIComponent(trackId)}/stream` +
+        `/tracks/${encodeURIComponent(
+            trackId
+        )}/stream` +
         `?app_name=${encodeURIComponent(
             AUDIUS_APP_NAME
         )}`
@@ -177,10 +216,12 @@ function getStreamUrl(trackId) {
 }
 
 // ============================================================
-// FIND TRACK
+// FIND BEST TRACK
 // ============================================================
 
-async function findTrack(query) {
+async function findTrack(
+    query
+) {
 
     const result =
         await searchTracks(
@@ -192,11 +233,19 @@ async function findTrack(query) {
         !result.success ||
         !result.results.length
     ) {
+
         return {
+
             success: false,
+
             query,
+
             track: null,
-            url: null
+
+            url: null,
+
+            message:
+                'No music found.'
         };
     }
 
@@ -204,23 +253,59 @@ async function findTrack(query) {
         result.results[0];
 
     if (!track?.id) {
+
         return {
+
             success: false,
+
             query,
+
             track: null,
-            url: null
+
+            url: null,
+
+            message:
+                'Found track has no ID.'
+        };
+    }
+
+    // ========================================================
+    // USE AUDIUS SIGNED STREAM URL
+    // ========================================================
+
+    const streamUrl =
+        track.stream?.url ||
+        getStreamUrl(
+            track.id
+        );
+
+    if (!streamUrl) {
+
+        return {
+
+            success: false,
+
+            query,
+
+            track,
+
+            url: null,
+
+            message:
+                'Track has no stream URL.'
         };
     }
 
     return {
+
         success: true,
+
         query,
+
         track,
 
         url:
-            getStreamUrl(
-                track.id
-            )
+            streamUrl
     };
 }
 
@@ -229,9 +314,14 @@ async function findTrack(query) {
 // ============================================================
 
 module.exports = {
+
     audiusRequest,
+
     searchTracks,
+
     getTrack,
+
     getStreamUrl,
+
     findTrack
 };
