@@ -42,8 +42,8 @@ async function handleInteraction(
                 content:
                     '🦆 This control only works inside a server.',
 
-                ephemeral:
-                    true
+                flags:
+                    64
             });
 
             return;
@@ -72,8 +72,8 @@ async function handleInteraction(
                     content:
                         '🎵 There is no song selected.',
 
-                    ephemeral:
-                        true
+                    flags:
+                        64
                 });
 
                 return;
@@ -236,8 +236,8 @@ async function handleInteraction(
             content:
                 response,
 
-            ephemeral:
-                true
+            flags:
+                64
         });
 
         // ====================================================
@@ -278,8 +278,8 @@ async function handleInteraction(
             content:
                 '🦆 Something went wrong while controlling the music.',
 
-            ephemeral:
-                true
+            flags:
+                64
         };
 
         if (
