@@ -116,12 +116,9 @@
             background: #414141;
         }
 
-        .empty {
-            text-align: center;
-
-            padding: 50px 10px;
-
-            color: #aaa;
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
     </style>
@@ -162,23 +159,27 @@
         <audio
             id="audio"
             controls
+            preload="auto"
         ></audio>
 
         <div class="buttons">
 
             <button
+                id="playButton"
                 onclick="playAudio()"
             >
                 ▶️ Play
             </button>
 
             <button
+                id="pauseButton"
                 onclick="pauseAudio()"
             >
                 ⏸️ Pause
             </button>
 
             <button
+                id="stopButton"
                 onclick="stopAudio()"
             >
                 ⏹️ Stop
@@ -231,6 +232,27 @@
             'status'
         );
 
+    const playButton =
+        document.getElementById(
+            'playButton'
+        );
+
+    const pauseButton =
+        document.getElementById(
+            'pauseButton'
+        );
+
+    const stopButton =
+        document.getElementById(
+            'stopButton'
+        );
+
+    // ========================================================
+    // CURRENT URL
+    // ========================================================
+
+    let currentUrl = null;
+
     // ========================================================
     // LOAD SONG
     // ========================================================
@@ -249,16 +271,29 @@
 
             const response =
                 await fetch(
-                    `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+                    `/api/music/current?guildId=${encodeURIComponent(guildId)}`,
+                    {
+                        cache: 'no-store'
+                    }
                 );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `API returned ${response.status}`
+                );
+            }
 
             const data =
                 await response.json();
 
             if (
                 !data.success ||
-                !data.song
+                !data.song ||
+                !data.song.url
             ) {
+
+                currentUrl = null;
 
                 title.textContent =
                     'No song selected';
@@ -268,6 +303,8 @@
 
                 status.textContent =
                     'Waiting for a song...';
+
+                playButton.disabled = true;
 
                 return;
             }
@@ -283,6 +320,12 @@
                 song.artist ||
                 'Unknown artist';
 
+            playButton.disabled = false;
+
+            // ====================================================
+            // ARTWORK
+            // ====================================================
+
             if (
                 song.artwork
             ) {
@@ -297,23 +340,59 @@
                 );
             }
 
+            // ====================================================
+            // NEW SONG
+            // ====================================================
+
             if (
-                audio.src !==
+                currentUrl !==
                 song.url
             ) {
+
+                currentUrl =
+                    song.url;
+
+                audio.pause();
+
+                audio.removeAttribute(
+                    'src'
+                );
+
+                audio.load();
 
                 audio.src =
                     song.url;
 
                 audio.load();
-            }
 
-            status.textContent =
-                `Ready • ${data.state}`;
+                status.textContent =
+                    'Ready to play';
+
+                console.log(
+                    '🎵 Loaded:',
+                    song.title
+                );
+
+            } else {
+
+                if (
+                    !audio.paused
+                ) {
+
+                    status.textContent =
+                        'Playing';
+
+                } else {
+
+                    status.textContent =
+                        'Ready to play';
+                }
+            }
 
         } catch (error) {
 
             console.error(
+                '❌ Music loading error:',
                 error
             );
 
@@ -328,7 +407,30 @@
 
     async function playAudio() {
 
+        if (!currentUrl) {
+
+            status.textContent =
+                'No song is loaded.';
+
+            return;
+        }
+
         try {
+
+            status.textContent =
+                'Loading audio...';
+
+            // Make sure the current URL is loaded.
+            if (
+                audio.src !==
+                currentUrl
+            ) {
+
+                audio.src =
+                    currentUrl;
+
+                audio.load();
+            }
 
             await audio.play();
 
@@ -338,11 +440,23 @@
         } catch (error) {
 
             console.error(
+                '❌ Playback error:',
                 error
             );
 
-            status.textContent =
-                'Playback was blocked by the browser.';
+            if (
+                error.name ===
+                'NotAllowedError'
+            ) {
+
+                status.textContent =
+                    'Click Play to allow playback.';
+
+            } else {
+
+                status.textContent =
+                    'Unable to play this audio stream.';
+            }
         }
     }
 
@@ -351,6 +465,13 @@
     // ========================================================
 
     function pauseAudio() {
+
+        if (
+            audio.paused
+        ) {
+
+            return;
+        }
 
         audio.pause();
 
@@ -366,18 +487,59 @@
 
         audio.pause();
 
-        audio.currentTime = 0;
+        try {
+
+            audio.currentTime =
+                0;
+
+        } catch {
+
+            // Ignore seek errors.
+        }
 
         status.textContent =
             'Stopped';
     }
 
     // ========================================================
-    // EVENTS
+    // AUDIO EVENTS
     // ========================================================
 
     audio.addEventListener(
-        'play',
+        'loadstart',
+        () => {
+
+            status.textContent =
+                'Loading audio...';
+        }
+    );
+
+    audio.addEventListener(
+        'loadedmetadata',
+        () => {
+
+            console.log(
+                '🎵 Audio metadata loaded'
+            );
+        }
+    );
+
+    audio.addEventListener(
+        'canplay',
+        () => {
+
+            if (
+                audio.paused
+            ) {
+
+                status.textContent =
+                    'Ready to play';
+            }
+        }
+    );
+
+    audio.addEventListener(
+        'playing',
         () => {
 
             status.textContent =
@@ -390,8 +552,8 @@
         () => {
 
             if (
-                audio.currentTime > 0 &&
-                !audio.ended
+                !audio.ended &&
+                audio.currentTime > 0
             ) {
 
                 status.textContent =
@@ -401,11 +563,47 @@
     );
 
     audio.addEventListener(
+        'waiting',
+        () => {
+
+            status.textContent =
+                'Buffering...';
+        }
+    );
+
+    audio.addEventListener(
         'ended',
         () => {
 
             status.textContent =
                 'Finished';
+        }
+    );
+
+    audio.addEventListener(
+        'error',
+        () => {
+
+            const mediaError =
+                audio.error;
+
+            console.error(
+                '❌ Audio error:',
+                mediaError
+            );
+
+            if (
+                mediaError
+            ) {
+
+                console.error(
+                    'Media error code:',
+                    mediaError.code
+                );
+            }
+
+            status.textContent =
+                'Audio stream failed to load.';
         }
     );
 
