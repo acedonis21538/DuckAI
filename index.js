@@ -1,5 +1,5 @@
 require('dotenv').config();
-require('./web/server');
+require('./capabilities/web/server');
 
 const {
     Client,
