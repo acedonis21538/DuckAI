@@ -34,6 +34,21 @@ app.use(
 // PLAYER PAGE
 // ============================================================
 
+// Open the player directly at /
+app.get(
+    '/',
+    (req, res) => {
+
+        res.sendFile(
+            path.join(
+                __dirname,
+                'player.html'
+            )
+        );
+    }
+);
+
+// Open the player at /player
 app.get(
     '/player',
     (req, res) => {
@@ -51,79 +66,95 @@ app.get(
 // CURRENT SONG
 // ============================================================
 
-app.get(
-    '/api/music',
-    (req, res) => {
+function getCurrentMusic(
+    req,
+    res
+) {
 
-        const guildId =
-            req.query.guildId;
+    const guildId =
+        req.query.guildId;
 
-        if (!guildId) {
+    if (!guildId) {
 
-            return res.status(400).json({
+        return res.status(400).json({
 
-                success: false,
+            success: false,
 
-                error:
-                    'Missing guildId.'
-            });
-        }
+            error:
+                'Missing guildId.'
+        });
+    }
 
-        const song =
-            music.getCurrentSong(
-                guildId
-            );
+    const song =
+        music.getCurrentSong(
+            guildId
+        );
 
-        const state =
-            music.getState(
-                guildId
-            );
+    const state =
+        music.getState(
+            guildId
+        );
 
-        if (!song) {
-
-            return res.json({
-
-                success: true,
-
-                song: null,
-
-                state
-            });
-        }
+    if (!song) {
 
         return res.json({
 
             success: true,
 
-            song: {
-
-                id:
-                    song.id ||
-                    null,
-
-                title:
-                    song.title ||
-                    song.query ||
-                    'Unknown song',
-
-                artist:
-                    song.artist ||
-                    'Unknown artist',
-
-                url:
-                    song.url ||
-                    null,
-
-                artwork:
-                    song.track
-                        ?.artwork
-                        ?.['150x150'] ||
-                    null
-            },
+            song: null,
 
             state
         });
     }
+
+    return res.json({
+
+        success: true,
+
+        song: {
+
+            id:
+                song.id ||
+                null,
+
+            title:
+                song.title ||
+                song.query ||
+                'Unknown song',
+
+            artist:
+                song.artist ||
+                'Unknown artist',
+
+            url:
+                song.url ||
+                null,
+
+            artwork:
+                song.track
+                    ?.artwork
+                    ?.['150x150'] ||
+                null
+        },
+
+        state
+    });
+}
+
+// ============================================================
+// CURRENT SONG
+// ============================================================
+
+// Keep both routes so older versions of the player work too.
+
+app.get(
+    '/api/music',
+    getCurrentMusic
+);
+
+app.get(
+    '/api/music/current',
+    getCurrentMusic
 );
 
 // ============================================================
@@ -218,6 +249,17 @@ app.post(
                 guildId
             } = req.body;
 
+            if (!guildId) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        'Missing guildId.'
+                });
+            }
+
             const result =
                 await music.pause({
 
@@ -260,6 +302,17 @@ app.post(
                 guildId
             } = req.body;
 
+            if (!guildId) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        'Missing guildId.'
+                });
+            }
+
             const result =
                 await music.resume({
 
@@ -301,6 +354,17 @@ app.post(
             const {
                 guildId
             } = req.body;
+
+            if (!guildId) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        'Missing guildId.'
+                });
+            }
 
             const result =
                 await music.stop({
