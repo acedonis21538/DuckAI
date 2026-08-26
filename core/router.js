@@ -9,9 +9,7 @@ const capabilities =
 // EXTRACT MUSIC QUERY
 // ============================================================
 
-function extractMusicQuery(
-    content
-) {
+function extractMusicQuery(content) {
 
     let query =
         String(
@@ -29,7 +27,7 @@ function extractMusicQuery(
         ).trim();
 
     // ========================================================
-    // REMOVE DUCKAI NAME / TEXT MENTION
+    // REMOVE DUCKAI NAME
     // ========================================================
 
     query =
@@ -97,9 +95,7 @@ function extractMusicQuery(
 // MUSIC
 // ============================================================
 
-async function executeMusic(
-    message
-) {
+async function executeMusic(message) {
 
     const music =
         capabilities.getCapability(
@@ -109,7 +105,6 @@ async function executeMusic(
     if (!music) {
 
         return {
-
             response:
                 '🦆 Music capability is unavailable.',
 
@@ -135,7 +130,6 @@ async function executeMusic(
     if (!query) {
 
         return {
-
             response:
                 music.responses.getResponse(
                     'play',
@@ -148,7 +142,7 @@ async function executeMusic(
     }
 
     // ========================================================
-    // AUDIUS SEARCH
+    // SEARCH
     // ========================================================
 
     const result =
@@ -194,9 +188,38 @@ async function executeMusic(
     ) {
 
         return {
-
             response:
                 '🎵 Hmm, não consegui encontrar essa.',
+
+            file:
+                null
+        };
+    }
+
+    // ========================================================
+    // SAVE SONG
+    // ========================================================
+
+    const saved =
+        music.setSong({
+
+            guildId:
+                message.guildId,
+
+            query,
+
+            url:
+                result.url,
+
+            track:
+                result.track
+        });
+
+    if (!saved.success) {
+
+        return {
+            response:
+                '🦆 Não consegui preparar essa música.',
 
             file:
                 null
@@ -207,95 +230,22 @@ async function executeMusic(
     // TRACK INFO
     // ========================================================
 
-    const title =
-        result.track?.title ||
-        query;
-
-    const artist =
-        result.track?.user?.name ||
-        'Artista desconhecido';
-
-    // ========================================================
-    // NO VOICE CHANNEL
-    // ========================================================
-
-    if (
-        !message.member?.voice?.channel
-    ) {
-
-        console.log(
-            '🎵 No voice channel — sending track instead of playing.'
-        );
-
-        return {
-
-            response:
-                `🎵 Encontrei **${title}** — ${artist}\n${result.url}`,
-
-            file:
-                null
-        };
-    }
-
-    // ========================================================
-    // PLAY IN VOICE
-    // ========================================================
+    const song =
+        saved.song;
 
     console.log(
-        `🎵 PLAY START: ${title}`
+        `🎵 MUSIC READY: ${song.title} — ${song.artist}`
     );
 
-    const playback =
-        await music.play({
-
-            query,
-
-            url:
-                result.url,
-
-            track:
-                result.track,
-
-            message
-        });
-
     // ========================================================
-    // PLAY FAILED
+    // DO NOT SEND URL
     // ========================================================
-
-    if (
-        !playback ||
-        !playback.success
-    ) {
-
-        return {
-
-            response:
-                playback?.message ||
-                '🦆 Não consegui reproduzir essa música.',
-
-            file:
-                null
-        };
-    }
-
-    // ========================================================
-    // SUCCESS
-    // ========================================================
-
-    const song =
-        playback.song ||
-        result.track;
 
     return {
 
         response:
-            `🎶 A tocar **${song?.title || query}**` +
-            (
-                song?.artist
-                    ? ` — ${song.artist}`
-                    : ''
-            ),
+            `🎵 **${song.title}** — ${song.artist}\n` +
+            '▶️ Escolhe **Tocar** no painel.',
 
         file:
             null
@@ -306,9 +256,7 @@ async function executeMusic(
 // DETECT MUSIC
 // ============================================================
 
-function isMusicRequest(
-    content
-) {
+function isMusicRequest(content) {
 
     const text =
         String(
@@ -331,9 +279,7 @@ function isMusicRequest(
 // ROUTE
 // ============================================================
 
-async function route(
-    message
-) {
+async function route(message) {
 
     if (!message) {
 
@@ -343,6 +289,9 @@ async function route(
                 'none',
 
             response:
+                null,
+
+            file:
                 null
         };
     }
@@ -379,7 +328,7 @@ async function route(
     }
 
     // ========================================================
-    // NO CAPABILITY
+    // AI
     // ========================================================
 
     return {
@@ -388,6 +337,9 @@ async function route(
             'ai',
 
         response:
+            null,
+
+        file:
             null
     };
 }

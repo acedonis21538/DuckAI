@@ -2,437 +2,148 @@
 // DUCKAI MUSIC PLAYER
 // ============================================================
 
-const {
-    joinVoiceChannel,
-    createAudioPlayer,
-    createAudioResource,
-    NoSubscriberBehavior,
-    StreamType
-} = require('@discordjs/voice');
-
-const {
-    Readable
-} = require('stream');
-
 // ============================================================
 // SERVER STATE
 // ============================================================
 
-const players =
-    new Map();
-
-const connections =
-    new Map();
-
 const songs =
     new Map();
 
-// ============================================================
-// GET PLAYER
-// ============================================================
-
-function getPlayer(guildId) {
-
-    if (!guildId) {
-        return null;
-    }
-
-    if (!players.has(guildId)) {
-
-        const player =
-            createAudioPlayer({
-                behaviors: {
-                    noSubscriber:
-                        NoSubscriberBehavior.Pause
-                }
-            });
-
-        players.set(
-            guildId,
-            player
-        );
-    }
-
-    return players.get(
-        guildId
-    );
-}
+const states =
+    new Map();
 
 // ============================================================
-// CONNECT TO VOICE
+// SET SONG
 // ============================================================
 
-function connectToVoice(
-    message
-) {
+function setSong(data = {}) {
 
-    if (
-        !message?.guild ||
-        !message.member?.voice?.channel
-    ) {
+    const {
+        guildId,
+        query,
+        url,
+        track
+    } = data;
+
+    if (!guildId || !url) {
 
         return {
-            success: false,
-
-            message:
-                '🦆 Entra primeiro num canal de voz.'
+            success: false
         };
     }
 
-    const channel =
-        message.member.voice.channel;
+    const song = {
 
-    const guildId =
-        message.guild.id;
+        query,
 
-    let connection =
-        connections.get(
-            guildId
-        );
+        id:
+            track?.id ||
+            null,
 
-    if (!connection) {
+        title:
+            track?.title ||
+            query,
 
-        connection =
-            joinVoiceChannel({
+        artist:
+            track?.user?.name ||
+            'Artista desconhecido',
 
-                channelId:
-                    channel.id,
+        url,
 
-                guildId,
+        track
+    };
 
-                adapterCreator:
-                    message.guild
-                        .voiceAdapterCreator
-            });
+    songs.set(
+        guildId,
+        song
+    );
 
-        connections.set(
-            guildId,
-            connection
-        );
-
-        connection.subscribe(
-            getPlayer(
-                guildId
-            )
-        );
-    }
+    states.set(
+        guildId,
+        'stopped'
+    );
 
     return {
+
         success: true,
-        connection
+
+        song
     };
-}
-
-// ============================================================
-// GET AUDIO STREAM
-// ============================================================
-
-async function getAudioStream(
-    url
-) {
-
-    if (
-        typeof url !== 'string' ||
-        !url.trim()
-    ) {
-
-        throw new Error(
-            'Invalid audio URL.'
-        );
-    }
-
-    console.log(
-        '🎵 STREAM: fetching Audius URL...'
-    );
-
-    const response =
-        await fetch(url);
-
-    console.log(
-        '🎵 STREAM: response status:',
-        response.status
-    );
-
-    if (!response.ok) {
-
-        throw new Error(
-            `Audio stream failed (${response.status}).`
-        );
-    }
-
-    if (!response.body) {
-
-        throw new Error(
-            'Audio stream has no body.'
-        );
-    }
-
-    console.log(
-        '✅ STREAM: response body received'
-    );
-
-    return Readable.fromWeb(
-        response.body
-    );
 }
 
 // ============================================================
 // PLAY
 // ============================================================
 
-async function play(
-    data = {}
-) {
-
-    const {
-        query,
-        url,
-        track,
-        message
-    } = data;
-
-    console.log(
-        '🎵 PLAY START:',
-        JSON.stringify({
-            query,
-            hasUrl:
-                Boolean(url),
-            guildId:
-                message?.guildId,
-            track:
-                track?.title ||
-                null
-        })
-    );
-
-    if (!message?.guildId) {
-
-        return {
-            success: false,
-            action: 'play',
-            message:
-                'No Discord server provided.'
-        };
-    }
-
-    if (!query) {
-
-        return {
-            success: false,
-            action: 'play',
-            message:
-                'No music query provided.'
-        };
-    }
-
-    if (!url) {
-
-        return {
-            success: false,
-            action: 'play',
-            message:
-                'No audio URL provided.'
-        };
-    }
+async function play(data = {}) {
 
     const guildId =
-        message.guildId;
+        data.guildId ||
+        data.message?.guildId;
 
-    try {
+    if (!guildId) {
 
-        // ----------------------------------------------------
-        // CONNECT
-        // ----------------------------------------------------
+        return {
 
-        console.log(
-            '🎵 PLAY 1: connecting to voice...'
+            success: false,
+
+            action: 'play',
+
+            message:
+                'Servidor inválido.'
+        };
+    }
+
+    let song =
+        songs.get(
+            guildId
         );
 
-        const voice =
-            connectToVoice(
-                message
-            );
+    // ========================================================
+    // SAVE SONG IF PROVIDED
+    // ========================================================
 
-        if (!voice.success) {
+    if (
+        !song &&
+        data.url
+    ) {
 
-            console.log(
-                '❌ PLAY 1 FAILED:',
-                voice.message
-            );
+        const result =
+            setSong({
+
+                guildId,
+
+                query:
+                    data.query,
+
+                url:
+                    data.url,
+
+                track:
+                    data.track
+            });
+
+        if (
+            !result.success
+        ) {
 
             return {
+
                 success: false,
-                action: 'play',
-                message:
-                    voice.message
+
+                action: 'play'
             };
         }
 
-        console.log(
-            '✅ PLAY 1: connected to voice'
-        );
+        song =
+            result.song;
+    }
 
-        // ----------------------------------------------------
-        // STOP CURRENT SONG
-        // ----------------------------------------------------
+    // ========================================================
+    // NO SONG
+    // ========================================================
 
-        console.log(
-            '🎵 PLAY 2: stopping current song...'
-        );
-
-        await stop({
-            guildId
-        });
-
-        console.log(
-            '✅ PLAY 2: stopped'
-        );
-
-        // ----------------------------------------------------
-        // GET STREAM
-        // ----------------------------------------------------
-
-        console.log(
-            '🎵 PLAY 3: requesting Audius stream...'
-        );
-
-        const stream =
-            await getAudioStream(
-                url
-            );
-
-        console.log(
-            '✅ PLAY 3: Audius stream received'
-        );
-
-        // ----------------------------------------------------
-        // PLAYER
-        // ----------------------------------------------------
-
-        console.log(
-            '🎵 PLAY 4: getting player...'
-        );
-
-        const player =
-            getPlayer(
-                guildId
-            );
-
-        if (!player) {
-
-            throw new Error(
-                'Audio player could not be created.'
-            );
-        }
-
-        console.log(
-            '✅ PLAY 4: player ready'
-        );
-
-        // ----------------------------------------------------
-        // RESOURCE
-        // ----------------------------------------------------
-
-        console.log(
-            '🎵 PLAY 5: creating audio resource...'
-        );
-
-        const resource =
-            createAudioResource(
-                stream,
-                {
-                    inputType:
-                        StreamType.Arbitrary
-                }
-            );
-
-        console.log(
-            '✅ PLAY 5: resource created'
-        );
-
-        // ----------------------------------------------------
-        // PLAY
-        // ----------------------------------------------------
-
-        console.log(
-            '🎵 PLAY 6: calling player.play()...'
-        );
-
-        player.play(
-            resource
-        );
-
-        console.log(
-            '✅ PLAY 6: player.play() called'
-        );
-
-        // ----------------------------------------------------
-        // SONG
-        // ----------------------------------------------------
-
-        const song = {
-
-            query,
-
-            id:
-                track?.id ||
-                null,
-
-            title:
-                track?.title ||
-                query,
-
-            artist:
-                track?.user?.name ||
-                'Unknown artist',
-
-            url,
-
-            track
-        };
-
-        songs.set(
-            guildId,
-            song
-        );
-
-        console.log(
-            `🎶 Playing: ${song.title}`
-        );
-
-        return {
-
-            success: true,
-
-            action: 'play',
-
-            song
-        };
-
-    } catch (error) {
-
-        console.error(
-            '❌ MUSIC PLAYBACK ERROR'
-        );
-
-        console.error(
-            'Name:',
-            error?.name
-        );
-
-        console.error(
-            'Message:',
-            error?.message
-        );
-
-        console.error(
-            'Stack:',
-            error?.stack
-        );
-
-        await stop({
-            guildId
-        });
+    if (!song) {
 
         return {
 
@@ -441,39 +152,69 @@ async function play(
             action: 'play',
 
             message:
-                '🦆 Não consegui reproduzir essa música.'
+                '🎵 Nenhuma música selecionada.'
         };
     }
+
+    // ========================================================
+    // PLAY STATE
+    // ========================================================
+
+    states.set(
+        guildId,
+        'playing'
+    );
+
+    console.log(
+        `🎵 PLAY: ${song.title}`
+    );
+
+    return {
+
+        success: true,
+
+        action: 'play',
+
+        song
+    };
 }
 
 // ============================================================
 // PAUSE
 // ============================================================
 
-async function pause(
-    data = {}
-) {
+async function pause(data = {}) {
 
-    const player =
-        getPlayer(
-            data.guildId
-        );
+    const guildId =
+        data.guildId;
 
-    if (!player) {
+    if (
+        !guildId ||
+        !songs.has(guildId)
+    ) {
 
         return {
+
             success: false,
+
             action: 'pause'
         };
     }
 
+    states.set(
+        guildId,
+        'paused'
+    );
+
+    console.log(
+        `⏸️ PAUSE: ${guildId}`
+    );
+
     return {
 
-        success:
-            player.pause(),
+        success: true,
 
-        action:
-            'pause'
+        action: 'pause'
     };
 }
 
@@ -481,30 +222,38 @@ async function pause(
 // RESUME
 // ============================================================
 
-async function resume(
-    data = {}
-) {
+async function resume(data = {}) {
 
-    const player =
-        getPlayer(
-            data.guildId
-        );
+    const guildId =
+        data.guildId;
 
-    if (!player) {
+    if (
+        !guildId ||
+        !songs.has(guildId)
+    ) {
 
         return {
+
             success: false,
+
             action: 'resume'
         };
     }
 
+    states.set(
+        guildId,
+        'playing'
+    );
+
+    console.log(
+        `▶️ RESUME: ${guildId}`
+    );
+
     return {
 
-        success:
-            player.unpause(),
+        success: true,
 
-        action:
-            'resume'
+        action: 'resume'
     };
 }
 
@@ -512,9 +261,7 @@ async function resume(
 // STOP
 // ============================================================
 
-async function stop(
-    data = {}
-) {
+async function stop(data = {}) {
 
     const guildId =
         data.guildId;
@@ -522,23 +269,32 @@ async function stop(
     if (!guildId) {
 
         return {
+
             success: false,
+
             action: 'stop'
         };
     }
 
-    const player =
-        players.get(
-            guildId
-        );
+    if (
+        !songs.has(guildId)
+    ) {
 
-    if (player) {
+        return {
 
-        player.stop();
+            success: false,
+
+            action: 'stop'
+        };
     }
 
-    songs.delete(
-        guildId
+    states.set(
+        guildId,
+        'stopped'
+    );
+
+    console.log(
+        `⏹️ STOP: ${guildId}`
     );
 
     return {
@@ -553,16 +309,45 @@ async function stop(
 // SKIP
 // ============================================================
 
-async function skip(
-    data = {}
-) {
+async function skip(data = {}) {
 
     const guildId =
         data.guildId;
 
-    await stop({
+    if (!guildId) {
+
+        return {
+
+            success: false,
+
+            action: 'skip'
+        };
+    }
+
+    if (
+        !songs.has(guildId)
+    ) {
+
+        return {
+
+            success: false,
+
+            action: 'skip'
+        };
+    }
+
+    states.set(
+        guildId,
+        'stopped'
+    );
+
+    songs.delete(
         guildId
-    });
+    );
+
+    console.log(
+        `⏭️ SKIP: ${guildId}`
+    );
 
     return {
 
@@ -576,14 +361,13 @@ async function skip(
 // CURRENT SONG
 // ============================================================
 
-function getCurrentSong(
-    guildId
-) {
+function getCurrentSong(guildId) {
 
     return (
         songs.get(
             guildId
-        ) || null
+        ) ||
+        null
     );
 }
 
@@ -597,15 +381,27 @@ function getCurrentFile() {
 }
 
 // ============================================================
+// STATE
+// ============================================================
+
+function getState(guildId) {
+
+    return (
+        states.get(
+            guildId
+        ) ||
+        'stopped'
+    );
+}
+
+// ============================================================
 // HAS CURRENT SONG
 // ============================================================
 
-function hasCurrentSong(
-    guildId
-) {
+function hasCurrentSong(guildId) {
 
     return Boolean(
-        getCurrentSong(
+        songs.get(
             guildId
         )
     );
@@ -616,6 +412,8 @@ function hasCurrentSong(
 // ============================================================
 
 module.exports = {
+
+    setSong,
 
     play,
 
@@ -631,7 +429,7 @@ module.exports = {
 
     getCurrentFile,
 
-    hasCurrentSong,
+    getState,
 
-    connectToVoice
+    hasCurrentSong
 };

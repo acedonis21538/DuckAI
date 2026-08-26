@@ -20,7 +20,9 @@ const responses =
 
 module.exports = {
 
+    // ========================================================
     // SOURCE
+    // ========================================================
 
     source,
 
@@ -36,7 +38,9 @@ module.exports = {
     findTrack:
         source.findTrack,
 
+    // ========================================================
     // PLAYER
+    // ========================================================
 
     play:
         player.play,
@@ -62,13 +66,18 @@ module.exports = {
     hasCurrentSong:
         player.hasCurrentSong,
 
+    setSong:
+        player.setSong,
+
     downloadAudio:
         player.downloadAudio,
 
     connectToVoice:
         player.connectToVoice,
 
+    // ========================================================
     // QUEUE
+    // ========================================================
 
     getQueue:
         queue.getQueue,
@@ -88,7 +97,9 @@ module.exports = {
     getQueueSize:
         queue.getQueueSize,
 
+    // ========================================================
     // RESPONSES
+    // ========================================================
 
     responses,
 

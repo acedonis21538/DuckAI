@@ -3,7 +3,6 @@
 // ============================================================
 
 const {
-    getConversationKey,
     startConversation,
     endConversation,
     isConversationActive
@@ -12,13 +11,18 @@ const {
 const router =
     require('../core/router');
 
+const musicPanel =
+    require('../capabilities/music/panel');
+
 // ============================================================
 // HANDLE MESSAGE
 // ============================================================
 
 async function handleMessage(message) {
 
-    if (message.author.bot) {
+    if (
+        message.author.bot
+    ) {
         return;
     }
 
@@ -40,15 +44,29 @@ async function handleMessage(message) {
         mentioned ||
         saysDuckAI
     ) {
+
+        // Don't intercept music requests.
+        const isMusic =
+            router.isMusicRequest(
+                message.content
+            );
+
+        if (!isMusic) {
+
+            startConversation(
+                message
+            );
+
+            await message.reply(
+                '🦆 Heyyy! DuckAI is here 🤍'
+            );
+
+            return;
+        }
+
         startConversation(
             message
         );
-
-        await message.reply(
-            '🦆 Heyyy! DuckAI is here 🤍'
-        );
-
-        return;
     }
 
     // ========================================================
@@ -58,6 +76,9 @@ async function handleMessage(message) {
     if (
         !isConversationActive(
             message
+        ) &&
+        !router.isMusicRequest(
+            message.content
         )
     ) {
         return;
@@ -98,6 +119,7 @@ async function handleMessage(message) {
             text
         )
     ) {
+
         endConversation(
             message
         );
@@ -129,9 +151,45 @@ async function handleMessage(message) {
             return;
         }
 
-        if (result.file) {
+        // ====================================================
+        // MUSIC
+        // ====================================================
+
+        if (
+            result.type === 'capability' &&
+            result.capability === 'music'
+        ) {
+
+            const panel =
+                musicPanel.buildMusicPanel(
+                    message.guildId
+                );
 
             await message.reply({
+
+                content:
+                    result.response,
+
+                embeds:
+                    panel.embeds,
+
+                components:
+                    panel.components
+            });
+
+            return;
+        }
+
+        // ====================================================
+        // FILE RESPONSE
+        // ====================================================
+
+        if (
+            result.file
+        ) {
+
+            await message.reply({
+
                 content:
                     result.response,
 
@@ -140,12 +198,16 @@ async function handleMessage(message) {
                 ]
             });
 
-        } else {
-
-            await message.reply(
-                result.response
-            );
+            return;
         }
+
+        // ====================================================
+        // NORMAL RESPONSE
+        // ====================================================
+
+        await message.reply(
+            result.response
+        );
 
     } catch (error) {
 
