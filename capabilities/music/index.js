@@ -63,11 +63,11 @@ module.exports = {
     getCurrentFile:
         player.getCurrentFile,
 
+    getState:
+        player.getState,
+
     hasCurrentSong:
         player.hasCurrentSong,
-
-    setSong:
-        player.setSong,
 
     downloadAudio:
         player.downloadAudio,
