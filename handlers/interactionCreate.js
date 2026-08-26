@@ -1,4 +1,3 @@
-```js
 // ============================================================
 // DUCKAI INTERACTION HANDLER
 // ============================================================
@@ -13,7 +12,9 @@ const panel =
 // HANDLE
 // ============================================================
 
-async function handleInteraction(interaction) {
+async function handleInteraction(
+    interaction
+) {
 
     if (
         !interaction.isButton()
@@ -22,7 +23,9 @@ async function handleInteraction(interaction) {
     }
 
     if (
-        !interaction.customId.startsWith('music_')
+        !interaction.customId.startsWith(
+            'music_'
+        )
     ) {
         return;
     }
@@ -35,9 +38,12 @@ async function handleInteraction(interaction) {
         if (!guildId) {
 
             await interaction.reply({
+
                 content:
-                    '🦆 Este controlo só funciona num servidor.',
-                ephemeral: true
+                    '🦆 This control only works inside a server.',
+
+                ephemeral:
+                    true
             });
 
             return;
@@ -62,9 +68,12 @@ async function handleInteraction(interaction) {
             if (!song?.url) {
 
                 await interaction.reply({
+
                     content:
-                        '🎵 Não há nenhuma música selecionada.',
-                    ephemeral: true
+                        '🎵 There is no song selected.',
+
+                    ephemeral:
+                        true
                 });
 
                 return;
@@ -97,6 +106,7 @@ async function handleInteraction(interaction) {
 
             result =
                 await music.pause({
+
                     guildId
                 });
         }
@@ -112,6 +122,7 @@ async function handleInteraction(interaction) {
 
             result =
                 await music.resume({
+
                     guildId
                 });
         }
@@ -127,6 +138,7 @@ async function handleInteraction(interaction) {
 
             result =
                 await music.skip({
+
                     guildId
                 });
         }
@@ -142,11 +154,13 @@ async function handleInteraction(interaction) {
 
             result =
                 await music.stop({
+
                     guildId
                 });
         }
 
         else {
+
             return;
         }
 
@@ -154,19 +168,76 @@ async function handleInteraction(interaction) {
         // RESPONSE
         // ====================================================
 
-        const response =
-            music.responses.getResponse(
-                result.action,
-                result.success
-            );
+        let response;
+
+        if (
+            result?.success
+        ) {
+
+            switch (
+                result.action
+            ) {
+
+                case 'play':
+
+                    response =
+                        '▶️ Playing the selected song.';
+
+                    break;
+
+                case 'pause':
+
+                    response =
+                        '⏸️ Music paused.';
+
+                    break;
+
+                case 'resume':
+
+                    response =
+                        '▶️ Music resumed.';
+
+                    break;
+
+                case 'skip':
+
+                    response =
+                        '⏭️ Song skipped.';
+
+                    break;
+
+                case 'stop':
+
+                    response =
+                        '⏹️ Music stopped.';
+
+                    break;
+
+                default:
+
+                    response =
+                        '🦆 Done.';
+
+                    break;
+            }
+
+        } else {
+
+            response =
+                '🦆 I could not perform that action.';
+        }
+
+        // ====================================================
+        // SEND INTERACTION RESPONSE
+        // ====================================================
 
         await interaction.reply({
 
             content:
-                response ||
-                '🦆 Feito!',
+                response,
 
-            ephemeral: true
+            ephemeral:
+                true
         });
 
         // ====================================================
@@ -174,7 +245,7 @@ async function handleInteraction(interaction) {
         // ====================================================
 
         if (
-            result.success &&
+            result?.success &&
             interaction.message
         ) {
 
@@ -185,7 +256,13 @@ async function handleInteraction(interaction) {
                     )
                 )
                 .catch(
-                    () => {}
+                    error => {
+
+                        console.error(
+                            '⚠️ Could not update music panel:',
+                            error
+                        );
+                    }
                 );
         }
 
@@ -199,9 +276,10 @@ async function handleInteraction(interaction) {
         const response = {
 
             content:
-                '🦆 Ocorreu um erro ao controlar a música.',
+                '🦆 Something went wrong while controlling the music.',
 
-            ephemeral: true
+            ephemeral:
+                true
         };
 
         if (
@@ -229,4 +307,3 @@ async function handleInteraction(interaction) {
 module.exports = {
     handleInteraction
 };
-```

@@ -13,6 +13,14 @@ const music =
     require('./index');
 
 // ============================================================
+// PLAYER URL
+// ============================================================
+
+const PLAYER_URL =
+    process.env.PLAYER_URL ||
+    'http://localhost:3000';
+
+// ============================================================
 // BUILD
 // ============================================================
 
@@ -31,10 +39,10 @@ function buildMusicPanel(guildId) {
                 song
                     ? (
                         `🎵 **${song.title || song.query}**\n` +
-                        `👤 ${song.artist || 'Artista desconhecido'}\n` +
-                        `\n${getStateText(state)}`
+                        `👤 ${song.artist || 'Unknown artist'}\n\n` +
+                        `Status: **${state}**`
                     )
-                    : '🎵 Nenhuma música selecionada.'
+                    : '🎵 No song selected.'
             );
 
     if (
@@ -46,102 +54,110 @@ function buildMusicPanel(guildId) {
         );
     }
 
-    const buttons = [];
+    const row =
+        new ActionRowBuilder();
 
-    if (song) {
+    // ========================================================
+    // OPEN WEB PLAYER
+    // ========================================================
 
-        if (state === 'playing') {
+    if (song?.url) {
 
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId('music_pause')
-                    .setEmoji('⏸️')
-                    .setLabel('Pause')
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
-            );
+        const playerUrl =
+            `${PLAYER_URL.replace(/\/$/, '')}` +
+            `/player?guildId=${encodeURIComponent(guildId)}`;
 
-        } else {
-
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId('music_play')
-                    .setEmoji('▶️')
-                    .setLabel('Tocar')
-                    .setStyle(
-                        ButtonStyle.Success
-                    )
-            );
-        }
-
-        if (state === 'paused') {
-
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId('music_resume')
-                    .setEmoji('▶️')
-                    .setLabel('Resume')
-                    .setStyle(
-                        ButtonStyle.Success
-                    )
-            );
-        }
-
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId('music_skip')
-                .setEmoji('⏭️')
-                .setLabel('Skip')
-                .setStyle(
-                    ButtonStyle.Primary
-                ),
+        row.addComponents(
 
             new ButtonBuilder()
-                .setCustomId('music_stop')
-                .setEmoji('⏹️')
-                .setLabel('Stop')
+                .setLabel('Open Player')
+                .setEmoji('🎵')
                 .setStyle(
-                    ButtonStyle.Danger
+                    ButtonStyle.Link
                 )
+                .setURL(
+                    playerUrl
+                )
+        );
+
+    } else {
+
+        row.addComponents(
+
+            new ButtonBuilder()
+                .setLabel('Open Player')
+                .setEmoji('🎵')
+                .setStyle(
+                    ButtonStyle.Secondary
+                )
+                .setDisabled(true)
         );
     }
 
-    const components = [];
+    // ========================================================
+    // PAUSE
+    // ========================================================
 
-    if (buttons.length) {
+    row.addComponents(
 
-        components.push(
-            new ActionRowBuilder()
-                .addComponents(
-                    buttons
-                )
-        );
-    }
+        new ButtonBuilder()
+            .setCustomId('music_pause')
+            .setEmoji('⏸️')
+            .setLabel('Pause')
+            .setStyle(
+                ButtonStyle.Secondary
+            )
+    );
+
+    // ========================================================
+    // RESUME
+    // ========================================================
+
+    row.addComponents(
+
+        new ButtonBuilder()
+            .setCustomId('music_resume')
+            .setEmoji('▶️')
+            .setLabel('Resume')
+            .setStyle(
+                ButtonStyle.Success
+            )
+    );
+
+    // ========================================================
+    // SKIP
+    // ========================================================
+
+    row.addComponents(
+
+        new ButtonBuilder()
+            .setCustomId('music_skip')
+            .setEmoji('⏭️')
+            .setLabel('Skip')
+            .setStyle(
+                ButtonStyle.Primary
+            )
+    );
+
+    // ========================================================
+    // STOP
+    // ========================================================
+
+    row.addComponents(
+
+        new ButtonBuilder()
+            .setCustomId('music_stop')
+            .setEmoji('⏹️')
+            .setLabel('Stop')
+            .setStyle(
+                ButtonStyle.Danger
+            )
+    );
 
     return {
         embeds: [embed],
-        components
+        components: [row]
     };
-}
-
-// ============================================================
-// STATE TEXT
-// ============================================================
-
-function getStateText(state) {
-
-    switch (state) {
-
-        case 'playing':
-            return '▶️ A tocar';
-
-        case 'paused':
-            return '⏸️ Em pausa';
-
-        default:
-            return '⏹️ Parada';
-    }
 }
 
 // ============================================================

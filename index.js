@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./web/server');
 
 const {
     Client,
@@ -347,6 +348,10 @@ client.on(
     'interactionCreate',
     async interaction => {
 
+        // ========================================================
+        // MUSIC BUTTONS
+        // ========================================================
+
         if (
             interaction.isButton() &&
             interaction.customId.startsWith(
@@ -358,7 +363,7 @@ client.on(
 
                 const musicInteraction =
                     require(
-                        './core/interactionHandler'
+                        './handlers/interactionCreate'
                     );
 
                 await musicInteraction
@@ -408,7 +413,7 @@ client.on(
                 );
 
             // ====================================================
-            // MUSIC CAPABILITY
+            // MUSIC
             // ====================================================
 
             if (
@@ -468,7 +473,7 @@ client.on(
             );
 
             await message.reply(
-                '🦆 Não consegui executar essa capacidade.'
+                '🦆 I could not execute that capability.'
             );
 
             return;

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>DuckAI Music</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: #111;
+            color: #fff;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+        }
+
+        .player {
+            width: min(430px, 92vw);
+
+            padding: 28px;
+
+            border-radius: 24px;
+
+            background: #1c1c1c;
+
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        .artwork {
+            width: 100%;
+            aspect-ratio: 1;
+
+            object-fit: cover;
+
+            border-radius: 18px;
+
+            background: #292929;
+        }
+
+        .title {
+            margin-top: 22px;
+
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .artist {
+            margin-top: 7px;
+
+            color: #aaa;
+
+            font-size: 15px;
+        }
+
+        .status {
+            margin-top: 18px;
+
+            color: #aaa;
+
+            font-size: 13px;
+        }
+
+        audio {
+            width: 100%;
+
+            margin-top: 20px;
+        }
+
+        .buttons {
+            display: flex;
+
+            justify-content: center;
+            gap: 10px;
+
+            margin-top: 18px;
+        }
+
+        button {
+            border: 0;
+
+            padding: 11px 17px;
+
+            border-radius: 12px;
+
+            background: #303030;
+            color: #fff;
+
+            cursor: pointer;
+
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #414141;
+        }
+
+        .empty {
+            text-align: center;
+
+            padding: 50px 10px;
+
+            color: #aaa;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="player">
+
+        <img
+            id="artwork"
+            class="artwork"
+            alt="Album artwork"
+        >
+
+        <div
+            id="title"
+            class="title"
+        >
+            No song selected
+        </div>
+
+        <div
+            id="artist"
+            class="artist"
+        >
+            DuckAI Music
+        </div>
+
+        <div
+            id="status"
+            class="status"
+        >
+            Waiting for a song...
+        </div>
+
+        <audio
+            id="audio"
+            controls
+        ></audio>
+
+        <div class="buttons">
+
+            <button
+                onclick="playAudio()"
+            >
+                ▶️ Play
+            </button>
+
+            <button
+                onclick="pauseAudio()"
+            >
+                ⏸️ Pause
+            </button>
+
+            <button
+                onclick="stopAudio()"
+            >
+                ⏹️ Stop
+            </button>
+
+        </div>
+
+    </div>
+
+<script>
+
+    // ========================================================
+    // GUILD
+    // ========================================================
+
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    const guildId =
+        params.get('guildId');
+
+    // ========================================================
+    // ELEMENTS
+    // ========================================================
+
+    const audio =
+        document.getElementById(
+            'audio'
+        );
+
+    const artwork =
+        document.getElementById(
+            'artwork'
+        );
+
+    const title =
+        document.getElementById(
+            'title'
+        );
+
+    const artist =
+        document.getElementById(
+            'artist'
+        );
+
+    const status =
+        document.getElementById(
+            'status'
+        );
+
+    // ========================================================
+    // LOAD SONG
+    // ========================================================
+
+    async function loadSong() {
+
+        if (!guildId) {
+
+            status.textContent =
+                'Missing server ID.';
+
+            return;
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+                );
+
+            const data =
+                await response.json();
+
+            if (
+                !data.success ||
+                !data.song
+            ) {
+
+                title.textContent =
+                    'No song selected';
+
+                artist.textContent =
+                    'DuckAI Music';
+
+                status.textContent =
+                    'Waiting for a song...';
+
+                return;
+            }
+
+            const song =
+                data.song;
+
+            title.textContent =
+                song.title ||
+                'Unknown title';
+
+            artist.textContent =
+                song.artist ||
+                'Unknown artist';
+
+            if (
+                song.artwork
+            ) {
+
+                artwork.src =
+                    song.artwork;
+
+            } else {
+
+                artwork.removeAttribute(
+                    'src'
+                );
+            }
+
+            if (
+                audio.src !==
+                song.url
+            ) {
+
+                audio.src =
+                    song.url;
+
+                audio.load();
+            }
+
+            status.textContent =
+                `Ready • ${data.state}`;
+
+        } catch (error) {
+
+            console.error(
+                error
+            );
+
+            status.textContent =
+                'Unable to load the song.';
+        }
+    }
+
+    // ========================================================
+    // PLAY
+    // ========================================================
+
+    async function playAudio() {
+
+        try {
+
+            await audio.play();
+
+            status.textContent =
+                'Playing';
+
+        } catch (error) {
+
+            console.error(
+                error
+            );
+
+            status.textContent =
+                'Playback was blocked by the browser.';
+        }
+    }
+
+    // ========================================================
+    // PAUSE
+    // ========================================================
+
+    function pauseAudio() {
+
+        audio.pause();
+
+        status.textContent =
+            'Paused';
+    }
+
+    // ========================================================
+    // STOP
+    // ========================================================
+
+    function stopAudio() {
+
+        audio.pause();
+
+        audio.currentTime = 0;
+
+        status.textContent =
+            'Stopped';
+    }
+
+    // ========================================================
+    // EVENTS
+    // ========================================================
+
+    audio.addEventListener(
+        'play',
+        () => {
+
+            status.textContent =
+                'Playing';
+        }
+    );
+
+    audio.addEventListener(
+        'pause',
+        () => {
+
+            if (
+                audio.currentTime > 0 &&
+                !audio.ended
+            ) {
+
+                status.textContent =
+                    'Paused';
+            }
+        }
+    );
+
+    audio.addEventListener(
+        'ended',
+        () => {
+
+            status.textContent =
+                'Finished';
+        }
+    );
+
+    // ========================================================
+    // INITIAL LOAD
+    // ========================================================
+
+    loadSong();
+
+    // ========================================================
+    // CHECK FOR NEW SONG
+    // ========================================================
+
+    setInterval(
+        loadSong,
+        5000
+    );
+
+</script>
+
+</body>
+
+</html>
