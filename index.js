@@ -1,35 +1,38 @@
 // ============================================================
-// DUCKAI — CORE INDEX
+// DUCKAI — PERMANENT CORE INDEX
 // ============================================================
-// Núcleo permanente do DuckAI.
 //
-// FLUXO:
+// This file is the permanent DuckAI core.
+//
+// FLOW:
 //
 // MESSAGE
 //   ↓
 // ROUTER
 //   ↓
 // ┌──────────────────────────────────────────────┐
-// │ Capability encontrada?                      │
+// │ Capability handled the message?             │
 // │                                              │
-// │ SIM  → Capability → resposta → STOP         │
+// │ YES → capability response → STOP            │
 // │                                              │
-// │ NÃO  → Conversation / Brain → resposta      │
+// │ NO  → Brain → response                      │
 // └──────────────────────────────────────────────┘
 //
-// REGRAS:
+// RULES:
 //
-// • Este ficheiro NÃO conhece capabilities específicas.
-// • Este ficheiro NÃO importa music.js.
-// • Este ficheiro NÃO importa panels.
-// • Este ficheiro NÃO importa interaction handlers.
-// • Este ficheiro NÃO inicia o Web Player.
-// • Novas capabilities não exigem alterações aqui.
-// • Apenas UM listener messageCreate existe neste núcleo.
-// • Uma mensagem recebe UMA única resposta lógica.
-// • Capability tem prioridade sobre o Brain.
-// • Se não houver capability, o Brain responde imediatamente
-//   quando a conversa estiver ativa ou for ativada.
+// • This file knows NOTHING about specific capabilities.
+// • This file never imports music, images, search, panels, etc.
+// • This file never executes capabilities directly.
+// • The router is always checked first.
+// • A capability always has priority over the Brain.
+// • If no capability handles the message, the Brain responds.
+// • A message receives at most ONE response from DuckAI.
+// • Router errors do NOT generate fake capability responses.
+// • Brain errors do NOT retry the message.
+// • Memory updates happen in the background.
+// • Conversation history is managed here.
+// • New capabilities should require NO changes to this file.
+//
 // ============================================================
 
 require('dotenv').config();
@@ -74,7 +77,7 @@ if (!TOKEN) {
 }
 
 // ============================================================
-// CLIENT
+// DISCORD CLIENT
 // ============================================================
 
 const client =
@@ -98,14 +101,30 @@ const client =
     });
 
 // ============================================================
-// CONVERSATION STATE
+// CONVERSATIONS
 // ============================================================
+//
+// Each channel/user pair has its own conversation.
+//
+// This prevents users from sharing conversation history.
+//
 
 const conversations =
     new Set();
 
 const histories =
     new Map();
+
+// ============================================================
+// CONFIG
+// ============================================================
+
+const MAX_HISTORY_MESSAGES =
+    Number.isInteger(
+        brain.MAX_HISTORY_MESSAGES
+    )
+        ? brain.MAX_HISTORY_MESSAGES
+        : 50;
 
 // ============================================================
 // CONVERSATION KEY
@@ -154,6 +173,7 @@ function mentionsDuckAI(
     if (
         !client.user
     ) {
+
         return false;
     }
 
@@ -194,6 +214,7 @@ function isGoodbye(
 
         'bye',
         'bye bye',
+
         'ok bye',
         'okay bye',
         'ok bye bye',
@@ -226,88 +247,87 @@ function isGoodbye(
 }
 
 // ============================================================
-// CAPABILITY LIST
+// CAPABILITIES
 // ============================================================
-// O Brain pode receber informação sobre as capabilities
-// disponíveis sem o index conhecer nenhuma delas.
 //
-// O router pode opcionalmente expor:
+// The index does not know what capabilities exist.
 //
-// router.getCapabilities()
+// If the router exposes getCapabilities(), the Brain can be
+// informed about them.
 //
-// Caso não exponha essa função, o Brain simplesmente recebe
-// uma lista vazia.
+// This is informational only.
 //
-// ============================================================
+// The Brain NEVER executes a capability itself.
+//
 
 function getCapabilities() {
 
     try {
 
         if (
-            typeof router.getCapabilities ===
+            typeof router.getCapabilities !==
             'function'
         ) {
 
-            const capabilities =
-                router.getCapabilities();
-
-            if (
-                !Array.isArray(
-                    capabilities
-                )
-            ) {
-
-                return [];
-            }
-
-            return capabilities
-                .map(
-                    capability => {
-
-                        if (
-                            typeof capability ===
-                            'string'
-                        ) {
-
-                            return capability;
-                        }
-
-                        if (
-                            capability?.name
-                        ) {
-
-                            return capability.name;
-                        }
-
-                        if (
-                            capability?.capability
-                        ) {
-
-                            return capability.capability;
-                        }
-
-                        if (
-                            capability?.module?.name
-                        ) {
-
-                            return capability.module.name;
-                        }
-
-                        if (
-                            capability?.module?.capability
-                        ) {
-
-                            return capability.module.capability;
-                        }
-
-                        return null;
-                    }
-                )
-                .filter(
-                    Boolean
-                );
+            return [];
         }
+
+        const result =
+            router.getCapabilities();
+
+        if (
+            !Array.isArray(result)
+        ) {
+
+            return [];
+        }
+
+        return result
+            .map(
+                capability => {
+
+                    if (
+                        typeof capability ===
+                        'string'
+                    ) {
+
+                        return capability;
+                    }
+
+                    if (
+                        capability?.name
+                    ) {
+
+                        return capability.name;
+                    }
+
+                    if (
+                        capability?.capability
+                    ) {
+
+                        return capability.capability;
+                    }
+
+                    if (
+                        capability?.module?.name
+                    ) {
+
+                        return capability.module.name;
+                    }
+
+                    if (
+                        capability?.module?.capability
+                    ) {
+
+                        return capability.module.capability;
+                    }
+
+                    return null;
+                }
+            )
+            .filter(
+                Boolean
+            );
 
     } catch (error) {
 
@@ -315,14 +335,18 @@ function getCapabilities() {
             '⚠️ Could not read capabilities:',
             error
         );
-    }
 
-    return [];
+        return [];
+    }
 }
 
 // ============================================================
 // SAFE REPLY
 // ============================================================
+//
+// Prevents empty replies and avoids attempting to reply twice
+// to the same interaction/message flow.
+//
 
 async function safeReply(
     message,
@@ -330,63 +354,76 @@ async function safeReply(
 ) {
 
     if (
-        !content
+        typeof content !==
+        'string'
     ) {
 
-        return;
+        return false;
     }
 
-    await message.reply(
-        content
-    );
+    const text =
+        content.trim();
+
+    if (
+        !text
+    ) {
+
+        return false;
+    }
+
+    try {
+
+        await message.reply(
+            text
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            '❌ Failed to send reply:',
+            error
+        );
+
+        return false;
+    }
 }
 
 // ============================================================
-// ROUTER
+// ROUTER EXECUTION
 // ============================================================
 //
-// O router tem prioridade absoluta.
+// The router is the universal dispatcher.
 //
-// Possíveis resultados:
+// IMPORTANT:
 //
-// {
-//     type: 'capability',
-//     capability: 'music',
-//     response: '...'
-// }
+// A router failure is NOT converted into:
+// "I could not execute that capability."
 //
-// ou:
+// Instead, the message falls through to the Brain.
 //
-// {
-//     type: 'conversation'
-// }
+// This means a broken optional capability cannot destroy
+// normal DuckAI conversation.
 //
-// ou simplesmente:
-//
-// null / undefined
-//
-// ============================================================
 
 async function executeRouter(
     message
 ) {
 
+    if (
+        !router ||
+        typeof router.route !==
+        'function'
+    ) {
+
+        return {
+            type:
+                'conversation'
+        };
+    }
+
     try {
-
-        if (
-            typeof router.route !==
-            'function'
-        ) {
-
-            console.error(
-                '❌ Router does not export route().'
-            );
-
-            return {
-                type:
-                    'conversation'
-            };
-        }
 
         const result =
             await router.route(
@@ -407,20 +444,6 @@ async function executeRouter(
 
     } catch (error) {
 
-        // ----------------------------------------------------
-        // IMPORTANTE:
-        //
-        // Um erro do router NÃO deve gerar:
-        //
-        // "I could not execute that capability."
-        //
-        // Isso acabava por bloquear o Brain e produzir
-        // respostas falsas.
-        //
-        // Se o router falhar, tratamos a mensagem como
-        // conversa normal.
-        // ----------------------------------------------------
-
         console.error(
             '❌ Router error:',
             error
@@ -431,6 +454,172 @@ async function executeRouter(
                 'conversation'
         };
     }
+}
+
+// ============================================================
+// CAPABILITY RESULT
+// ============================================================
+//
+// A valid capability result looks like:
+//
+// {
+//     type: 'capability',
+//     capability: 'music',
+//     response: '...'
+// }
+//
+// The index does not care which capability produced it.
+//
+// ============================================================
+
+function isCapabilityResult(
+    route
+) {
+
+    return (
+        route &&
+        route.type ===
+            'capability'
+    );
+}
+
+// ============================================================
+// BRAIN HISTORY — USER
+// ============================================================
+
+function addUserHistory(
+    history,
+    message
+) {
+
+    if (
+        typeof brain.addToHistory ===
+        'function'
+    ) {
+
+        brain.addToHistory(
+
+            history,
+
+            'user',
+
+            message.content
+        );
+
+        return;
+    }
+
+    history.push({
+
+        role:
+            'user',
+
+        content:
+            message.content
+    });
+
+    trimHistory(
+        history
+    );
+}
+
+// ============================================================
+// BRAIN HISTORY — ASSISTANT
+// ============================================================
+
+function addAssistantHistory(
+    history,
+    response
+) {
+
+    if (
+        typeof brain.addToHistory ===
+        'function'
+    ) {
+
+        brain.addToHistory(
+
+            history,
+
+            'assistant',
+
+            response
+        );
+
+        return;
+    }
+
+    history.push({
+
+        role:
+            'assistant',
+
+        content:
+            response
+    });
+
+    trimHistory(
+        history
+    );
+}
+
+// ============================================================
+// HISTORY LIMIT
+// ============================================================
+
+function trimHistory(
+    history
+) {
+
+    if (
+        history.length <=
+        MAX_HISTORY_MESSAGES
+    ) {
+
+        return;
+    }
+
+    history.splice(
+
+        0,
+
+        history.length -
+            MAX_HISTORY_MESSAGES
+    );
+}
+
+// ============================================================
+// MEMORY UPDATE
+// ============================================================
+
+function updateMemory(
+    message
+) {
+
+    if (
+        !memory ||
+        typeof memory.updateUserMemory !==
+        'function'
+    ) {
+
+        return;
+    }
+
+    Promise
+        .resolve(
+            memory.updateUserMemory(
+                message
+            )
+        )
+        .catch(
+            error => {
+
+                console.error(
+                    '⚠️ Memory error:',
+                    error
+                );
+            }
+        );
 }
 
 // ============================================================
@@ -446,7 +635,20 @@ async function processMessage(
     // ========================================================
 
     if (
-        message.author.bot
+        message.author?.bot
+    ) {
+
+        return;
+    }
+
+    // ========================================================
+    // IGNORE EMPTY MESSAGES
+    // ========================================================
+
+    if (
+        typeof message.content !==
+            'string' ||
+        !message.content.trim()
     ) {
 
         return;
@@ -462,14 +664,12 @@ async function processMessage(
         );
 
     // ========================================================
-    // 1. ROUTER — SEMPRE PRIMEIRO
+    // 1. ROUTER — ALWAYS FIRST
     // ========================================================
     //
-    // Nenhum Brain.
-    // Nenhuma ativação.
-    // Nenhum goodbye.
+    // This is the most important rule.
     //
-    // Primeiro damos oportunidade às capabilities.
+    // The Brain is NEVER called before the router.
     //
     // ========================================================
 
@@ -483,60 +683,67 @@ async function processMessage(
     // ========================================================
 
     if (
-        route?.type ===
-        'capability'
+        isCapabilityResult(
+            route
+        )
     ) {
 
-        // -----------------------------------------------
-        // A capability já tratou da mensagem.
-        // -----------------------------------------------
+        // ----------------------------------------------------
+        // Capability has complete control over its response.
+        // ----------------------------------------------------
 
         if (
             route.response
         ) {
 
             await safeReply(
+
                 message,
+
                 route.response
             );
         }
 
-        // -----------------------------------------------
+        // ----------------------------------------------------
         // ABSOLUTE STOP
-        // -----------------------------------------------
+        // ----------------------------------------------------
         //
-        // Nunca:
-        //
-        // capability
-        //     ↓
-        // brain
-        //
-        // Nem:
+        // Never:
         //
         // capability
         //     ↓
         // Heyyy
+        //     ↓
+        // Brain
         //
-        // Nem outra resposta.
+        // Never.
         //
-        // -----------------------------------------------
+        // ----------------------------------------------------
 
         return;
     }
 
     // ========================================================
-    // 3. DUCKAI ACTIVATION
+    // 3. ACTIVATION
     // ========================================================
     //
-    // Só chegamos aqui se nenhuma capability consumiu
-    // a mensagem.
+    // Activation is only reached when no capability consumed
+    // the message.
+    //
+    // IMPORTANT:
+    //
+    // "DuckAI" activation remains available, but it does not
+    // interfere with capability execution.
     //
     // ========================================================
 
-    if (
+    const activated =
         mentionsDuckAI(
             message
-        )
+        );
+
+    if (
+        activated
     ) {
 
         conversations.add(
@@ -547,32 +754,58 @@ async function processMessage(
             key
         );
 
-        await safeReply(
-            message,
-            '🦆 Heyyy! DuckAI is here 🤍'
-        );
+        // ----------------------------------------------------
+        // If the user only called DuckAI, acknowledge it.
+        //
+        // If they actually asked something, send the actual
+        // message to the Brain instead of producing "Heyyy"
+        // and stopping.
+        // ----------------------------------------------------
 
-        memory
-            .updateUserMemory(
-                message
-            )
-            .catch(
-                error =>
-                    console.error(
-                        '⚠️ Memory error:',
-                        error
-                    )
+        const cleanedContent =
+            message.content
+                .replace(
+                    /<@!?\d+>/g,
+                    ''
+                )
+                .replace(
+                    /\bduck\s*ai\b/gi,
+                    ''
+                )
+                .trim();
+
+        if (
+            !cleanedContent
+        ) {
+
+            await safeReply(
+
+                message,
+
+                '🦆 Heyyy! DuckAI is here 🤍'
             );
 
-        return;
+            updateMemory(
+                message
+            );
+
+            return;
+        }
+
+        // ----------------------------------------------------
+        // The user activated DuckAI AND asked something.
+        //
+        // Do NOT send "Heyyy" first.
+        // Let the Brain answer immediately.
+        // ----------------------------------------------------
     }
 
     // ========================================================
     // 4. INACTIVE CONVERSATION
     // ========================================================
     //
-    // Se o utilizador não chamou DuckAI e não existe uma
-    // conversa ativa, não fazemos nada.
+    // If the message did not activate DuckAI and there is no
+    // active conversation, normal chat is ignored.
     //
     // ========================================================
 
@@ -604,7 +837,9 @@ async function processMessage(
         );
 
         await safeReply(
+
             message,
+
             '🦆 Okay, bye bye! See you later 🤍'
         );
 
@@ -614,13 +849,19 @@ async function processMessage(
     // ========================================================
     // 6. BRAIN
     // ========================================================
-    //
-    // Só mensagens que não foram consumidas por uma
-    // capability chegam aqui.
-    //
-    // ========================================================
 
     try {
+
+        if (
+            !brain ||
+            typeof brain.generateResponse !==
+                'function'
+        ) {
+
+            throw new Error(
+                'Brain does not export generateResponse().'
+            );
+        }
 
         await message.channel.sendTyping();
 
@@ -630,56 +871,33 @@ async function processMessage(
             );
 
         // ----------------------------------------------------
-        // Adicionar a mensagem do utilizador ANTES do Brain.
-        // Assim o Brain recebe a mensagem atual no contexto.
+        // CURRENT USER MESSAGE
         // ----------------------------------------------------
 
-        if (
-            typeof brain.addToHistory ===
-            'function'
-        ) {
+        addUserHistory(
 
-            brain.addToHistory(
+            history,
 
-                history,
-
-                'user',
-
-                message.content
-            );
-
-        } else {
-
-            history.push({
-
-                role:
-                    'user',
-
-                content:
-                    message.content
-            });
-        }
+            message
+        );
 
         // ----------------------------------------------------
-        // CAPABILITIES DISPONÍVEIS
+        // CAPABILITIES INFORMATION
+        // ----------------------------------------------------
+        //
+        // This does NOT execute anything.
+        //
+        // It only tells the Brain what the application has
+        // available.
+        //
         // ----------------------------------------------------
 
         const capabilities =
             getCapabilities();
 
         // ----------------------------------------------------
-        // BRAIN
+        // GENERATE
         // ----------------------------------------------------
-
-        if (
-            typeof brain.generateResponse !==
-            'function'
-        ) {
-
-            throw new Error(
-                'Brain does not export generateResponse().'
-            );
-        }
 
         const response =
             await brain.generateResponse({
@@ -692,11 +910,13 @@ async function processMessage(
             });
 
         // ----------------------------------------------------
-        // GUARD
+        // VALIDATE
         // ----------------------------------------------------
 
         if (
-            !response
+            typeof response !==
+                'string' ||
+            !response.trim()
         ) {
 
             throw new Error(
@@ -705,41 +925,24 @@ async function processMessage(
         }
 
         // ----------------------------------------------------
-        // ADD ASSISTANT RESPONSE
+        // ASSISTANT HISTORY
         // ----------------------------------------------------
 
-        if (
-            typeof brain.addToHistory ===
-            'function'
-        ) {
+        addAssistantHistory(
 
-            brain.addToHistory(
+            history,
 
-                history,
-
-                'assistant',
-
-                response
-            );
-
-        } else {
-
-            history.push({
-
-                role:
-                    'assistant',
-
-                content:
-                    response
-            });
-        }
+            response
+        );
 
         // ----------------------------------------------------
-        // SEND
+        // SEND EXACTLY ONE RESPONSE
         // ----------------------------------------------------
 
         await safeReply(
+
             message,
+
             response
         );
 
@@ -747,17 +950,9 @@ async function processMessage(
         // MEMORY
         // ----------------------------------------------------
 
-        memory
-            .updateUserMemory(
-                message
-            )
-            .catch(
-                error =>
-                    console.error(
-                        '⚠️ Memory error:',
-                        error
-                    )
-            );
+        updateMemory(
+            message
+        );
 
     } catch (error) {
 
@@ -767,10 +962,7 @@ async function processMessage(
         );
 
         // ----------------------------------------------------
-        // UMA ÚNICA mensagem de erro.
-        // Não voltamos ao router.
-        // Não tentamos outra capability.
-        // Não chamamos o Brain novamente.
+        // ONE ERROR RESPONSE ONLY
         // ----------------------------------------------------
 
         await safeReply(
@@ -783,15 +975,15 @@ async function processMessage(
 }
 
 // ============================================================
-// SINGLE MESSAGE HANDLER
+// SINGLE MESSAGE LISTENER
 // ============================================================
 //
-// ESTE É O ÚNICO messageCreate DO NÚCLEO.
+// This is the ONLY messageCreate listener that belongs to
+// the permanent DuckAI core.
 //
-// Não adicionar outro listener messageCreate noutro ficheiro
-// que carregue este index.
+// Capabilities must NOT create their own messageCreate
+// listener if they are loaded through this architecture.
 //
-// ============================================================
 
 client.on(
     'messageCreate',
@@ -803,7 +995,7 @@ client.on(
 // ============================================================
 
 client.once(
-    'clientReady',
+    'ready',
     () => {
 
         console.log(
@@ -838,7 +1030,7 @@ client.once(
         } else {
 
             console.log(
-                '⚡ Capabilities: loaded dynamically'
+                '⚡ Capabilities: loaded through router'
             );
         }
 
@@ -854,15 +1046,21 @@ client.once(
 
 client.login(
     TOKEN
+)
+.catch(
+    error => {
+
+        console.error(
+            '❌ Discord login failed:',
+            error
+        );
+
+        process.exit(1);
+    }
 );
 
 // ============================================================
 // EXPORTS
-// ============================================================
-//
-// Úteis para testes e para outros módulos, sem obrigar
-// qualquer capability a importar o index.
-//
 // ============================================================
 
 module.exports = {
@@ -882,6 +1080,8 @@ module.exports = {
     isGoodbye,
 
     getCapabilities,
+
+    executeRouter,
 
     processMessage
 };
