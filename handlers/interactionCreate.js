@@ -1,6 +1,11 @@
+```js
 // ============================================================
 // DUCKAI INTERACTION HANDLER
 // ============================================================
+
+const {
+    MessageFlags
+} = require('discord.js');
 
 const music =
     require('../capabilities/music');
@@ -32,6 +37,10 @@ async function handleInteraction(
 
     try {
 
+        // ====================================================
+        // GUILD
+        // ====================================================
+
         const guildId =
             interaction.guildId;
 
@@ -43,11 +52,21 @@ async function handleInteraction(
                     '🦆 This control only works inside a server.',
 
                 flags:
-                    64
+                    MessageFlags.Ephemeral
             });
 
             return;
         }
+
+        // ====================================================
+        // ACKNOWLEDGE IMMEDIATELY
+        // ====================================================
+
+        await interaction.deferReply({
+
+            flags:
+                MessageFlags.Ephemeral
+        });
 
         let result;
 
@@ -67,13 +86,10 @@ async function handleInteraction(
 
             if (!song?.url) {
 
-                await interaction.reply({
+                await interaction.editReply({
 
                     content:
-                        '🎵 There is no song selected.',
-
-                    flags:
-                        64
+                        '🎵 There is no song selected.'
                 });
 
                 return;
@@ -159,7 +175,17 @@ async function handleInteraction(
                 });
         }
 
+        // ====================================================
+        // UNKNOWN MUSIC BUTTON
+        // ====================================================
+
         else {
+
+            await interaction.editReply({
+
+                content:
+                    '🦆 Unknown music control.'
+            });
 
             return;
         }
@@ -224,24 +250,22 @@ async function handleInteraction(
         } else {
 
             response =
+                result?.message ||
                 '🦆 I could not perform that action.';
         }
 
         // ====================================================
-        // SEND INTERACTION RESPONSE
+        // SEND RESPONSE
         // ====================================================
 
-        await interaction.reply({
+        await interaction.editReply({
 
             content:
-                response,
-
-            flags:
-                64
+                response
         });
 
         // ====================================================
-        // UPDATE PANEL
+        // UPDATE MUSIC PANEL
         // ====================================================
 
         if (
@@ -273,28 +297,44 @@ async function handleInteraction(
             error
         );
 
-        const response = {
+        // ====================================================
+        // ERROR RESPONSE
+        // ====================================================
 
-            content:
-                '🦆 Something went wrong while controlling the music.',
+        try {
 
-            flags:
-                64
-        };
+            if (
+                interaction.deferred
+            ) {
 
-        if (
-            interaction.replied ||
-            interaction.deferred
+                await interaction.editReply({
+
+                    content:
+                        '🦆 Something went wrong while controlling the music.'
+                });
+
+            } else if (
+                !interaction.replied
+            ) {
+
+                await interaction.reply({
+
+                    content:
+                        '🦆 Something went wrong while controlling the music.',
+
+                    flags:
+                        MessageFlags.Ephemeral
+                });
+
+            }
+
+        } catch (
+            responseError
         ) {
 
-            await interaction.followUp(
-                response
-            );
-
-        } else {
-
-            await interaction.reply(
-                response
+            console.error(
+                '❌ Could not respond to interaction:',
+                responseError
             );
         }
     }
@@ -307,3 +347,4 @@ async function handleInteraction(
 module.exports = {
     handleInteraction
 };
+```
