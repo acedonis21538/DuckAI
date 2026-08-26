@@ -42,6 +42,9 @@ module.exports = {
     // PLAYER
     // ========================================================
 
+    setSong:
+        player.setSong,
+
     play:
         player.play,
 
