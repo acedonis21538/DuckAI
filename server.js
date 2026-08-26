@@ -1,22 +1,39 @@
 require('dotenv').config();
 
-const express =
-    require('express');
+const express = require('express');
+const path = require('path');
 
-const path =
-    require('path');
+const music = require('./music/music');
 
-const music =
-    require('./music');
+const app = express();
 
-const app =
-    express();
+const PORT = Number(process.env.PORT) || 3000;
 
-const PORT =
-    process.env.PORT || 3000;
+// ============================================================
+// CONFIG
+// ============================================================
+
+app.use(express.json());
 
 app.use(
-    express.json()
+    express.urlencoded({
+        extended: true
+    })
+);
+
+// ============================================================
+// PLAYER FILE
+// ============================================================
+
+const PLAYER_PATH =
+    path.join(
+        __dirname,
+        'music',
+        'player.html'
+    );
+
+console.log(
+    `🎵 Player path: ${PLAYER_PATH}`
 );
 
 // ============================================================
@@ -28,10 +45,26 @@ app.get(
     (req, res) => {
 
         res.sendFile(
-            path.join(
-                __dirname,
-                'player.html'
-            )
+            PLAYER_PATH,
+            error => {
+
+                if (error) {
+
+                    console.error(
+                        '❌ Could not load player.html:',
+                        error
+                    );
+
+                    if (!res.headersSent) {
+
+                        res.status(500).send(
+                            'DuckAI Music Player could not be loaded.'
+                        );
+                    }
+
+                    return;
+                }
+            }
         );
     }
 );
@@ -41,10 +74,24 @@ app.get(
     (req, res) => {
 
         res.sendFile(
-            path.join(
-                __dirname,
-                'player.html'
-            )
+            PLAYER_PATH,
+            error => {
+
+                if (error) {
+
+                    console.error(
+                        '❌ Could not load player.html:',
+                        error
+                    );
+
+                    if (!res.headersSent) {
+
+                        res.status(500).send(
+                            'DuckAI Music Player could not be loaded.'
+                        );
+                    }
+                }
+            }
         );
     }
 );
@@ -68,19 +115,97 @@ app.get(
             });
         }
 
-        const state =
-            music.getState(guildId);
+        try {
 
-        res.json({
+            const song =
+                music.getCurrentSong(
+                    guildId
+                );
 
-            success: true,
+            const state =
+                music.getState(
+                    guildId
+                );
 
-            song:
-                state.song,
+            return res.json({
 
-            state:
-                state.state
-        });
+                success: true,
+
+                song:
+                    song || null,
+
+                state:
+                    state || 'stopped'
+            });
+
+        } catch (error) {
+
+            console.error(
+                '❌ Current music error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    'Could not get current music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// SEARCH
+// ============================================================
+
+app.get(
+    '/api/music/search',
+    async (req, res) => {
+
+        const query =
+            typeof req.query.query === 'string'
+                ? req.query.query.trim()
+                : '';
+
+        if (!query) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing music query.'
+            });
+        }
+
+        try {
+
+            const result =
+                await music.search(
+                    query
+                );
+
+            return res.json(
+                result
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Music search error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    'Could not search for that song.'
+            });
+        }
     }
 );
 
@@ -92,20 +217,30 @@ app.post(
     '/api/music/play',
     async (req, res) => {
 
-        try {
+        const guildId =
+            req.body?.guildId;
 
-            const {
-                guildId,
-                query
-            } = req.body;
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
+        try {
 
             const result =
                 await music.play(
-                    guildId,
-                    query
+                    guildId
                 );
 
-            res.json(result);
+            return res.json(
+                result
+            );
 
         } catch (error) {
 
@@ -114,12 +249,12 @@ app.post(
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 success: false,
 
                 message:
-                    '🦆 Não consegui pesquisar essa música.'
+                    'Could not play music.'
             });
         }
     }
@@ -133,21 +268,41 @@ app.post(
     '/api/music/pause',
     async (req, res) => {
 
+        const guildId =
+            req.body?.guildId;
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
         try {
 
-            res.json(
+            return res.json(
                 await music.pause(
-                    req.body.guildId
+                    guildId
                 )
             );
 
         } catch (error) {
 
-            console.error(error);
+            console.error(
+                '❌ Music pause error:',
+                error
+            );
 
-            res.status(500).json({
+            return res.status(500).json({
+
                 success: false,
-                message: 'Could not pause music.'
+
+                message:
+                    'Could not pause music.'
             });
         }
     }
@@ -161,21 +316,55 @@ app.post(
     '/api/music/resume',
     async (req, res) => {
 
+        const guildId =
+            req.body?.guildId;
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
         try {
 
-            res.json(
+            if (
+                typeof music.resume !==
+                'function'
+            ) {
+
+                return res.status(501).json({
+
+                    success: false,
+
+                    message:
+                        'Resume is not available.'
+                });
+            }
+
+            return res.json(
                 await music.resume(
-                    req.body.guildId
+                    guildId
                 )
             );
 
         } catch (error) {
 
-            console.error(error);
+            console.error(
+                '❌ Music resume error:',
+                error
+            );
 
-            res.status(500).json({
+            return res.status(500).json({
+
                 success: false,
-                message: 'Could not resume music.'
+
+                message:
+                    'Could not resume music.'
             });
         }
     }
@@ -189,39 +378,115 @@ app.post(
     '/api/music/stop',
     async (req, res) => {
 
+        const guildId =
+            req.body?.guildId;
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
         try {
 
-            res.json(
+            return res.json(
                 await music.stop(
-                    req.body.guildId
+                    guildId
                 )
             );
 
         } catch (error) {
 
-            console.error(error);
+            console.error(
+                '❌ Music stop error:',
+                error
+            );
 
-            res.status(500).json({
+            return res.status(500).json({
+
                 success: false,
-                message: 'Could not stop music.'
+
+                message:
+                    'Could not stop music.'
             });
         }
     }
 );
 
 // ============================================================
-// START
+// HEALTH
 // ============================================================
 
-app.listen(
-    PORT,
-    '0.0.0.0',
-    () => {
+app.get(
+    '/health',
+    (req, res) => {
 
-        console.log(
-            `🌐 DuckAI Music Player: port ${PORT}`
+        res.json({
+
+            success: true,
+
+            service:
+                'DuckAI Music Player',
+
+            port:
+                PORT
+        });
+    }
+);
+
+// ============================================================
+// START SERVER
+// ============================================================
+
+const server =
+    app.listen(
+        PORT,
+        '0.0.0.0',
+        () => {
+
+            console.log(
+                '────────────────────────────'
+            );
+
+            console.log(
+                `🌐 DuckAI Music Player: port ${PORT}`
+            );
+
+            console.log(
+                `🎵 Player: /player`
+            );
+
+            console.log(
+                `❤️ Health: /health`
+            );
+
+            console.log(
+                '────────────────────────────'
+            );
+        }
+    );
+
+server.on(
+    'error',
+    error => {
+
+        console.error(
+            '❌ Music server error:',
+            error
         );
     }
 );
 
-module.exports = app;
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports = {
+    app,
+    server
+};
