@@ -4,7 +4,10 @@ require('./capabilities/web/server');
 const {
     Client,
     GatewayIntentBits,
-    Partials
+    Partials,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
 } = require('discord.js');
 
 const OpenAI = require('openai');
@@ -33,6 +36,9 @@ const TOKEN =
 
 const GROQ_API_KEY =
     process.env.GROQ_API_KEY;
+
+const MUSIC_PLAYER_URL =
+    'https://glowing-space-guide-jjpvx44rv9v7274j-3000.app.github.dev';
 
 if (!TOKEN) {
 
@@ -344,6 +350,44 @@ Never list all known information unless asked.
 }
 
 // ============================================================
+// MUSIC PLAYER BUTTON
+// ============================================================
+
+function buildMusicPlayerButton(
+    guildId
+) {
+
+    if (!guildId) {
+        return null;
+    }
+
+    const playerUrl =
+        `${MUSIC_PLAYER_URL}/player?guildId=${encodeURIComponent(guildId)}`;
+
+    return new ActionRowBuilder()
+        .addComponents(
+
+            new ButtonBuilder()
+
+                .setLabel(
+                    'Abrir Player'
+                )
+
+                .setEmoji(
+                    '🎵'
+                )
+
+                .setStyle(
+                    ButtonStyle.Link
+                )
+
+                .setURL(
+                    playerUrl
+                )
+        );
+}
+
+// ============================================================
 // INTERACTIONS
 // ============================================================
 
@@ -478,10 +522,45 @@ client.on(
                     'music'
             ) {
 
+                // ==================================================
+                // BUILD MUSIC PANEL
+                // ==================================================
+
                 const panel =
                     musicPanel.buildMusicPanel(
                         message.guildId
                     );
+
+                // ==================================================
+                // BUILD PLAYER LINK
+                // ==================================================
+
+                const playerButton =
+                    buildMusicPlayerButton(
+                        message.guildId
+                    );
+
+                // ==================================================
+                // COMPONENTS
+                // ==================================================
+
+                const components = [
+
+                    ...panel.components
+                ];
+
+                if (
+                    playerButton
+                ) {
+
+                    components.push(
+                        playerButton
+                    );
+                }
+
+                // ==================================================
+                // SEND RESPONSE
+                // ==================================================
 
                 await message.reply({
 
@@ -492,8 +571,7 @@ client.on(
                     embeds:
                         panel.embeds,
 
-                    components:
-                        panel.components
+                    components
                 });
 
                 return;
