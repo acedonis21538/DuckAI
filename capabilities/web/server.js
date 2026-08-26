@@ -1,219 +1,355 @@
 // ============================================================
-// DUCKAI WEB PLAYER SERVER
+// DUCKAI WEB MUSIC PLAYER SERVER
 // ============================================================
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const express =
+    require('express');
+
+const path =
+    require('path');
 
 const music =
-    require('../capabilities/music');
+    require('../music');
+
+// ============================================================
+// APP
+// ============================================================
+
+const app =
+    express();
 
 const PORT =
-    Number(process.env.PLAYER_PORT) || 3000;
-
-const PLAYER_FILE =
-    path.join(
-        __dirname,
-        'player.html'
-    );
+    process.env.PORT ||
+    3000;
 
 // ============================================================
-// JSON RESPONSE
+// MIDDLEWARE
 // ============================================================
 
-function sendJSON(
-    response,
-    status,
-    data
-) {
+app.use(
+    express.json()
+);
 
-    response.writeHead(
-        status,
-        {
-            'Content-Type':
-                'application/json; charset=utf-8',
+// ============================================================
+// PLAYER PAGE
+// ============================================================
 
-            'Access-Control-Allow-Origin':
-                '*',
+app.get(
+    '/player',
+    (req, res) => {
 
-            'Cache-Control':
-                'no-store'
+        res.sendFile(
+            path.join(
+                __dirname,
+                'player.html'
+            )
+        );
+    }
+);
+
+// ============================================================
+// CURRENT SONG
+// ============================================================
+
+app.get(
+    '/api/music',
+    (req, res) => {
+
+        const guildId =
+            req.query.guildId;
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error:
+                    'Missing guildId.'
+            });
         }
-    );
 
-    response.end(
-        JSON.stringify(data)
-    );
-}
-
-// ============================================================
-// SERVER
-// ============================================================
-
-const server =
-    http.createServer(
-        (request, response) => {
-
-            const url =
-                new URL(
-                    request.url,
-                    `http://${request.headers.host}`
-                );
-
-            // ====================================================
-            // PLAYER PAGE
-            // ====================================================
-
-            if (
-                url.pathname === '/' ||
-                url.pathname === '/player'
-            ) {
-
-                fs.readFile(
-                    PLAYER_FILE,
-                    'utf8',
-                    (error, html) => {
-
-                        if (error) {
-
-                            sendJSON(
-                                response,
-                                500,
-                                {
-                                    success: false,
-                                    error:
-                                        'Player unavailable.'
-                                }
-                            );
-
-                            return;
-                        }
-
-                        response.writeHead(
-                            200,
-                            {
-                                'Content-Type':
-                                    'text/html; charset=utf-8'
-                            }
-                        );
-
-                        response.end(
-                            html
-                        );
-                    }
-                );
-
-                return;
-            }
-
-            // ====================================================
-            // CURRENT SONG
-            // ====================================================
-
-            if (
-                url.pathname ===
-                '/api/music/current'
-            ) {
-
-                const guildId =
-                    url.searchParams.get(
-                        'guildId'
-                    );
-
-                if (!guildId) {
-
-                    sendJSON(
-                        response,
-                        400,
-                        {
-                            success: false,
-                            error:
-                                'Missing guildId.'
-                        }
-                    );
-
-                    return;
-                }
-
-                const song =
-                    music.getCurrentSong(
-                        guildId
-                    );
-
-                const state =
-                    music.getState(
-                        guildId
-                    );
-
-                sendJSON(
-                    response,
-                    200,
-                    {
-                        success: true,
-
-                        song: song
-                            ? {
-                                id:
-                                    song.id,
-
-                                title:
-                                    song.title,
-
-                                artist:
-                                    song.artist,
-
-                                url:
-                                    song.url,
-
-                                artwork:
-                                    song.track
-                                        ?.artwork
-                                        ?.['1000x1000'] ||
-                                    song.track
-                                        ?.artwork
-                                        ?.['480x480'] ||
-                                    song.track
-                                        ?.artwork
-                                        ?.['150x150'] ||
-                                    null
-                            }
-                            : null,
-
-                        state
-                    }
-                );
-
-                return;
-            }
-
-            // ====================================================
-            // 404
-            // ====================================================
-
-            sendJSON(
-                response,
-                404,
-                {
-                    success: false,
-                    error:
-                        'Not found.'
-                }
+        const song =
+            music.getCurrentSong(
+                guildId
             );
+
+        const state =
+            music.getState(
+                guildId
+            );
+
+        if (!song) {
+
+            return res.json({
+
+                success: true,
+
+                song: null,
+
+                state
+            });
         }
-    );
+
+        return res.json({
+
+            success: true,
+
+            song: {
+
+                id:
+                    song.id ||
+                    null,
+
+                title:
+                    song.title ||
+                    song.query ||
+                    'Unknown song',
+
+                artist:
+                    song.artist ||
+                    'Unknown artist',
+
+                url:
+                    song.url ||
+                    null,
+
+                artwork:
+                    song.track
+                        ?.artwork
+                        ?.['150x150'] ||
+                    null
+            },
+
+            state
+        });
+    }
+);
+
+// ============================================================
+// PLAY
+// ============================================================
+
+app.post(
+    '/api/music/play',
+    async (req, res) => {
+
+        try {
+
+            const {
+                guildId
+            } = req.body;
+
+            if (!guildId) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        'Missing guildId.'
+                });
+            }
+
+            const song =
+                music.getCurrentSong(
+                    guildId
+                );
+
+            if (!song?.url) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    error:
+                        'No song selected.'
+                });
+            }
+
+            const result =
+                await music.play({
+
+                    guildId,
+
+                    query:
+                        song.query,
+
+                    url:
+                        song.url,
+
+                    track:
+                        song.track
+                });
+
+            return res.json(
+                result
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Web player play error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    'Failed to play music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// PAUSE
+// ============================================================
+
+app.post(
+    '/api/music/pause',
+    async (req, res) => {
+
+        try {
+
+            const {
+                guildId
+            } = req.body;
+
+            const result =
+                await music.pause({
+
+                    guildId
+                });
+
+            return res.json(
+                result
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Web player pause error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    'Failed to pause music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// RESUME
+// ============================================================
+
+app.post(
+    '/api/music/resume',
+    async (req, res) => {
+
+        try {
+
+            const {
+                guildId
+            } = req.body;
+
+            const result =
+                await music.resume({
+
+                    guildId
+                });
+
+            return res.json(
+                result
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Web player resume error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    'Failed to resume music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// STOP
+// ============================================================
+
+app.post(
+    '/api/music/stop',
+    async (req, res) => {
+
+        try {
+
+            const {
+                guildId
+            } = req.body;
+
+            const result =
+                await music.stop({
+
+                    guildId
+                });
+
+            return res.json(
+                result
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Web player stop error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                error:
+                    'Failed to stop music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// STATIC FILES
+// ============================================================
+
+app.use(
+    express.static(
+        __dirname
+    )
+);
 
 // ============================================================
 // START
 // ============================================================
 
-server.listen(
+app.listen(
     PORT,
-    '0.0.0.0',
     () => {
 
         console.log(
-            `🎵 Web player running on port ${PORT}`
+            `🌐 DuckAI Music Player running on port ${PORT}`
         );
     }
 );
@@ -222,4 +358,4 @@ server.listen(
 // EXPORT
 // ============================================================
 
-module.exports = server;
+module.exports = app;
