@@ -1,308 +1,114 @@
 // ============================================================
-// DUCKAI ROUTER
+// DUCKAI — UNIVERSAL ROUTER
 // ============================================================
-// Router permanente.
 //
-// Responsabilidades:
-// 1. Descobrir capabilities disponíveis.
-// 2. Não depender de uma capability específica.
-// 3. Tentar encaminhar a mensagem para a capability correta.
-// 4. Se nenhuma capability tratar da mensagem -> conversation.
-// 5. Nunca gerar respostas de erro artificiais.
+// Permanent capability dispatcher.
 //
-// Uma capability pode existir como:
-//   ./capabilities/nome/index.js
-//   ./capabilities/nome.js
-//   ./nome.js
+// The index does NOT know individual capabilities.
+// The router discovers them.
 //
-// Formato recomendado de uma capability:
+// Supported capability locations:
 //
-// module.exports = {
-//     name: 'music',
+//   ./capabilities/<name>/index.js
+//   ./capabilities/<name>.js
+//   ./<name>/<name>.js
+//   ./<name>/index.js
+//   ./<name>.js
 //
-//     canHandle(message) {
-//         return true/false;
-//     },
+// Current example:
 //
-//     execute(message) {
-//         return {
-//             response: '...'
-//         };
-//     }
-// };
+//   ./music/music.js
 //
-// Também existe compatibilidade com:
+// A capability may expose:
 //
-// module.exports = {
-//     isMusicRequest,
-//     executeMusic
-// };
+//   name
+//   canHandle(message)
+//   execute(message)
+//
+// OR legacy music-style exports:
+//
+//   isMusicRequest(message)
+//   executeMusic(message)
+//
+// The router never generates fake capability errors.
+//
+// If nothing handles the message:
+//
+//   { type: 'conversation' }
 //
 // ============================================================
 
-const fs = require('fs');
-const path = require('path');
+const fs =
+    require('fs');
+
+const path =
+    require('path');
 
 // ============================================================
-// PATHS
+// DIRECTORIES
 // ============================================================
 
 const ROOT =
-    path.resolve(__dirname, '..');
-
-const CAPABILITIES_DIR =
-    path.join(
-        ROOT,
-        'capabilities'
+    path.resolve(
+        __dirname,
+        '..'
     );
 
 // ============================================================
-// CAPABILITY CACHE
+// CACHE
 // ============================================================
 
-let capabilityCache = null;
+let capabilityCache =
+    null;
 
 // ============================================================
 // SAFE REQUIRE
 // ============================================================
 
-function safeRequire(file) {
+function safeRequire(
+    filePath
+) {
 
     try {
 
+        if (
+            !fs.existsSync(
+                filePath
+            )
+        ) {
+
+            return null;
+        }
+
         delete require.cache[
-            require.resolve(file)
+            require.resolve(
+                filePath
+            )
         ];
 
-        return require(file);
+        const loaded =
+            require(
+                filePath
+            );
+
+        if (
+            !loaded
+        ) {
+
+            return null;
+        }
+
+        return loaded;
 
     } catch (error) {
 
         console.error(
-            `❌ Could not load capability: ${file}`
-        );
-
-        console.error(
-            error.message
+            `⚠️ Could not load capability "${filePath}":`,
+            error
         );
 
         return null;
     }
-}
-
-// ============================================================
-// CHECK JS FILE
-// ============================================================
-
-function isJS(file) {
-
-    return (
-        file.endsWith('.js') &&
-        !file.startsWith('.')
-    );
-}
-
-// ============================================================
-// DISCOVER CAPABILITIES
-// ============================================================
-
-function discoverCapabilities() {
-
-    const found = [];
-
-    // ========================================================
-    // ROOT CAPABILITIES
-    // ========================================================
-
-    let rootFiles = [];
-
-    try {
-
-        rootFiles =
-            fs.readdirSync(
-                ROOT,
-                {
-                    withFileTypes: true
-                }
-            );
-
-    } catch (error) {
-
-        console.error(
-            '❌ Could not read project root:',
-            error.message
-        );
-    }
-
-    for (
-        const entry of rootFiles
-    ) {
-
-        if (
-            !entry.isFile() ||
-            !isJS(entry.name)
-        ) {
-            continue;
-        }
-
-        // Never treat the application core as a capability.
-        if (
-            [
-                'index.js'
-            ].includes(entry.name)
-        ) {
-            continue;
-        }
-
-        const file =
-            path.join(
-                ROOT,
-                entry.name
-            );
-
-        const module =
-            safeRequire(
-                file
-            );
-
-        if (
-            module
-        ) {
-
-            found.push({
-                source: file,
-                module
-            });
-        }
-    }
-
-    // ========================================================
-    // CAPABILITIES DIRECTORY
-    // ========================================================
-
-    if (
-        fs.existsSync(
-            CAPABILITIES_DIR
-        )
-    ) {
-
-        let entries = [];
-
-        try {
-
-            entries =
-                fs.readdirSync(
-                    CAPABILITIES_DIR,
-                    {
-                        withFileTypes: true
-                    }
-                );
-
-        } catch (error) {
-
-            console.error(
-                '❌ Could not read capabilities:',
-                error.message
-            );
-
-            return found;
-        }
-
-        for (
-            const entry of entries
-        ) {
-
-            const fullPath =
-                path.join(
-                    CAPABILITIES_DIR,
-                    entry.name
-                );
-
-            // ------------------------------------------------
-            // capabilities/example.js
-            // ------------------------------------------------
-
-            if (
-                entry.isFile() &&
-                isJS(entry.name)
-            ) {
-
-                const module =
-                    safeRequire(
-                        fullPath
-                    );
-
-                if (
-                    module
-                ) {
-
-                    found.push({
-                        source: fullPath,
-                        module
-                    });
-                }
-
-                continue;
-            }
-
-            // ------------------------------------------------
-            // capabilities/example/index.js
-            // ------------------------------------------------
-
-            if (
-                entry.isDirectory()
-            ) {
-
-                const indexFile =
-                    path.join(
-                        fullPath,
-                        'index.js'
-                    );
-
-                if (
-                    !fs.existsSync(
-                        indexFile
-                    )
-                ) {
-                    continue;
-                }
-
-                const module =
-                    safeRequire(
-                        indexFile
-                    );
-
-                if (
-                    module
-                ) {
-
-                    found.push({
-                        source: indexFile,
-                        module
-                    });
-                }
-            }
-        }
-    }
-
-    return found;
-}
-
-// ============================================================
-// GET CAPABILITIES
-// ============================================================
-
-function getCapabilities() {
-
-    // Rediscover every route call.
-    //
-    // This means a new capability can be added while
-    // developing without changing the router itself.
-
-    capabilityCache =
-        discoverCapabilities();
-
-    return capabilityCache;
 }
 
 // ============================================================
@@ -313,42 +119,494 @@ function getCapabilityName(
     item
 ) {
 
-    const module =
-        item.module;
-
     if (
-        typeof module.name === 'string'
+        item?.name &&
+        typeof item.name ===
+            'string'
     ) {
 
-        return module.name;
+        return item.name;
     }
 
     if (
-        typeof module.capability === 'string'
+        item?.capability &&
+        typeof item.capability ===
+            'string'
     ) {
 
-        return module.capability;
+        return item.capability;
     }
 
     if (
-        typeof module.default?.name === 'string'
+        item?.module?.name
     ) {
 
-        return module.default.name;
+        return item.module.name;
     }
 
-    return path.basename(
-        path.dirname(
-            item.source
-        )
-    );
+    if (
+        item?.module?.capability
+    ) {
+
+        return item.module.capability;
+    }
+
+    if (
+        item?.filePath
+    ) {
+
+        return path.basename(
+            path.dirname(
+                item.filePath
+            )
+        );
+    }
+
+    return 'unknown';
 }
 
 // ============================================================
-// CAN HANDLE
+// NORMALIZE MODULE
 // ============================================================
 
-async function canHandle(
+function normalizeCapability(
+    module,
+    filePath
+) {
+
+    if (
+        !module
+    ) {
+
+        return null;
+    }
+
+    // --------------------------------------------------------
+    // ES module compatibility
+    // --------------------------------------------------------
+
+    if (
+        module.default &&
+        typeof module.default ===
+            'object'
+    ) {
+
+        module =
+            module.default;
+    }
+
+    // --------------------------------------------------------
+    // Ignore random modules
+    // --------------------------------------------------------
+
+    const hasHandler =
+        typeof module.canHandle ===
+            'function' ||
+
+        typeof module.execute ===
+            'function' ||
+
+        typeof module.isMusicRequest ===
+            'function' ||
+
+        typeof module.executeMusic ===
+            'function';
+
+    if (
+        !hasHandler
+    ) {
+
+        return null;
+    }
+
+    return {
+
+        module,
+
+        filePath,
+
+        name:
+            module.name ||
+            module.capability ||
+            path.basename(
+                path.dirname(
+                    filePath
+                )
+            )
+    };
+}
+
+// ============================================================
+// CANDIDATE PATHS
+// ============================================================
+//
+// We deliberately support several layouts.
+//
+// This keeps the index independent from project structure.
+//
+// ============================================================
+
+function getCandidatePaths() {
+
+    const candidates =
+        [];
+
+    // --------------------------------------------------------
+    // ./capabilities/*
+    // --------------------------------------------------------
+
+    const capabilitiesDir =
+        path.join(
+            ROOT,
+            'capabilities'
+        );
+
+    if (
+        fs.existsSync(
+            capabilitiesDir
+        )
+    ) {
+
+        let entries = [];
+
+        try {
+
+            entries =
+                fs.readdirSync(
+                    capabilitiesDir,
+                    {
+                        withFileTypes:
+                            true
+                    }
+                );
+
+        } catch (error) {
+
+            console.error(
+                '⚠️ Could not read capabilities directory:',
+                error
+            );
+        }
+
+        for (
+            const entry
+            of entries
+        ) {
+
+            const fullPath =
+                path.join(
+                    capabilitiesDir,
+                    entry.name
+                );
+
+            if (
+                entry.isDirectory()
+            ) {
+
+                candidates.push(
+
+                    path.join(
+                        fullPath,
+                        'index.js'
+                    )
+                );
+
+                candidates.push(
+
+                    path.join(
+                        fullPath,
+                        `${entry.name}.js`
+                    )
+                );
+
+            } else if (
+                entry.isFile() &&
+                entry.name.endsWith(
+                    '.js'
+                )
+            ) {
+
+                candidates.push(
+                    fullPath
+                );
+            }
+        }
+    }
+
+    // --------------------------------------------------------
+    // ROOT MODULE DIRECTORIES
+    // --------------------------------------------------------
+    //
+    // Example:
+    //
+    // ./music/music.js
+    // ./images/images.js
+    // ./weather/weather.js
+    //
+    // --------------------------------------------------------
+
+    let rootEntries = [];
+
+    try {
+
+        rootEntries =
+            fs.readdirSync(
+                ROOT,
+                {
+                    withFileTypes:
+                        true
+                }
+            );
+
+    } catch (error) {
+
+        console.error(
+            '⚠️ Could not read DuckAI root:',
+            error
+        );
+    }
+
+    for (
+        const entry
+        of rootEntries
+    ) {
+
+        if (
+            !entry.isDirectory()
+        ) {
+
+            continue;
+        }
+
+        const name =
+            entry.name;
+
+        // ----------------------------------------------------
+        // Ignore project/system directories
+        // ----------------------------------------------------
+
+        if (
+            name ===
+                'node_modules' ||
+            name ===
+                '.git' ||
+            name ===
+                '.github' ||
+            name ===
+                '.devcontainer' ||
+            name ===
+                'core'
+        ) {
+
+            continue;
+        }
+
+        const directory =
+            path.join(
+                ROOT,
+                name
+            );
+
+        // ./name/index.js
+
+        candidates.push(
+
+            path.join(
+                directory,
+                'index.js'
+            )
+        );
+
+        // ./name/name.js
+
+        candidates.push(
+
+            path.join(
+                directory,
+                `${name}.js`
+            )
+        );
+    }
+
+    // --------------------------------------------------------
+    // ROOT .js FILES
+    // --------------------------------------------------------
+
+    for (
+        const entry
+        of rootEntries
+    ) {
+
+        if (
+            entry.isFile() &&
+            entry.name.endsWith(
+                '.js'
+            )
+        ) {
+
+            const ignored = [
+
+                'index.js',
+                'server.js'
+            ];
+
+            if (
+                !ignored.includes(
+                    entry.name
+                )
+            ) {
+
+                candidates.push(
+
+                    path.join(
+                        ROOT,
+                        entry.name
+                    )
+                );
+            }
+        }
+    }
+
+    return [
+        ...new Set(
+            candidates
+        )
+    ];
+}
+
+// ============================================================
+// DISCOVER CAPABILITIES
+// ============================================================
+
+function discoverCapabilities() {
+
+    if (
+        capabilityCache
+    ) {
+
+        return capabilityCache;
+    }
+
+    const discovered =
+        [];
+
+    const candidates =
+        getCandidatePaths();
+
+    for (
+        const filePath
+        of candidates
+    ) {
+
+        if (
+            !fs.existsSync(
+                filePath
+            )
+        ) {
+
+            continue;
+        }
+
+        const module =
+            safeRequire(
+                filePath
+            );
+
+        const capability =
+            normalizeCapability(
+                module,
+                filePath
+            );
+
+        if (
+            !capability
+        ) {
+
+            continue;
+        }
+
+        // ----------------------------------------------------
+        // Prevent duplicates
+        // ----------------------------------------------------
+
+        const alreadyLoaded =
+            discovered.some(
+                item =>
+                    item.filePath ===
+                    filePath
+            );
+
+        if (
+            alreadyLoaded
+        ) {
+
+            continue;
+        }
+
+        discovered.push(
+            capability
+        );
+    }
+
+    capabilityCache =
+        discovered;
+
+    console.log(
+        `⚡ Router discovered ${discovered.length} capability(s).`
+    );
+
+    for (
+        const capability
+        of discovered
+    ) {
+
+        console.log(
+
+            `   • ${getCapabilityName(
+                capability
+            )} → ${capability.filePath}`
+        );
+    }
+
+    return capabilityCache;
+}
+
+// ============================================================
+// REFRESH
+// ============================================================
+//
+// Useful if capabilities are added while the process is
+// running.
+//
+
+function refreshCapabilities() {
+
+    capabilityCache =
+        null;
+
+    return discoverCapabilities();
+}
+
+// ============================================================
+// PUBLIC CAPABILITY LIST
+// ============================================================
+
+function getCapabilities() {
+
+    return discoverCapabilities()
+        .map(
+            capability =>
+                getCapabilityName(
+                    capability
+                )
+        );
+}
+
+// ============================================================
+// CAPABILITY MATCH
+// ============================================================
+
+async function capabilityCanHandle(
     item,
     message
 ) {
@@ -357,11 +615,12 @@ async function canHandle(
         item.module;
 
     // --------------------------------------------------------
-    // Modern API
+    // Modern interface
     // --------------------------------------------------------
 
     if (
-        typeof module.canHandle === 'function'
+        typeof module.canHandle ===
+        'function'
     ) {
 
         try {
@@ -375,8 +634,12 @@ async function canHandle(
         } catch (error) {
 
             console.error(
-                `❌ Capability "${getCapabilityName(item)}" canHandle error:`,
-                error.message
+
+                `❌ Capability "${getCapabilityName(
+                    item
+                )}" canHandle error:`,
+
+                error
             );
 
             return false;
@@ -384,38 +647,12 @@ async function canHandle(
     }
 
     // --------------------------------------------------------
-    // Alternative API
+    // Legacy music interface
     // --------------------------------------------------------
 
     if (
-        typeof module.isRequest === 'function'
-    ) {
-
-        try {
-
-            return Boolean(
-                await module.isRequest(
-                    message
-                )
-            );
-
-        } catch (error) {
-
-            console.error(
-                `❌ Capability "${getCapabilityName(item)}" isRequest error:`,
-                error.message
-            );
-
-            return false;
-        }
-    }
-
-    // --------------------------------------------------------
-    // Legacy music API
-    // --------------------------------------------------------
-
-    if (
-        typeof module.isMusicRequest === 'function'
+        typeof module.isMusicRequest ===
+        'function'
     ) {
 
         try {
@@ -429,22 +666,35 @@ async function canHandle(
         } catch (error) {
 
             console.error(
-                `❌ Capability "${getCapabilityName(item)}" isMusicRequest error:`,
-                error.message
+
+                `❌ Capability "${getCapabilityName(
+                    item
+                )}" isMusicRequest error:`,
+
+                error
             );
 
             return false;
         }
     }
 
+    // --------------------------------------------------------
+    // If it only has execute(), it is still a capability.
+    //
+    // However, execute-only modules are NOT automatically
+    // executed for every message.
+    //
+    // This prevents a random capability from hijacking chat.
+    // --------------------------------------------------------
+
     return false;
 }
 
 // ============================================================
-// EXECUTE
+// CAPABILITY EXECUTION
 // ============================================================
 
-async function execute(
+async function executeCapability(
     item,
     message
 ) {
@@ -453,40 +703,29 @@ async function execute(
         item.module;
 
     // --------------------------------------------------------
-    // Modern API
+    // Modern interface
     // --------------------------------------------------------
 
     if (
-        typeof module.execute === 'function'
+        typeof module.execute ===
+        'function'
     ) {
 
-        return module.execute(
+        return await module.execute(
             message
         );
     }
 
     // --------------------------------------------------------
-    // Alternative API
+    // Legacy music interface
     // --------------------------------------------------------
 
     if (
-        typeof module.handle === 'function'
+        typeof module.executeMusic ===
+        'function'
     ) {
 
-        return module.handle(
-            message
-        );
-    }
-
-    // --------------------------------------------------------
-    // Legacy music API
-    // --------------------------------------------------------
-
-    if (
-        typeof module.executeMusic === 'function'
-    ) {
-
-        return module.executeMusic(
+        return await module.executeMusic(
             message
         );
     }
@@ -499,24 +738,48 @@ async function execute(
 // ============================================================
 
 function normalizeResult(
-    item,
-    result
+    result,
+    item
 ) {
 
     if (
         !result
     ) {
+
         return null;
     }
 
-    const name =
-        getCapabilityName(
-            item
-        );
+    // --------------------------------------------------------
+    // Capability explicitly handled it.
+    // --------------------------------------------------------
 
-    // Capability returned a normal string.
     if (
-        typeof result === 'string'
+        result.type ===
+            'capability'
+    ) {
+
+        return {
+
+            ...result,
+
+            capability:
+                result.capability ||
+                getCapabilityName(
+                    item
+                )
+        };
+    }
+
+    // --------------------------------------------------------
+    // A capability can simply return:
+    //
+    // { response: 'hello' }
+    //
+    // --------------------------------------------------------
+
+    if (
+        typeof result.response ===
+        'string'
     ) {
 
         return {
@@ -525,29 +788,51 @@ function normalizeResult(
                 'capability',
 
             capability:
-                name,
+                result.capability ||
+                getCapabilityName(
+                    item
+                ),
+
+            ...result
+        };
+    }
+
+    // --------------------------------------------------------
+    // String response
+    // --------------------------------------------------------
+
+    if (
+        typeof result ===
+        'string'
+    ) {
+
+        return {
+
+            type:
+                'capability',
+
+            capability:
+                getCapabilityName(
+                    item
+                ),
 
             response:
                 result
         };
     }
 
-    // Capability returned an object.
+    // --------------------------------------------------------
+    // Explicit non-capability result
+    // --------------------------------------------------------
+
     if (
-        typeof result === 'object'
+        result.type ===
+        'conversation'
     ) {
 
         return {
-
             type:
-                result.type ||
-                'capability',
-
-            capability:
-                result.capability ||
-                name,
-
-            ...result
+                'conversation'
         };
     }
 
@@ -567,50 +852,60 @@ async function route(
     ) {
 
         return {
-            type: 'none'
+            type:
+                'conversation'
         };
     }
 
     const capabilities =
-        getCapabilities();
+        discoverCapabilities();
 
     // ========================================================
-    // CAPABILITIES FIRST
+    // CAPABILITIES
     // ========================================================
 
     for (
-        const item of capabilities
+        const capability
+        of capabilities
     ) {
 
-        const handles =
-            await canHandle(
-                item,
+        const canHandle =
+            await capabilityCanHandle(
+                capability,
                 message
             );
 
         if (
-            !handles
+            !canHandle
         ) {
+
             continue;
         }
 
+        // ----------------------------------------------------
+        // IMPORTANT:
+        //
+        // Once a capability claims the message, it gets the
+        // message exclusively.
+        // ----------------------------------------------------
+
         try {
 
-            console.log(
-                `⚡ Capability: ${getCapabilityName(item)}`
-            );
-
             const result =
-                await execute(
-                    item,
+                await executeCapability(
+                    capability,
                     message
                 );
 
             const normalized =
                 normalizeResult(
-                    item,
-                    result
+                    result,
+                    capability
                 );
+
+            // ------------------------------------------------
+            // Capability successfully handled it.
+            // ------------------------------------------------
 
             if (
                 normalized
@@ -619,33 +914,52 @@ async function route(
                 return normalized;
             }
 
-        } catch (error) {
-
-            console.error(
-                `❌ Capability "${getCapabilityName(item)}" failed:`
-            );
-
-            console.error(
-                error
-            );
-
-            // Important:
-            // Do NOT invent "I could not execute that capability."
+            // ------------------------------------------------
+            // Capability claimed it but returned nothing.
             //
-            // Let the application decide how to handle
-            // an actual capability failure.
+            // Still consume the message.
+            // This prevents the Brain from responding to a
+            // capability request.
+            // ------------------------------------------------
 
             return {
 
                 type:
-                    'capability_error',
+                    'capability',
 
                 capability:
                     getCapabilityName(
-                        item
-                    ),
+                        capability
+                    )
+            };
+
+        } catch (error) {
+
+            console.error(
+
+                `❌ Capability "${getCapabilityName(
+                    capability
+                )}" execution error:`,
 
                 error
+            );
+
+            // ------------------------------------------------
+            // IMPORTANT:
+            //
+            // Do NOT generate a fake response.
+            //
+            // Do NOT say:
+            //
+            // "I could not execute that capability."
+            //
+            // The Brain may handle the message naturally.
+            // ------------------------------------------------
+
+            return {
+
+                type:
+                    'conversation'
             };
         }
     }
@@ -662,27 +976,6 @@ async function route(
 }
 
 // ============================================================
-// MANUAL CAPABILITY ACCESS
-// ============================================================
-
-function findCapability(
-    name
-) {
-
-    const capabilities =
-        getCapabilities();
-
-    return capabilities.find(
-        item =>
-            getCapabilityName(
-                item
-            ).toLowerCase() ===
-            String(name)
-                .toLowerCase()
-    ) || null;
-}
-
-// ============================================================
 // EXPORTS
 // ============================================================
 
@@ -694,9 +987,7 @@ module.exports = {
 
     discoverCapabilities,
 
-    findCapability,
+    refreshCapabilities,
 
-    canHandle,
-
-    execute
+    getCapabilityName
 };
