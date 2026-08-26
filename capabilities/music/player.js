@@ -141,8 +141,17 @@ async function getAudioStream(
         );
     }
 
+    console.log(
+        '🎵 STREAM: fetching Audius URL...'
+    );
+
     const response =
         await fetch(url);
+
+    console.log(
+        '🎵 STREAM: response status:',
+        response.status
+    );
 
     if (!response.ok) {
 
@@ -157,6 +166,10 @@ async function getAudioStream(
             'Audio stream has no body.'
         );
     }
+
+    console.log(
+        '✅ STREAM: response body received'
+    );
 
     return Readable.fromWeb(
         response.body
@@ -177,6 +190,20 @@ async function play(
         track,
         message
     } = data;
+
+    console.log(
+        '🎵 PLAY START:',
+        JSON.stringify({
+            query,
+            hasUrl:
+                Boolean(url),
+            guildId:
+                message?.guildId,
+            track:
+                track?.title ||
+                null
+        })
+    );
 
     if (!message?.guildId) {
 
@@ -217,12 +244,21 @@ async function play(
         // CONNECT
         // ----------------------------------------------------
 
+        console.log(
+            '🎵 PLAY 1: connecting to voice...'
+        );
+
         const voice =
             connectToVoice(
                 message
             );
 
         if (!voice.success) {
+
+            console.log(
+                '❌ PLAY 1 FAILED:',
+                voice.message
+            );
 
             return {
                 success: false,
@@ -232,20 +268,32 @@ async function play(
             };
         }
 
+        console.log(
+            '✅ PLAY 1: connected to voice'
+        );
+
         // ----------------------------------------------------
         // STOP CURRENT SONG
         // ----------------------------------------------------
 
+        console.log(
+            '🎵 PLAY 2: stopping current song...'
+        );
+
         await stop({
             guildId
         });
+
+        console.log(
+            '✅ PLAY 2: stopped'
+        );
 
         // ----------------------------------------------------
         // GET STREAM
         // ----------------------------------------------------
 
         console.log(
-            `🎵 Starting Audius stream: ${query}`
+            '🎵 PLAY 3: requesting Audius stream...'
         );
 
         const stream =
@@ -253,18 +301,41 @@ async function play(
                 url
             );
 
+        console.log(
+            '✅ PLAY 3: Audius stream received'
+        );
+
         // ----------------------------------------------------
         // PLAYER
         // ----------------------------------------------------
+
+        console.log(
+            '🎵 PLAY 4: getting player...'
+        );
 
         const player =
             getPlayer(
                 guildId
             );
 
+        if (!player) {
+
+            throw new Error(
+                'Audio player could not be created.'
+            );
+        }
+
+        console.log(
+            '✅ PLAY 4: player ready'
+        );
+
         // ----------------------------------------------------
         // RESOURCE
         // ----------------------------------------------------
+
+        console.log(
+            '🎵 PLAY 5: creating audio resource...'
+        );
 
         const resource =
             createAudioResource(
@@ -275,12 +346,24 @@ async function play(
                 }
             );
 
+        console.log(
+            '✅ PLAY 5: resource created'
+        );
+
         // ----------------------------------------------------
         // PLAY
         // ----------------------------------------------------
 
+        console.log(
+            '🎵 PLAY 6: calling player.play()...'
+        );
+
         player.play(
             resource
+        );
+
+        console.log(
+            '✅ PLAY 6: player.play() called'
         );
 
         // ----------------------------------------------------
@@ -329,8 +412,22 @@ async function play(
     } catch (error) {
 
         console.error(
-            '❌ Music playback failed:',
-            error
+            '❌ MUSIC PLAYBACK ERROR'
+        );
+
+        console.error(
+            'Name:',
+            error?.name
+        );
+
+        console.error(
+            'Message:',
+            error?.message
+        );
+
+        console.error(
+            'Stack:',
+            error?.stack
         );
 
         await stop({
