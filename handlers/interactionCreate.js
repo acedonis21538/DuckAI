@@ -1,4 +1,3 @@
-```js
 // ============================================================
 // DUCKAI INTERACTION HANDLER
 // ============================================================
@@ -347,4 +346,3 @@ async function handleInteraction(
 module.exports = {
     handleInteraction
 };
-```
