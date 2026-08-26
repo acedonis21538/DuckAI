@@ -6,233 +6,6 @@ const capabilities =
     require('../capabilities');
 
 // ============================================================
-// ROUTES
-// ============================================================
-
-const routes = {
-
-    music: {
-
-        keywords: [
-
-            'toca',
-            'tocar',
-            'ouve',
-            'ouvir',
-            'musica',
-            'música',
-            'song',
-            'play',
-            'playlist',
-
-            'pausa',
-            'pause',
-
-            'continua',
-            'resume',
-
-            'skip',
-            'salta',
-
-            'proxima',
-            'próxima',
-
-            'para a musica',
-            'para a música',
-            'stop music'
-        ]
-    },
-
-    images: {
-
-        keywords: [
-
-            'imagem',
-            'imagens',
-            'foto',
-            'fotos',
-
-            'picture',
-            'pictures',
-            'image',
-            'images',
-
-            'mostra-me',
-            'mostra me',
-            'mostra',
-
-            'quero ver',
-
-            'procura uma foto',
-            'procura fotos'
-        ]
-    },
-
-    web: {
-
-        keywords: [
-
-            'pesquisa',
-            'pesquisar',
-
-            'procura',
-            'procurar',
-
-            'search',
-            'google',
-
-            'quem é',
-            'quem e',
-
-            'o que é',
-            'o que e',
-
-            'quando foi',
-            'onde fica'
-        ]
-    }
-};
-
-// ============================================================
-// NORMALIZE
-// ============================================================
-
-function normalize(
-    text = ''
-) {
-
-    return text
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(
-            /[\u0300-\u036f]/g,
-            ''
-        )
-        .trim();
-}
-
-// ============================================================
-// MATCH
-// ============================================================
-
-function matchesRoute(
-    text,
-    keywords
-) {
-
-    return keywords.some(
-        keyword =>
-            text.includes(
-                normalize(
-                    keyword
-                )
-            )
-    );
-}
-
-// ============================================================
-// DETECT
-// ============================================================
-
-function detectRoute(
-    message
-) {
-
-    const text =
-        normalize(
-            message.content
-        );
-
-    // --------------------------------------------------------
-    // MUSIC
-    // --------------------------------------------------------
-
-    if (
-        matchesRoute(
-            text,
-            routes.music.keywords
-        )
-    ) {
-
-        return {
-
-            type:
-                'capability',
-
-            capability:
-                'music',
-
-            confidence:
-                0.9
-        };
-    }
-
-    // --------------------------------------------------------
-    // IMAGES
-    // --------------------------------------------------------
-
-    if (
-        matchesRoute(
-            text,
-            routes.images.keywords
-        )
-    ) {
-
-        return {
-
-            type:
-                'capability',
-
-            capability:
-                'images',
-
-            confidence:
-                0.9
-        };
-    }
-
-    // --------------------------------------------------------
-    // WEB
-    // --------------------------------------------------------
-
-    if (
-        matchesRoute(
-            text,
-            routes.web.keywords
-        )
-    ) {
-
-        return {
-
-            type:
-                'capability',
-
-            capability:
-                'web',
-
-            confidence:
-                0.85
-        };
-    }
-
-    // --------------------------------------------------------
-    // NORMAL CONVERSATION
-    // --------------------------------------------------------
-
-    return {
-
-        type:
-            'conversation',
-
-        capability:
-            null,
-
-        confidence:
-            1
-    };
-}
-
-// ============================================================
 // EXTRACT MUSIC QUERY
 // ============================================================
 
@@ -256,14 +29,14 @@ function extractMusicQuery(
         ).trim();
 
     // ========================================================
-    // REMOVE DUCKAI
+    // REMOVE DUCKAI NAME / TEXT MENTION
     // ========================================================
 
     query =
         query.replace(
-            /^(?:hey\s+)?(?:duck\s*ai\s*)?/i,
+            /^@?duck\s*ai\b[\s,:-]*/i,
             ''
-        );
+        ).trim();
 
     // ========================================================
     // ENGLISH REQUESTS
@@ -271,7 +44,7 @@ function extractMusicQuery(
 
     query =
         query.replace(
-            /^(?:could\s+you|can\s+you|would\s+you|will\s+you)\s+/i,
+            /^(?:hey\s+)?(?:could\s+you|can\s+you|would\s+you|will\s+you)\s+/i,
             ''
         );
 
@@ -308,7 +81,7 @@ function extractMusicQuery(
     query =
         query
             .replace(
-                /^[,:;.!?\s]+/,
+                /^[,@:;.!?\s]+/,
                 ''
             )
             .replace(
@@ -417,17 +190,13 @@ async function executeMusic(
 
     if (
         !result.success ||
-        !result.track ||
         !result.url
     ) {
 
         return {
 
             response:
-                music.responses.getResponse(
-                    'play',
-                    false
-                ),
+                '🎵 Hmm, não consegui encontrar essa.',
 
             file:
                 null
@@ -453,32 +222,69 @@ async function executeMusic(
         });
 
     // --------------------------------------------------------
-    // PLAYBACK RESULT
+    // PLAY FAILED
     // --------------------------------------------------------
+
+    if (
+        !playback ||
+        !playback.success
+    ) {
+
+        return {
+
+            response:
+                playback?.message ||
+                '🦆 Não consegui reproduzir essa música.',
+
+            file:
+                null
+        };
+    }
+
+    // --------------------------------------------------------
+    // SUCCESS
+    // --------------------------------------------------------
+
+    const song =
+        playback.song ||
+        result.track;
 
     return {
 
         response:
-            music.responses.getResponse(
-
-                'play',
-
-                playback.success,
-
-                {
-
-                    song:
-                        playback.song?.title ||
-                        result.track.title ||
-                        query
-                }
+            `🎶 A tocar **${song?.title || query}**` +
+            (
+                song?.artist
+                    ? ` — ${song.artist}`
+                    : ''
             ),
 
         file:
-            null,
-
-        playback
+            null
     };
+}
+
+// ============================================================
+// DETECT MUSIC
+// ============================================================
+
+function isMusicRequest(
+    content
+) {
+
+    const text =
+        String(
+            content || ''
+        ).toLowerCase();
+
+    return (
+        /\b(play|song|music|listen|put on)\b/.test(
+            text
+        ) ||
+        /\b(tocar|toca|ouve|ouvir|música|musica)\b/.test(
+            text
+        )
+    );
 }
 
 // ============================================================
@@ -489,63 +295,58 @@ async function route(
     message
 ) {
 
-    const detected =
-        detectRoute(
-            message
-        );
-
-    // --------------------------------------------------------
-    // NORMAL CONVERSATION
-    // --------------------------------------------------------
-
-    if (
-        detected.type !==
-        'capability'
-    ) {
+    if (!message) {
 
         return {
-
-            ...detected,
+            type:
+                'none',
 
             response:
-                null,
-
-            file:
                 null
         };
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // MUSIC
-    // --------------------------------------------------------
+    // ========================================================
 
     if (
-        detected.capability ===
-        'music'
+        isMusicRequest(
+            message.content
+        )
     ) {
+
+        const musicResult =
+            await executeMusic(
+                message
+            );
 
         return {
 
-            ...detected,
+            type:
+                'capability',
 
-            ...(await executeMusic(
-                message
-            ))
+            capability:
+                'music',
+
+            response:
+                musicResult.response,
+
+            file:
+                musicResult.file
         };
     }
 
-    // --------------------------------------------------------
-    // OTHER CAPABILITIES
-    // --------------------------------------------------------
+    // ========================================================
+    // NO CAPABILITY
+    // ========================================================
 
     return {
 
-        ...detected,
+        type:
+            'ai',
 
         response:
-            null,
-
-        file:
             null
     };
 }
@@ -556,17 +357,11 @@ async function route(
 
 module.exports = {
 
-    routes,
-
-    normalize,
-
-    matchesRoute,
-
-    detectRoute,
-
-    extractMusicQuery,
+    route,
 
     executeMusic,
 
-    route
+    extractMusicQuery,
+
+    isMusicRequest
 };
