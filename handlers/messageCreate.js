@@ -20,9 +20,7 @@ const musicPanel =
 
 async function handleMessage(message) {
 
-    if (
-        message.author.bot
-    ) {
+    if (message.author.bot) {
         return;
     }
 
@@ -45,28 +43,15 @@ async function handleMessage(message) {
         saysDuckAI
     ) {
 
-        // Don't intercept music requests.
-        const isMusic =
-            router.isMusicRequest(
-                message.content
-            );
-
-        if (!isMusic) {
-
-            startConversation(
-                message
-            );
-
-            await message.reply(
-                '🦆 Heyyy! DuckAI is here 🤍'
-            );
-
-            return;
-        }
-
         startConversation(
             message
         );
+
+        await message.reply(
+            '🦆 Heyyy! DuckAI is here 🤍'
+        );
+
+        return;
     }
 
     // ========================================================
@@ -76,9 +61,6 @@ async function handleMessage(message) {
     if (
         !isConversationActive(
             message
-        ) &&
-        !router.isMusicRequest(
-            message.content
         )
     ) {
         return;
@@ -145,8 +127,7 @@ async function handleMessage(message) {
             );
 
         if (
-            !result ||
-            !result.response
+            !result
         ) {
             return;
         }
@@ -156,7 +137,6 @@ async function handleMessage(message) {
         // ====================================================
 
         if (
-            result.type === 'capability' &&
             result.capability === 'music'
         ) {
 
@@ -168,7 +148,8 @@ async function handleMessage(message) {
             await message.reply({
 
                 content:
-                    result.response,
+                    result.response ||
+                    null,
 
                 embeds:
                     panel.embeds,
@@ -181,8 +162,14 @@ async function handleMessage(message) {
         }
 
         // ====================================================
-        // FILE RESPONSE
+        // NORMAL RESPONSE
         // ====================================================
+
+        if (
+            !result.response
+        ) {
+            return;
+        }
 
         if (
             result.file
@@ -198,16 +185,12 @@ async function handleMessage(message) {
                 ]
             });
 
-            return;
+        } else {
+
+            await message.reply(
+                result.response
+            );
         }
-
-        // ====================================================
-        // NORMAL RESPONSE
-        // ====================================================
-
-        await message.reply(
-            result.response
-        );
 
     } catch (error) {
 
