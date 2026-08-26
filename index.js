@@ -21,6 +21,9 @@ const router =
 const musicPanel =
     require('./capabilities/music/panel');
 
+const musicInteraction =
+    require('./handlers/interactionCreate');
+
 // ============================================================
 // ENV
 // ============================================================
@@ -349,33 +352,85 @@ client.on(
     async interaction => {
 
         // ========================================================
-        // MUSIC BUTTONS
+        // IGNORE NON-BUTTON INTERACTIONS
         // ========================================================
 
         if (
-            interaction.isButton() &&
-            interaction.customId.startsWith(
+            !interaction.isButton()
+        ) {
+
+            return;
+        }
+
+        // ========================================================
+        // IGNORE NON-MUSIC BUTTONS
+        // ========================================================
+
+        if (
+            !interaction.customId.startsWith(
                 'music_'
             )
         ) {
 
+            return;
+        }
+
+        // ========================================================
+        // MUSIC INTERACTION
+        // ========================================================
+
+        try {
+
+            await musicInteraction.handleInteraction(
+                interaction
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Interaction error:',
+                error
+            );
+
+            // ====================================================
+            // SAFE FALLBACK
+            // ====================================================
+
             try {
 
-                const musicInteraction =
-                    require(
-                        './handlers/interactionCreate'
-                    );
+                if (
+                    interaction.replied ||
+                    interaction.deferred
+                ) {
 
-                await musicInteraction
-                    .handleInteraction(
-                        interaction
-                    );
+                    await interaction.followUp({
 
-            } catch (error) {
+                        content:
+                            '🦆 Something went wrong while controlling the music.',
+
+                        flags:
+                            64
+                    });
+
+                } else {
+
+                    await interaction.reply({
+
+                        content:
+                            '🦆 Something went wrong while controlling the music.',
+
+                        flags:
+                            64
+                    });
+                }
+
+            } catch (
+                responseError
+            ) {
 
                 console.error(
-                    '❌ Interaction error:',
-                    error
+                    '❌ Could not respond to interaction:',
+                    responseError
                 );
             }
         }
@@ -418,9 +473,9 @@ client.on(
 
             if (
                 route.type ===
-                'capability' &&
+                    'capability' &&
                 route.capability ===
-                'music'
+                    'music'
             ) {
 
                 const panel =
