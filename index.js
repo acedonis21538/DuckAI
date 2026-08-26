@@ -1,31 +1,61 @@
+// ============================================================
+// DUCKAI — CORE INDEX
+// ============================================================
+// Núcleo permanente do DuckAI.
+//
+// FLUXO:
+//
+// MESSAGE
+//   ↓
+// ROUTER
+//   ↓
+// ┌──────────────────────────────────────────────┐
+// │ Capability encontrada?                      │
+// │                                              │
+// │ SIM  → Capability → resposta → STOP         │
+// │                                              │
+// │ NÃO  → Conversation / Brain → resposta      │
+// └──────────────────────────────────────────────┘
+//
+// REGRAS:
+//
+// • Este ficheiro NÃO conhece capabilities específicas.
+// • Este ficheiro NÃO importa music.js.
+// • Este ficheiro NÃO importa panels.
+// • Este ficheiro NÃO importa interaction handlers.
+// • Este ficheiro NÃO inicia o Web Player.
+// • Novas capabilities não exigem alterações aqui.
+// • Apenas UM listener messageCreate existe neste núcleo.
+// • Uma mensagem recebe UMA única resposta lógica.
+// • Capability tem prioridade sobre o Brain.
+// • Se não houver capability, o Brain responde imediatamente
+//   quando a conversa estiver ativa ou for ativada.
+// ============================================================
+
 require('dotenv').config();
-require('./capabilities/web/server');
+
+// ============================================================
+// DISCORD
+// ============================================================
 
 const {
     Client,
     GatewayIntentBits,
-    Partials,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle
+    Partials
 } = require('discord.js');
 
-const OpenAI = require('openai');
+// ============================================================
+// CORE
+// ============================================================
 
 const memory =
     require('./core/memory');
 
-const personality =
-    require('./core/personality');
+const brain =
+    require('./core/brain');
 
 const router =
     require('./core/router');
-
-const musicPanel =
-    require('./capabilities/music/panel');
-
-const musicInteraction =
-    require('./handlers/interactionCreate');
 
 // ============================================================
 // ENV
@@ -33,12 +63,6 @@ const musicInteraction =
 
 const TOKEN =
     process.env.DISCORD_TOKEN;
-
-const GROQ_API_KEY =
-    process.env.GROQ_API_KEY;
-
-const MUSIC_PLAYER_URL =
-    'https://glowing-space-guide-jjpvx44rv9v7274j-3000.app.github.dev';
 
 if (!TOKEN) {
 
@@ -49,34 +73,8 @@ if (!TOKEN) {
     process.exit(1);
 }
 
-if (!GROQ_API_KEY) {
-
-    console.error(
-        '❌ GROQ_API_KEY is missing from .env'
-    );
-
-    process.exit(1);
-}
-
 // ============================================================
-// GROQ
-// ============================================================
-
-const groq =
-    new OpenAI({
-
-        apiKey:
-            GROQ_API_KEY,
-
-        baseURL:
-            'https://api.groq.com/openai/v1'
-    });
-
-const AI_MODEL =
-    'openai/gpt-oss-20b';
-
-// ============================================================
-// DISCORD
+// CLIENT
 // ============================================================
 
 const client =
@@ -94,12 +92,13 @@ const client =
         ],
 
         partials: [
+
             Partials.Channel
         ]
     });
 
 // ============================================================
-// CONVERSATIONS
+// CONVERSATION STATE
 // ============================================================
 
 const conversations =
@@ -108,14 +107,11 @@ const conversations =
 const histories =
     new Map();
 
-const MAX_HISTORY_MESSAGES =
-    50;
-
 // ============================================================
 // CONVERSATION KEY
 // ============================================================
 
-function conversationKey(
+function getConversationKey(
     message
 ) {
 
@@ -148,12 +144,18 @@ function getHistory(
 }
 
 // ============================================================
-// DUCKAI TRIGGER
+// DUCKAI ACTIVATION
 // ============================================================
 
 function mentionsDuckAI(
     message
 ) {
+
+    if (
+        !client.user
+    ) {
+        return false;
+    }
 
     const mentioned =
         message.mentions.has(
@@ -184,7 +186,7 @@ function isGoodbye(
             .toLowerCase()
             .trim()
             .replace(
-                /[.!?,;]+$/g,
+                /[.!?,;:]+$/g,
                 ''
             );
 
@@ -196,17 +198,26 @@ function isGoodbye(
         'okay bye',
         'ok bye bye',
         'okay bye bye',
+
         'goodbye',
         'good bye',
+
         'see you',
         'see ya',
         'cya',
         'later',
+
         'gotta go',
         'i gotta go',
+
         'i have to go',
+        'i gotta leave',
+
         'have to go',
-        'talk to you later'
+        'have to leave',
+
+        'talk to you later',
+        'talk later'
     ];
 
     return goodbyes.includes(
@@ -215,529 +226,576 @@ function isGoodbye(
 }
 
 // ============================================================
-// GENERATE RESPONSE
+// CAPABILITY LIST
+// ============================================================
+// O Brain pode receber informação sobre as capabilities
+// disponíveis sem o index conhecer nenhuma delas.
+//
+// O router pode opcionalmente expor:
+//
+// router.getCapabilities()
+//
+// Caso não exponha essa função, o Brain simplesmente recebe
+// uma lista vazia.
+//
 // ============================================================
 
-async function generateResponse(
-    message,
-    key
-) {
+function getCapabilities() {
 
-    const history =
-        getHistory(key);
+    try {
 
-    history.push({
+        if (
+            typeof router.getCapabilities ===
+            'function'
+        ) {
 
-        role:
-            'user',
+            const capabilities =
+                router.getCapabilities();
 
-        content:
-            message.content
-    });
+            if (
+                !Array.isArray(
+                    capabilities
+                )
+            ) {
 
-    const recentHistory =
-        history.slice(
-            -MAX_HISTORY_MESSAGES
-        );
+                return [];
+            }
 
-    const userProfile =
-        memory.buildUserMemoryPrompt(
-            message.author.id
-        );
+            return capabilities
+                .map(
+                    capability => {
 
-    const response =
-        await groq.chat.completions.create({
+                        if (
+                            typeof capability ===
+                            'string'
+                        ) {
 
-            model:
-                AI_MODEL,
+                            return capability;
+                        }
 
-            messages: [
+                        if (
+                            capability?.name
+                        ) {
 
-                // ====================================================
-                // PERSONALITY
-                // ====================================================
+                            return capability.name;
+                        }
 
-                {
-                    role:
-                        'system',
+                        if (
+                            capability?.capability
+                        ) {
 
-                    content:
-                        personality
-                            .buildPersonalityPrompt()
-                },
+                            return capability.capability;
+                        }
 
-                // ====================================================
-                // USER PROFILE
-                // ====================================================
+                        if (
+                            capability?.module?.name
+                        ) {
 
-                {
-                    role:
-                        'system',
+                            return capability.module.name;
+                        }
 
-                    content: `
-CURRENT SPEAKER
+                        if (
+                            capability?.module?.capability
+                        ) {
 
-Discord user ID:
-${message.author.id}
+                            return capability.module.capability;
+                        }
 
-Discord username:
-${message.author.username}
+                        return null;
+                    }
+                )
+                .filter(
+                    Boolean
+                );
+        }
 
-IMPORTANT:
-The personal profile below belongs ONLY to this current speaker.
+    } catch (error) {
 
-CURRENT USER PROFILE:
-${userProfile}
-
-Use this profile naturally when relevant.
-
-Never assume another user's information belongs to this user.
-Never mention the profile as a database.
-Never list all known information unless asked.
-`
-                },
-
-                // ====================================================
-                // CONVERSATION
-                // ====================================================
-
-                ...recentHistory
-            ],
-
-            temperature:
-                0.78,
-
-            max_tokens:
-                1400
-        });
-
-    const reply =
-        response
-            .choices?.[0]
-            ?.message
-            ?.content
-            ?.trim();
-
-    if (!reply) {
-
-        throw new Error(
-            'Groq returned an empty response.'
+        console.error(
+            '⚠️ Could not read capabilities:',
+            error
         );
     }
 
-    history.push({
+    return [];
+}
 
-        role:
-            'assistant',
+// ============================================================
+// SAFE REPLY
+// ============================================================
 
-        content:
-            reply
-    });
+async function safeReply(
+    message,
+    content
+) {
 
     if (
-        history.length >
-        MAX_HISTORY_MESSAGES
+        !content
     ) {
 
-        history.splice(
-            0,
-            history.length -
-            MAX_HISTORY_MESSAGES
-        );
+        return;
     }
 
-    return reply;
+    await message.reply(
+        content
+    );
 }
 
 // ============================================================
-// MUSIC PLAYER BUTTON
+// ROUTER
+// ============================================================
+//
+// O router tem prioridade absoluta.
+//
+// Possíveis resultados:
+//
+// {
+//     type: 'capability',
+//     capability: 'music',
+//     response: '...'
+// }
+//
+// ou:
+//
+// {
+//     type: 'conversation'
+// }
+//
+// ou simplesmente:
+//
+// null / undefined
+//
 // ============================================================
 
-function buildMusicPlayerButton(
-    guildId
+async function executeRouter(
+    message
 ) {
 
-    if (!guildId) {
-        return null;
-    }
+    try {
 
-    const playerUrl =
-        `${MUSIC_PLAYER_URL}/player?guildId=${encodeURIComponent(guildId)}`;
+        if (
+            typeof router.route !==
+            'function'
+        ) {
 
-    return new ActionRowBuilder()
-        .addComponents(
+            console.error(
+                '❌ Router does not export route().'
+            );
 
-            new ButtonBuilder()
+            return {
+                type:
+                    'conversation'
+            };
+        }
 
-                .setLabel(
-                    'Abrir Player'
-                )
+        const result =
+            await router.route(
+                message
+            );
 
-                .setEmoji(
-                    '🎵'
-                )
+        if (
+            !result
+        ) {
 
-                .setStyle(
-                    ButtonStyle.Link
-                )
+            return {
+                type:
+                    'conversation'
+            };
+        }
 
-                .setURL(
-                    playerUrl
-                )
+        return result;
+
+    } catch (error) {
+
+        // ----------------------------------------------------
+        // IMPORTANTE:
+        //
+        // Um erro do router NÃO deve gerar:
+        //
+        // "I could not execute that capability."
+        //
+        // Isso acabava por bloquear o Brain e produzir
+        // respostas falsas.
+        //
+        // Se o router falhar, tratamos a mensagem como
+        // conversa normal.
+        // ----------------------------------------------------
+
+        console.error(
+            '❌ Router error:',
+            error
         );
+
+        return {
+            type:
+                'conversation'
+        };
+    }
 }
 
 // ============================================================
-// INTERACTIONS
+// PROCESS MESSAGE
 // ============================================================
 
-client.on(
-    'interactionCreate',
-    async interaction => {
+async function processMessage(
+    message
+) {
 
-        // ========================================================
-        // IGNORE NON-BUTTON INTERACTIONS
-        // ========================================================
+    // ========================================================
+    // IGNORE BOTS
+    // ========================================================
 
-        if (
-            !interaction.isButton()
-        ) {
+    if (
+        message.author.bot
+    ) {
 
-            return;
-        }
-
-        // ========================================================
-        // IGNORE NON-MUSIC BUTTONS
-        // ========================================================
-
-        if (
-            !interaction.customId.startsWith(
-                'music_'
-            )
-        ) {
-
-            return;
-        }
-
-        // ========================================================
-        // MUSIC INTERACTION
-        // ========================================================
-
-        try {
-
-            await musicInteraction.handleInteraction(
-                interaction
-            );
-
-        } catch (error) {
-
-            console.error(
-                '❌ Interaction error:',
-                error
-            );
-
-            // ====================================================
-            // SAFE FALLBACK
-            // ====================================================
-
-            try {
-
-                if (
-                    interaction.replied ||
-                    interaction.deferred
-                ) {
-
-                    await interaction.followUp({
-
-                        content:
-                            '🦆 Something went wrong while controlling the music.',
-
-                        flags:
-                            64
-                    });
-
-                } else {
-
-                    await interaction.reply({
-
-                        content:
-                            '🦆 Something went wrong while controlling the music.',
-
-                        flags:
-                            64
-                    });
-                }
-
-            } catch (
-                responseError
-            ) {
-
-                console.error(
-                    '❌ Could not respond to interaction:',
-                    responseError
-                );
-            }
-        }
+        return;
     }
-);
 
-// ============================================================
-// MESSAGE HANDLER
-// ============================================================
+    // ========================================================
+    // CONVERSATION KEY
+    // ========================================================
 
-client.on(
-    'messageCreate',
-    async message => {
+    const key =
+        getConversationKey(
+            message
+        );
 
-        // ========================================================
-        // IGNORE BOTS
-        // ========================================================
+    // ========================================================
+    // 1. ROUTER — SEMPRE PRIMEIRO
+    // ========================================================
+    //
+    // Nenhum Brain.
+    // Nenhuma ativação.
+    // Nenhum goodbye.
+    //
+    // Primeiro damos oportunidade às capabilities.
+    //
+    // ========================================================
+
+    const route =
+        await executeRouter(
+            message
+        );
+
+    // ========================================================
+    // 2. CAPABILITY
+    // ========================================================
+
+    if (
+        route?.type ===
+        'capability'
+    ) {
+
+        // -----------------------------------------------
+        // A capability já tratou da mensagem.
+        // -----------------------------------------------
 
         if (
-            message.author.bot
+            route.response
         ) {
 
-            return;
+            await safeReply(
+                message,
+                route.response
+            );
         }
 
-        // ========================================================
-        // ROUTER / CAPABILITIES
-        // ========================================================
+        // -----------------------------------------------
+        // ABSOLUTE STOP
+        // -----------------------------------------------
+        //
+        // Nunca:
+        //
+        // capability
+        //     ↓
+        // brain
+        //
+        // Nem:
+        //
+        // capability
+        //     ↓
+        // Heyyy
+        //
+        // Nem outra resposta.
+        //
+        // -----------------------------------------------
 
-        try {
+        return;
+    }
 
-            const route =
-                await router.route(
-                    message
-                );
+    // ========================================================
+    // 3. DUCKAI ACTIVATION
+    // ========================================================
+    //
+    // Só chegamos aqui se nenhuma capability consumiu
+    // a mensagem.
+    //
+    // ========================================================
 
-            // ====================================================
-            // MUSIC
-            // ====================================================
+    if (
+        mentionsDuckAI(
+            message
+        )
+    ) {
 
-            if (
-                route.type ===
-                    'capability' &&
-                route.capability ===
-                    'music'
-            ) {
+        conversations.add(
+            key
+        );
 
-                // ==================================================
-                // BUILD MUSIC PANEL
-                // ==================================================
+        getHistory(
+            key
+        );
 
-                const panel =
-                    musicPanel.buildMusicPanel(
-                        message.guildId
-                    );
+        await safeReply(
+            message,
+            '🦆 Heyyy! DuckAI is here 🤍'
+        );
 
-                // ==================================================
-                // BUILD PLAYER LINK
-                // ==================================================
-
-                const playerButton =
-                    buildMusicPlayerButton(
-                        message.guildId
-                    );
-
-                // ==================================================
-                // COMPONENTS
-                // ==================================================
-
-                const components = [
-
-                    ...panel.components
-                ];
-
-                if (
-                    playerButton
-                ) {
-
-                    components.push(
-                        playerButton
-                    );
-                }
-
-                // ==================================================
-                // SEND RESPONSE
-                // ==================================================
-
-                await message.reply({
-
-                    content:
-                        route.response ||
-                        null,
-
-                    embeds:
-                        panel.embeds,
-
-                    components
-                });
-
-                return;
-            }
-
-            // ====================================================
-            // OTHER CAPABILITIES
-            // ====================================================
-
-            if (
-                route.type ===
-                'capability'
-            ) {
-
-                if (
-                    route.response
-                ) {
-
-                    await message.reply(
-                        route.response
-                    );
-                }
-
-                return;
-            }
-
-        } catch (error) {
-
-            console.error(
-                '❌ Router error:',
-                error
-            );
-
-            await message.reply(
-                '🦆 I could not execute that capability.'
-            );
-
-            return;
-        }
-
-        // ========================================================
-        // CONVERSATION KEY
-        // ========================================================
-
-        const key =
-            conversationKey(
-                message
-            );
-
-        // ========================================================
-        // START CONVERSATION
-        // ========================================================
-
-        if (
-            mentionsDuckAI(
+        memory
+            .updateUserMemory(
                 message
             )
-        ) {
-
-            conversations.add(
-                key
+            .catch(
+                error =>
+                    console.error(
+                        '⚠️ Memory error:',
+                        error
+                    )
             );
 
+        return;
+    }
+
+    // ========================================================
+    // 4. INACTIVE CONVERSATION
+    // ========================================================
+    //
+    // Se o utilizador não chamou DuckAI e não existe uma
+    // conversa ativa, não fazemos nada.
+    //
+    // ========================================================
+
+    if (
+        !conversations.has(
+            key
+        )
+    ) {
+
+        return;
+    }
+
+    // ========================================================
+    // 5. GOODBYE
+    // ========================================================
+
+    if (
+        isGoodbye(
+            message
+        )
+    ) {
+
+        conversations.delete(
+            key
+        );
+
+        histories.delete(
+            key
+        );
+
+        await safeReply(
+            message,
+            '🦆 Okay, bye bye! See you later 🤍'
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // 6. BRAIN
+    // ========================================================
+    //
+    // Só mensagens que não foram consumidas por uma
+    // capability chegam aqui.
+    //
+    // ========================================================
+
+    try {
+
+        await message.channel.sendTyping();
+
+        const history =
             getHistory(
                 key
             );
 
-            await message.reply(
-                '🦆 Heyyy! DuckAI is here 🤍'
+        // ----------------------------------------------------
+        // Adicionar a mensagem do utilizador ANTES do Brain.
+        // Assim o Brain recebe a mensagem atual no contexto.
+        // ----------------------------------------------------
+
+        if (
+            typeof brain.addToHistory ===
+            'function'
+        ) {
+
+            brain.addToHistory(
+
+                history,
+
+                'user',
+
+                message.content
             );
 
-            memory.updateUserMemory(
+        } else {
+
+            history.push({
+
+                role:
+                    'user',
+
+                content:
+                    message.content
+            });
+        }
+
+        // ----------------------------------------------------
+        // CAPABILITIES DISPONÍVEIS
+        // ----------------------------------------------------
+
+        const capabilities =
+            getCapabilities();
+
+        // ----------------------------------------------------
+        // BRAIN
+        // ----------------------------------------------------
+
+        if (
+            typeof brain.generateResponse !==
+            'function'
+        ) {
+
+            throw new Error(
+                'Brain does not export generateResponse().'
+            );
+        }
+
+        const response =
+            await brain.generateResponse({
+
+                message,
+
+                history,
+
+                capabilities
+            });
+
+        // ----------------------------------------------------
+        // GUARD
+        // ----------------------------------------------------
+
+        if (
+            !response
+        ) {
+
+            throw new Error(
+                'Brain returned an empty response.'
+            );
+        }
+
+        // ----------------------------------------------------
+        // ADD ASSISTANT RESPONSE
+        // ----------------------------------------------------
+
+        if (
+            typeof brain.addToHistory ===
+            'function'
+        ) {
+
+            brain.addToHistory(
+
+                history,
+
+                'assistant',
+
+                response
+            );
+
+        } else {
+
+            history.push({
+
+                role:
+                    'assistant',
+
+                content:
+                    response
+            });
+        }
+
+        // ----------------------------------------------------
+        // SEND
+        // ----------------------------------------------------
+
+        await safeReply(
+            message,
+            response
+        );
+
+        // ----------------------------------------------------
+        // MEMORY
+        // ----------------------------------------------------
+
+        memory
+            .updateUserMemory(
                 message
-            ).catch(
+            )
+            .catch(
                 error =>
                     console.error(
-                        '⚠️ Background memory error:',
+                        '⚠️ Memory error:',
                         error
                     )
             );
 
-            return;
-        }
+    } catch (error) {
 
-        // ========================================================
-        // IGNORE INACTIVE CONVERSATIONS
-        // ========================================================
+        console.error(
+            '❌ Brain error:',
+            error
+        );
 
-        if (
-            !conversations.has(
-                key
-            )
-        ) {
+        // ----------------------------------------------------
+        // UMA ÚNICA mensagem de erro.
+        // Não voltamos ao router.
+        // Não tentamos outra capability.
+        // Não chamamos o Brain novamente.
+        // ----------------------------------------------------
 
-            return;
-        }
+        await safeReply(
 
-        // ========================================================
-        // GOODBYE
-        // ========================================================
+            message,
 
-        if (
-            isGoodbye(
-                message
-            )
-        ) {
-
-            conversations.delete(
-                key
-            );
-
-            histories.delete(
-                key
-            );
-
-            await message.reply(
-                '🦆 Okay, bye bye! See you later 🤍'
-            );
-
-            return;
-        }
-
-        // ========================================================
-        // AI
-        // ========================================================
-
-        try {
-
-            await message.channel.sendTyping();
-
-            const reply =
-                await generateResponse(
-                    message,
-                    key
-                );
-
-            await message.reply(
-                reply
-            );
-
-            // ====================================================
-            // UPDATE MEMORY
-            // ====================================================
-
-            memory.updateUserMemory(
-                message
-            ).catch(
-                error =>
-                    console.error(
-                        '⚠️ Background memory error:',
-                        error
-                    )
-            );
-
-        } catch (error) {
-
-            console.error(
-                '❌ AI error:',
-                error
-            );
-
-            await message.reply(
-                '🦆 Aww, something went wrong on my side... try again in a moment? 🤍'
-            );
-        }
+            '🦆 Aww, something went wrong on my side... try again in a moment? 🤍'
+        );
     }
+}
+
+// ============================================================
+// SINGLE MESSAGE HANDLER
+// ============================================================
+//
+// ESTE É O ÚNICO messageCreate DO NÚCLEO.
+//
+// Não adicionar outro listener messageCreate noutro ficheiro
+// que carregue este index.
+//
+// ============================================================
+
+client.on(
+    'messageCreate',
+    processMessage
 );
 
 // ============================================================
@@ -745,8 +803,8 @@ client.on(
 // ============================================================
 
 client.once(
-    'ready',
-    async () => {
+    'clientReady',
+    () => {
 
         console.log(
             '────────────────────────────'
@@ -755,6 +813,34 @@ client.once(
         console.log(
             `🦆 DuckAI online as ${client.user.tag}`
         );
+
+        const capabilities =
+            getCapabilities();
+
+        if (
+            capabilities.length
+        ) {
+
+            console.log(
+                `⚡ Capabilities: ${capabilities.length}`
+            );
+
+            for (
+                const capability
+                of capabilities
+            ) {
+
+                console.log(
+                    `   • ${capability}`
+                );
+            }
+
+        } else {
+
+            console.log(
+                '⚡ Capabilities: loaded dynamically'
+            );
+        }
 
         console.log(
             '────────────────────────────'
@@ -769,3 +855,33 @@ client.once(
 client.login(
     TOKEN
 );
+
+// ============================================================
+// EXPORTS
+// ============================================================
+//
+// Úteis para testes e para outros módulos, sem obrigar
+// qualquer capability a importar o index.
+//
+// ============================================================
+
+module.exports = {
+
+    client,
+
+    conversations,
+
+    histories,
+
+    getConversationKey,
+
+    getHistory,
+
+    mentionsDuckAI,
+
+    isGoodbye,
+
+    getCapabilities,
+
+    processMessage
+};

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>DuckAI Music</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background:
+        linear-gradient(
+            135deg,
+            #111827,
+            #1f2937
+        );
+
+    color: white;
+
+    font-family:
+        Arial,
+        sans-serif;
+}
+
+.player {
+
+    width: 420px;
+    max-width: 92vw;
+
+    padding: 30px;
+
+    border-radius: 24px;
+
+    background:
+        rgba(255,255,255,0.08);
+
+    backdrop-filter:
+        blur(15px);
+
+    box-shadow:
+        0 20px 60px
+        rgba(0,0,0,0.35);
+
+    text-align: center;
+}
+
+.logo {
+    font-size: 48px;
+}
+
+h1 {
+    margin: 10px 0 5px;
+}
+
+.artist {
+    opacity: 0.65;
+    margin-bottom: 25px;
+}
+
+.cover {
+
+    width: 240px;
+    height: 240px;
+
+    object-fit: cover;
+
+    border-radius: 18px;
+
+    margin-bottom: 25px;
+
+    background: #111827;
+}
+
+.status {
+
+    margin: 15px 0;
+
+    font-size: 14px;
+
+    opacity: 0.7;
+}
+
+.controls {
+
+    display: flex;
+
+    justify-content: center;
+
+    gap: 12px;
+}
+
+button {
+
+    border: 0;
+
+    padding: 13px 20px;
+
+    border-radius: 12px;
+
+    cursor: pointer;
+
+    color: white;
+
+    background: #374151;
+
+    font-size: 15px;
+}
+
+button:hover {
+    background: #4b5563;
+}
+
+.play {
+    background: #16a34a;
+}
+
+.play:hover {
+    background: #15803d;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="player">
+
+    <div class="logo">🦆</div>
+
+    <h1 id="title">
+        DuckAI Music
+    </h1>
+
+    <div
+        class="artist"
+        id="artist"
+    >
+        No song selected
+    </div>
+
+    <img
+        id="cover"
+        class="cover"
+        src=""
+        alt=""
+    >
+
+    <div
+        class="status"
+        id="status"
+    >
+        Stopped
+    </div>
+
+    <div class="controls">
+
+        <button
+            class="play"
+            onclick="playMusic()"
+        >
+            ▶️ Tocar
+        </button>
+
+        <button
+            onclick="pauseMusic()"
+        >
+            ⏸️ Pausa
+        </button>
+
+        <button
+            onclick="stopMusic()"
+        >
+            ⏹️ Parar
+        </button>
+
+    </div>
+
+    <audio
+        id="audio"
+        controls
+        style="
+            width:100%;
+            margin-top:25px;
+        "
+    ></audio>
+
+</div>
+
+<script>
+
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const guildId =
+    params.get('guildId');
+
+const audio =
+    document.getElementById('audio');
+
+const title =
+    document.getElementById('title');
+
+const artist =
+    document.getElementById('artist');
+
+const cover =
+    document.getElementById('cover');
+
+const status =
+    document.getElementById('status');
+
+// ============================================================
+// LOAD
+// ============================================================
+
+async function loadMusic() {
+
+    if (!guildId) {
+
+        status.textContent =
+            'Missing guildId';
+
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+            );
+
+        const data =
+            await response.json();
+
+        if (!data.song) {
+
+            title.textContent =
+                'DuckAI Music';
+
+            artist.textContent =
+                'No song selected';
+
+            status.textContent =
+                'Stopped';
+
+            return;
+        }
+
+        title.textContent =
+            data.song.title;
+
+        artist.textContent =
+            data.song.artist ||
+            'Unknown artist';
+
+        status.textContent =
+            capitalize(
+                data.state
+            );
+
+        if (data.song.artwork) {
+
+            cover.src =
+                data.song.artwork;
+
+        } else {
+
+            cover.removeAttribute('src');
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            'Connection error';
+    }
+}
+
+// ============================================================
+// PLAY
+// ============================================================
+
+async function playMusic() {
+
+    if (!guildId) {
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                '/api/music/play',
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+                            guildId
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!data.success) {
+
+            status.textContent =
+                data.message ||
+                'Could not play';
+
+            return;
+        }
+
+        // Get current song again
+        const current =
+            await fetch(
+                `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+            );
+
+        const musicData =
+            await current.json();
+
+        if (musicData.song?.url) {
+
+            audio.src =
+                musicData.song.url;
+
+            await audio.play();
+        }
+
+        status.textContent =
+            'Playing';
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            'Could not play';
+    }
+}
+
+// ============================================================
+// PAUSE
+// ============================================================
+
+async function pauseMusic() {
+
+    audio.pause();
+
+    await fetch(
+        '/api/music/pause',
+        {
+            method: 'POST',
+
+            headers: {
+                'Content-Type':
+                    'application/json'
+            },
+
+            body:
+                JSON.stringify({
+                    guildId
+                })
+        }
+    );
+
+    status.textContent =
+        'Paused';
+}
+
+// ============================================================
+// STOP
+// ============================================================
+
+async function stopMusic() {
+
+    audio.pause();
+
+    audio.currentTime = 0;
+
+    await fetch(
+        '/api/music/stop',
+        {
+            method: 'POST',
+
+            headers: {
+                'Content-Type':
+                    'application/json'
+            },
+
+            body:
+                JSON.stringify({
+                    guildId
+                })
+        }
+    );
+
+    status.textContent =
+        'Stopped';
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function capitalize(text) {
+
+    if (!text) {
+        return '';
+    }
+
+    return (
+        text.charAt(0).toUpperCase() +
+        text.slice(1)
+    );
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+loadMusic();
+
+setInterval(
+    loadMusic,
+    5000
+);
+
+</script>
+
+</body>
+
+</html>
