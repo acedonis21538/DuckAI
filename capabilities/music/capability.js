@@ -4,35 +4,23 @@
 // DUCKAI — MUSIC CAPABILITY
 // ============================================================
 //
-// Universal bridge between the DuckAI router and the music
-// engine.
+// Universal interface between:
+//     core/router.js
+//          ↓
+//     this capability
+//          ↓
+//     capabilities/music/music.js
 //
 // IMPORTANT:
 //
-// • Detects music-related requests.
-// • Searches/selects music through music.js.
-// • Does NOT play audio.
-// • Does NOT use Discord Voice.
-// • Does NOT start the Web Player.
-// • The browser/player.html is responsible for audio.
+// • Detects music requests.
+// • Searches Audius.
+// • Selects/loads the song into the Web Player.
+// • NEVER plays audio.
+// • NEVER uses a Discord voice channel.
+// • NEVER calls music.play().
 //
-// FLOW:
-//
-// Discord message
-//      ↓
-// Universal Router
-//      ↓
-// canHandle()
-//      ↓
-// execute()
-//      ↓
-// music.js
-//      ↓
-// selected song
-//      ↓
-// Web Player
-//      ↓
-// Browser audio
+// Actual audio playback happens ONLY inside player.html.
 //
 // ============================================================
 
@@ -40,19 +28,63 @@ const music =
     require('./music');
 
 // ============================================================
-// CAPABILITY NAME
+// NAME
 // ============================================================
 
 const name =
     'music';
 
 // ============================================================
-// MUSIC REQUEST DETECTION
+// NORMALIZE MESSAGE
 // ============================================================
 //
-// This function intentionally focuses on clear music intent.
-// The router itself remains completely generic.
+// Removes:
+// • Discord user/bot mentions
+// • @DuckAI
+// • DuckAI
 //
+// This makes all of these equivalent:
+//
+// @DuckAI play After Dark
+// DuckAI play After Dark
+// <@123456> play After Dark
+// play After Dark
+//
+// ============================================================
+
+function normalizeMessage(
+    content
+) {
+
+    if (
+        typeof content !==
+        'string'
+    ) {
+        return '';
+    }
+
+    let text =
+        content.trim();
+
+    // Discord mention at the beginning
+    text =
+        text.replace(
+            /^<@!?\d+>\s*/i,
+            ''
+        );
+
+    // @DuckAI / DuckAI
+    text =
+        text.replace(
+            /^@?duck\s*ai[\s,:-]*/i,
+            ''
+        );
+
+    return text.trim();
+}
+
+// ============================================================
+// MUSIC REQUEST DETECTION
 // ============================================================
 
 function isMusicRequest(
@@ -64,14 +96,13 @@ function isMusicRequest(
         typeof message.content !==
         'string'
     ) {
-
         return false;
     }
 
     const text =
-        message.content
-            .trim()
-            .toLowerCase();
+        normalizeMessage(
+            message.content
+        ).toLowerCase();
 
     if (!text) {
         return false;
@@ -83,20 +114,26 @@ function isMusicRequest(
 
     const explicitPatterns = [
 
+        /^play\b/,
+        /^playing\b/,
+
         /^toca\b/,
         /^tocar\b/,
         /^toque\b/,
 
-        /^play\b/,
-        /^listen to\b/,
         /^listen\b/,
+        /^listen\s+to\b/,
 
         /^ouve\b/,
         /^ouvir\b/,
-        /^quero ouvir\b/,
+        /^quero\s+ouvir\b/,
 
-        /^put on\b/,
-        /^play me\b/,
+        /^put\s+on\b/,
+        /^play\s+me\b/,
+
+        /^pause\b/,
+        /^pausa\b/,
+        /^pausar\b/,
 
         /^resume\b/,
         /^retoma\b/,
@@ -104,27 +141,21 @@ function isMusicRequest(
         /^continua\b/,
         /^continuar\b/,
 
-        /^pause\b/,
-        /^pausa\b/,
-        /^pausar\b/,
-
         /^stop\b/,
-        /^stop music\b/,
-        /^stop the music\b/,
+        /^stop\s+music\b/,
+        /^stop\s+the\s+music\b/,
 
-        /^para a música\b/,
-        /^parar a música\b/,
+        /^para\s+a\s+m[uú]sica\b/,
+        /^parar\s+a\s+m[uú]sica\b/,
 
-        /^mete música\b/,
-        /^mete uma música\b/
+        /^mete\s+m[uú]sica\b/,
+        /^mete\s+uma\s+m[uú]sica\b/
     ];
 
     if (
         explicitPatterns.some(
             pattern =>
-                pattern.test(
-                    text
-                )
+                pattern.test(text)
         )
     ) {
 
@@ -132,26 +163,22 @@ function isMusicRequest(
     }
 
     // --------------------------------------------------------
-    // General music references
+    // Natural music references
     // --------------------------------------------------------
 
     const musicPatterns = [
 
         /\bmusic\b/,
-        /\bmúsica\b/,
-        /\bmusica\b/,
+        /\bm[uú]sica\b/,
         /\bsong\b/,
         /\btrack\b/,
         /\bfaixa\b/,
-        /\bcanção\b/,
-        /\bcancao\b/
+        /\bcan[cç]ão\b/
     ];
 
     return musicPatterns.some(
         pattern =>
-            pattern.test(
-                text
-            )
+            pattern.test(text)
     );
 }
 
@@ -162,15 +189,6 @@ function isMusicRequest(
 function canHandle(
     message
 ) {
-
-    // --------------------------------------------------------
-    // TEMPORARY DEBUG LOG
-    // --------------------------------------------------------
-    //
-    // This confirms that the HOST is executing this exact
-    // capability.js.
-    //
-    // --------------------------------------------------------
 
     console.log(
         '🎵 MUSIC CAPABILITY CHECK:',
@@ -183,22 +201,18 @@ function canHandle(
 }
 
 // ============================================================
-// EXTRACT QUERY
+// EXTRACT MUSIC QUERY
 // ============================================================
 //
 // Examples:
 //
-// "toca After Dark"
-//       ↓
-// "After Dark"
+// @DuckAI play After Dark by Kitty
+//                     ↓
+// After Dark by Kitty
 //
-// "DuckAI toca After Dark"
-//       ↓
-// "After Dark"
-//
-// "play After Dark by Kitty"
-//       ↓
-// "After Dark by Kitty"
+// DuckAI toca After Dark
+//             ↓
+// After Dark
 //
 // ============================================================
 
@@ -206,43 +220,9 @@ function extractQuery(
     content
 ) {
 
-    if (
-        typeof content !==
-        'string'
-    ) {
-
-        return '';
-    }
-
     let text =
-        content.trim();
-
-    // --------------------------------------------------------
-    // Remove Discord mentions
-    // --------------------------------------------------------
-
-    text =
-        text.replace(
-            /<@!?\d+>/g,
-            ''
-        );
-
-    // --------------------------------------------------------
-    // Remove DuckAI trigger
-    // --------------------------------------------------------
-
-    text =
-        text.replace(
-            /^(?:hey\s+)?duck\s*ai[\s,:-]*/i,
-            ''
-        );
-
-    // Also handle DuckAI appearing after leading whitespace.
-
-    text =
-        text.replace(
-            /^\s*duck\s*ai[\s,:-]*/i,
-            ''
+        normalizeMessage(
+            content
         );
 
     // --------------------------------------------------------
@@ -251,13 +231,13 @@ function extractQuery(
 
     text =
         text.replace(
-            /^(?:please\s+)?(?:toca|tocar|toque)\s+/i,
+            /^(?:please\s+)?(?:play|playing|play\s+me)\s+/i,
             ''
         );
 
     text =
         text.replace(
-            /^(?:please\s+)?(?:play|play\s+me)\s+/i,
+            /^(?:please\s+)?(?:toca|tocar|toque)\s+/i,
             ''
         );
 
@@ -275,18 +255,18 @@ function extractQuery(
 
     text =
         text.replace(
-            /^(?:put\s+on)\s+/i,
+            /^put\s+on\s+/i,
             ''
         );
 
     text =
         text.replace(
-            /^(?:mete\s+(?:uma\s+)?m[uú]sica)\s*/i,
+            /^mete\s+(?:uma\s+)?m[uú]sica\s*/i,
             ''
         );
 
     // --------------------------------------------------------
-    // Clean quotation marks
+    // Remove surrounding quotation marks
     // --------------------------------------------------------
 
     text =
@@ -302,19 +282,7 @@ function extractQuery(
 }
 
 // ============================================================
-// GET ACTION
-// ============================================================
-//
-// search = search/select song
-// pause  = pause backend state
-// resume = resume backend state
-// stop   = stop backend state
-//
-// IMPORTANT:
-//
-// None of these actions reproduce audio on the server.
-// The browser controls actual audio playback.
-//
+// ACTION
 // ============================================================
 
 function getMusicAction(
@@ -322,66 +290,40 @@ function getMusicAction(
 ) {
 
     const text =
-        typeof content ===
-        'string'
-            ? content
-                .trim()
-                .toLowerCase()
-            : '';
-
-    // --------------------------------------------------------
-    // Pause
-    // --------------------------------------------------------
+        normalizeMessage(
+            content
+        ).toLowerCase();
 
     if (
-        /\b(?:pause|pausa|pausar)\b/.test(
-            text
-        )
+        /\b(?:pause|pausa|pausar)\b/.test(text)
     ) {
-
         return 'pause';
     }
 
-    // --------------------------------------------------------
-    // Resume
-    // --------------------------------------------------------
-
     if (
-        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(
-            text
-        )
+        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(text)
     ) {
-
         return 'resume';
     }
 
-    // --------------------------------------------------------
-    // Stop
-    // --------------------------------------------------------
-
     if (
-        /\b(?:stop|parar)\b/.test(
-            text
-        )
+        /\b(?:stop|parar)\b/.test(text) &&
+        !/\b(?:play|toca|tocar)\b/.test(text)
     ) {
-
         return 'stop';
     }
-
-    // --------------------------------------------------------
-    // Search/select
-    // --------------------------------------------------------
 
     return 'search';
 }
 
 // ============================================================
-// GET PLAYER ID
+// PLAYER ID
 // ============================================================
 //
-// Guild ID is preferred.
+// Guild ID is preferred because the Web Player is associated
+// with a specific Discord server.
 //
-// For DMs, use a stable user-specific identifier.
+// For DMs, use a user-specific fallback.
 //
 // ============================================================
 
@@ -392,21 +334,18 @@ function getPlayerId(
     if (
         message?.guildId
     ) {
-
         return message.guildId;
     }
 
     if (
         message?.guild?.id
     ) {
-
         return message.guild.id;
     }
 
     if (
         message?.author?.id
     ) {
-
         return `dm:${message.author.id}`;
     }
 
@@ -420,10 +359,6 @@ function getPlayerId(
 async function execute(
     message
 ) {
-
-    // --------------------------------------------------------
-    // TEMPORARY DEBUG LOG
-    // --------------------------------------------------------
 
     console.log(
         '🎵 MUSIC CAPABILITY EXECUTED'
@@ -445,7 +380,7 @@ async function execute(
                 name,
 
             response:
-                '🦆 I could not determine the player context.'
+                '🦆 I could not determine the Web Player context.'
         };
     }
 
@@ -459,8 +394,7 @@ async function execute(
     // ========================================================
 
     if (
-        action ===
-        'pause'
+        action === 'pause'
     ) {
 
         const result =
@@ -498,8 +432,7 @@ async function execute(
     // ========================================================
 
     if (
-        action ===
-        'resume'
+        action === 'resume'
     ) {
 
         const result =
@@ -537,8 +470,7 @@ async function execute(
     // ========================================================
 
     if (
-        action ===
-        'stop'
+        action === 'stop'
     ) {
 
         const result =
@@ -580,9 +512,7 @@ async function execute(
             message.content
         );
 
-    if (
-        !query
-    ) {
+    if (!query) {
 
         return {
 
@@ -665,9 +595,11 @@ async function execute(
     // SELECT SONG
     // ========================================================
     //
-    // This stores the song in the same music.js instance used
-    // by the Web Player because server.js and index.js are now
-    // loaded by the same start.js process.
+    // IMPORTANT:
+    //
+    // This does NOT play the song.
+    //
+    // It only stores it so player.html can load it.
     //
     // ========================================================
 
@@ -706,16 +638,12 @@ async function execute(
     const song =
         selected.song;
 
+    console.log(
+        `🎵 MUSIC SELECTED: ${song.title} — ${song.artist}`
+    );
+
     // ========================================================
-    // FINAL RESULT
-    // ========================================================
-    //
-    // IMPORTANT:
-    //
-    // We DO NOT call music.play().
-    //
-    // The song is only loaded into the Web Player.
-    //
+    // FINAL RESPONSE
     // ========================================================
 
     return {
@@ -754,12 +682,15 @@ module.exports = {
 
     execute,
 
-    // Compatibility aliases
+    // Compatibility exports
     isMusicRequest,
 
-    executeMusic: execute,
+    executeMusic:
+        execute,
 
     // Helpers
+    normalizeMessage,
+
     extractQuery,
 
     getMusicAction,
