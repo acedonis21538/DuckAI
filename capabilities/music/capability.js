@@ -1,212 +1,304 @@
 // ============================================================
-// DUCKAI — MUSIC CAPABILITY
+// DUCKAI — CAPABILITY BRIDGE
+// ============================================================
+//
+// Universal bridge between:
+//
+// CORE ROUTER
+//      ↓
+// capability.js
+//      ↓
+// CAPABILITY LOGIC
+//
+// Every capability should expose:
+//
+// • name
+// • canHandle(message)
+// • execute(message)
+//
+// The router knows NOTHING about the internal implementation.
+//
 // ============================================================
 
-const music =
-    require('./music');
+// ============================================================
+// CONFIGURATION
+// ============================================================
+//
+// Change these two values when creating a new capability.
+//
+// Example:
+//
+// CAPABILITY_NAME = 'music'
+// CAPABILITY_MODULE = './music'
+//
+// ============================================================
+
+const CAPABILITY_NAME =
+    'CHANGE_THIS_NAME';
+
+const CAPABILITY_MODULE =
+    './CHANGE_THIS_MODULE';
 
 // ============================================================
-// MUSIC QUERY
+// LOAD CAPABILITY LOGIC
 // ============================================================
 
-function extractMusicQuery(
-    content = ''
-) {
+let capabilityModule;
 
-    const text =
-        content
-            .trim();
+try {
 
-    const patterns = [
+    capabilityModule =
+        require(
+            CAPABILITY_MODULE
+        );
 
-        /^(?:please\s+)?(?:play|listen\s+to|put\s+on)\s+(.+)$/i,
+} catch (error) {
 
-        /^(?:podes\s+|pode\s+|poderias\s+|consegues\s+)?(?:tocar|toca|ouve|ouvir)\s+(.+)$/i,
+    console.error(
+        `❌ Could not load capability "${CAPABILITY_NAME}":`,
+        error
+    );
 
-        /^(?:play|song)\s+(.+)$/i
-    ];
-
-    for (
-        const pattern of patterns
-    ) {
-
-        const match =
-            text.match(
-                pattern
-            );
-
-        if (
-            match?.[1]
-        ) {
-
-            return match[1]
-                .trim();
-        }
-    }
-
-    return null;
+    capabilityModule =
+        null;
 }
 
 // ============================================================
 // CAN HANDLE
 // ============================================================
+//
+// This function decides whether this capability
+// should handle the message.
+//
+// Preferred implementations:
+//
+// Inside the capability logic:
+//
+// module.exports = {
+//
+//     canHandle(message) {
+//         return true/false;
+//     }
+//
+// };
+//
+// ============================================================
 
-function canHandle(
+async function canHandle(
     message
 ) {
 
     if (
-        !message?.content
+        !message ||
+        !capabilityModule
     ) {
 
         return false;
     }
 
-    const text =
-        message.content
-            .trim()
-            .toLowerCase();
+    try {
 
-    // Clear music requests.
+        // ----------------------------------------------------
+        // UNIVERSAL HANDLER
+        // ----------------------------------------------------
 
-    return /\b(play|listen|music|song|put on|tocar|toca|ouve|ouvir|música|musica)\b/i
-        .test(text);
+        if (
+            typeof capabilityModule.canHandle ===
+            'function'
+        ) {
+
+            return Boolean(
+
+                await capabilityModule
+                    .canHandle(
+                        message
+                    )
+            );
+        }
+
+        // ----------------------------------------------------
+        // LEGACY / SPECIAL HANDLERS
+        // ----------------------------------------------------
+        //
+        // These allow older capabilities to work while
+        // keeping the router completely generic.
+        //
+        // A capability may expose:
+        //
+        // isMusicRequest()
+        // isImageRequest()
+        // isRequest()
+        //
+        // New capabilities should preferably use canHandle().
+        //
+        // ----------------------------------------------------
+
+        const legacyHandlers = [
+
+            'isRequest',
+
+            'isMusicRequest',
+
+            'isImageRequest',
+
+            'isSearchRequest'
+        ];
+
+        for (
+            const handler
+            of legacyHandlers
+        ) {
+
+            if (
+                typeof capabilityModule[handler] ===
+                'function'
+            ) {
+
+                return Boolean(
+
+                    await capabilityModule[
+                        handler
+                    ](
+                        message
+                    )
+                );
+            }
+        }
+
+    } catch (error) {
+
+        console.error(
+            `⚠️ ${CAPABILITY_NAME} canHandle error:`,
+            error
+        );
+    }
+
+    return false;
 }
 
 // ============================================================
 // EXECUTE
+// ============================================================
+//
+// This runs the capability.
+//
+// Preferred implementation:
+//
+// module.exports = {
+//
+//     async execute(message) {
+//
+//         return {
+//             response: '...'
+//         };
+//     }
+//
+// };
+//
 // ============================================================
 
 async function execute(
     message
 ) {
 
-    const guildId =
-        message.guildId;
-
     if (
-        !guildId
-    ) {
-
-        return {
-            response:
-                '🦆 Music only works inside a server.'
-        };
-    }
-
-    const query =
-        extractMusicQuery(
-            message.content
-        );
-
-    // --------------------------------------------------------
-    // No song specified
-    // --------------------------------------------------------
-
-    if (
-        !query
+        !capabilityModule
     ) {
 
         return {
 
+            success:
+                false,
+
             response:
-                '🎵 Tell me which song you want to play.'
+                null
         };
     }
 
-    console.log(
-        '🎵 MUSIC QUERY:',
-        query
+    // ========================================================
+    // UNIVERSAL EXECUTE
+    // ========================================================
+
+    if (
+        typeof capabilityModule.execute ===
+        'function'
+    ) {
+
+        return capabilityModule
+            .execute(
+                message
+            );
+    }
+
+    // ========================================================
+    // LEGACY EXECUTE FUNCTIONS
+    // ========================================================
+    //
+    // Allows older modules to expose specific names.
+    //
+    // New capabilities should always use execute().
+    //
+    // ========================================================
+
+    const legacyExecutors = [
+
+        'handle',
+
+        'executeMusic',
+
+        'executeImage',
+
+        'executeSearch'
+    ];
+
+    for (
+        const executor
+        of legacyExecutors
+    ) {
+
+        if (
+            typeof capabilityModule[executor] ===
+            'function'
+        ) {
+
+            return capabilityModule[
+                executor
+            ](
+                message
+            );
+        }
+    }
+
+    // ========================================================
+    // NO EXECUTOR
+    // ========================================================
+
+    throw new Error(
+
+        `Capability "${CAPABILITY_NAME}" does not export execute().`
     );
-
-    // --------------------------------------------------------
-    // Search
-    // --------------------------------------------------------
-
-    const result =
-        await music.search(
-            query
-        );
-
-    if (
-        !result?.success
-    ) {
-
-        return {
-
-            response:
-
-                result?.message ||
-
-                '🎵 I could not find that song.'
-        };
-    }
-
-    // --------------------------------------------------------
-    // Save song
-    // --------------------------------------------------------
-
-    const song =
-        music.setSong({
-
-            guildId,
-
-            title:
-                result.title,
-
-            artist:
-                result.artist,
-
-            url:
-                result.url,
-
-            artwork:
-                result.artwork,
-
-            id:
-                result.id
-        });
-
-    if (
-        !song
-    ) {
-
-        return {
-
-            response:
-                '🎵 I could not save that song.'
-        };
-    }
-
-    console.log(
-        `🎵 MUSIC READY: ${song.title} — ${song.artist}`
-    );
-
-    // --------------------------------------------------------
-    // Response
-    // --------------------------------------------------------
-
-    return {
-
-        response:
-            `🎵 **${song.title}** — ${song.artist}`,
-
-        song
-    };
 }
 
 // ============================================================
 // EXPORTS
 // ============================================================
+//
+// THIS IS WHAT THE ROUTER SEES.
+//
+// The router never needs to know:
+//
+// • what capability this is
+// • which functions it uses internally
+// • where its logic lives
+//
+// ============================================================
 
 module.exports = {
 
     name:
-        'music',
+        CAPABILITY_NAME,
 
     canHandle,
 
-    execute,
-
-    extractMusicQuery
+    execute
 };
