@@ -19,11 +19,15 @@
 }
 
 body {
+
     margin: 0;
+
     min-height: 100vh;
 
     display: flex;
+
     align-items: center;
+
     justify-content: center;
 
     background:
@@ -42,7 +46,8 @@ body {
 
 .player {
 
-    width: 420px;
+    width: 440px;
+
     max-width: 92vw;
 
     padding: 30px;
@@ -63,21 +68,28 @@ body {
 }
 
 .logo {
+
     font-size: 48px;
 }
 
 h1 {
+
     margin: 10px 0 5px;
+
+    font-size: 24px;
 }
 
 .artist {
+
     opacity: 0.65;
+
     margin-bottom: 25px;
 }
 
 .cover {
 
     width: 240px;
+
     height: 240px;
 
     object-fit: cover;
@@ -104,14 +116,16 @@ h1 {
 
     justify-content: center;
 
-    gap: 12px;
+    gap: 10px;
+
+    margin-top: 15px;
 }
 
 button {
 
     border: 0;
 
-    padding: 13px 20px;
+    padding: 12px 18px;
 
     border-radius: 12px;
 
@@ -121,19 +135,65 @@ button {
 
     background: #374151;
 
-    font-size: 15px;
+    font-size: 14px;
 }
 
 button:hover {
+
     background: #4b5563;
 }
 
 .play {
+
     background: #16a34a;
 }
 
 .play:hover {
+
     background: #15803d;
+}
+
+.progress {
+
+    width: 100%;
+
+    margin-top: 25px;
+}
+
+input[type="range"] {
+
+    width: 100%;
+
+    cursor: pointer;
+}
+
+.time {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    margin-top: 6px;
+
+    font-size: 12px;
+
+    opacity: 0.6;
+}
+
+.volume {
+
+    margin-top: 18px;
+}
+
+.message {
+
+    margin-top: 15px;
+
+    min-height: 20px;
+
+    font-size: 13px;
+
+    opacity: 0.7;
 }
 
 </style>
@@ -144,7 +204,9 @@ button:hover {
 
 <div class="player">
 
-    <div class="logo">🦆</div>
+    <div class="logo">
+        🦆
+    </div>
 
     <h1 id="title">
         DuckAI Music
@@ -160,8 +222,7 @@ button:hover {
     <img
         id="cover"
         class="cover"
-        src=""
-        alt=""
+        alt="Album artwork"
     >
 
     <div
@@ -171,41 +232,104 @@ button:hover {
         Stopped
     </div>
 
+    <!-- =====================================================
+         CONTROLS
+         ===================================================== -->
+
     <div class="controls">
 
         <button
             class="play"
             onclick="playMusic()"
         >
-            ▶️ Tocar
+            ▶️ Play
         </button>
 
         <button
             onclick="pauseMusic()"
         >
-            ⏸️ Pausa
+            ⏸️ Pause
         </button>
 
         <button
             onclick="stopMusic()"
         >
-            ⏹️ Parar
+            ⏹️ Stop
         </button>
 
     </div>
 
+    <!-- =====================================================
+         PROGRESS
+         ===================================================== -->
+
+    <div class="progress">
+
+        <input
+            id="progress"
+            type="range"
+            min="0"
+            max="100"
+            value="0"
+            step="0.1"
+        >
+
+        <div class="time">
+
+            <span id="currentTime">
+                0:00
+            </span>
+
+            <span id="duration">
+                0:00
+            </span>
+
+        </div>
+
+    </div>
+
+    <!-- =====================================================
+         VOLUME
+         ===================================================== -->
+
+    <div class="volume">
+
+        🔊
+
+        <input
+            id="volume"
+            type="range"
+            min="0"
+            max="1"
+            value="1"
+            step="0.01"
+        >
+
+    </div>
+
+    <!-- =====================================================
+         AUDIO
+         ===================================================== -->
+
     <audio
         id="audio"
-        controls
-        style="
-            width:100%;
-            margin-top:25px;
-        "
+        preload="auto"
     ></audio>
+
+    <div
+        id="message"
+        class="message"
+    ></div>
 
 </div>
 
 <script>
+
+'use strict';
+
+// ============================================================
+// PARAMETERS
+// ============================================================
 
 const params =
     new URLSearchParams(
@@ -215,31 +339,136 @@ const params =
 const guildId =
     params.get('guildId');
 
+// ============================================================
+// ELEMENTS
+// ============================================================
+
 const audio =
-    document.getElementById('audio');
+    document.getElementById(
+        'audio'
+    );
 
 const title =
-    document.getElementById('title');
+    document.getElementById(
+        'title'
+    );
 
 const artist =
-    document.getElementById('artist');
+    document.getElementById(
+        'artist'
+    );
 
 const cover =
-    document.getElementById('cover');
+    document.getElementById(
+        'cover'
+    );
 
 const status =
-    document.getElementById('status');
+    document.getElementById(
+        'status'
+    );
+
+const progress =
+    document.getElementById(
+        'progress'
+    );
+
+const currentTime =
+    document.getElementById(
+        'currentTime'
+    );
+
+const duration =
+    document.getElementById(
+        'duration'
+    );
+
+const volume =
+    document.getElementById(
+        'volume'
+    );
+
+const message =
+    document.getElementById(
+        'message'
+    );
 
 // ============================================================
-// LOAD
+// STATE
+// ============================================================
+
+let currentSongId = null;
+
+let loadingSong = false;
+
+// ============================================================
+// VALIDATION
+// ============================================================
+
+if (!guildId) {
+
+    status.textContent =
+        'Missing guildId';
+
+    showMessage(
+        'Open the player with ?guildId=YOUR_SERVER_ID'
+    );
+}
+
+// ============================================================
+// FORMAT TIME
+// ============================================================
+
+function formatTime(
+    seconds
+) {
+
+    if (
+        !Number.isFinite(
+            seconds
+        )
+    ) {
+
+        return '0:00';
+    }
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+    const secs =
+        Math.floor(
+            seconds % 60
+        )
+            .toString()
+            .padStart(
+                2,
+                '0'
+            );
+
+    return `${minutes}:${secs}`;
+}
+
+// ============================================================
+// MESSAGE
+// ============================================================
+
+function showMessage(
+    text
+) {
+
+    message.textContent =
+        text || '';
+}
+
+// ============================================================
+// LOAD CURRENT MUSIC
 // ============================================================
 
 async function loadMusic() {
 
     if (!guildId) {
-
-        status.textContent =
-            'Missing guildId';
 
         return;
     }
@@ -248,13 +477,44 @@ async function loadMusic() {
 
         const response =
             await fetch(
-                `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+                `/api/music/current?guildId=${encodeURIComponent(guildId)}`,
+                {
+                    cache: 'no-store'
+                }
             );
+
+        if (
+            !response.ok
+        ) {
+
+            throw new Error(
+                `HTTP ${response.status}`
+            );
+        }
 
         const data =
             await response.json();
 
-        if (!data.song) {
+        if (
+            !data.success
+        ) {
+
+            throw new Error(
+                data.error ||
+                'Music API error'
+            );
+        }
+
+        // ====================================================
+        // NO SONG
+        // ====================================================
+
+        if (
+            !data.song
+        ) {
+
+            currentSongId =
+                null;
 
             title.textContent =
                 'DuckAI Music';
@@ -262,40 +522,114 @@ async function loadMusic() {
             artist.textContent =
                 'No song selected';
 
+            cover.removeAttribute(
+                'src'
+            );
+
             status.textContent =
                 'Stopped';
 
             return;
         }
 
+        const song =
+            data.song;
+
+        // ====================================================
+        // UPDATE INFO
+        // ====================================================
+
         title.textContent =
-            data.song.title;
+            song.title ||
+            'Unknown title';
 
         artist.textContent =
-            data.song.artist ||
+            song.artist ||
             'Unknown artist';
 
-        status.textContent =
-            capitalize(
-                data.state
-            );
-
-        if (data.song.artwork) {
+        if (
+            song.artwork
+        ) {
 
             cover.src =
-                data.song.artwork;
+                song.artwork;
 
         } else {
 
-            cover.removeAttribute('src');
+            cover.removeAttribute(
+                'src'
+            );
+        }
+
+        // ====================================================
+        // LOAD AUDIO ONLY WHEN SONG CHANGED
+        // ====================================================
+
+        if (
+            currentSongId !==
+            song.id
+        ) {
+
+            currentSongId =
+                song.id;
+
+            loadingSong =
+                true;
+
+            audio.pause();
+
+            audio.src =
+                song.url;
+
+            audio.load();
+
+            loadingSong =
+                false;
+
+            showMessage(
+                '🎵 Music loaded. Press Play.'
+            );
+        }
+
+        // ====================================================
+        // SERVER STATE
+        // ====================================================
+
+        if (
+            data.state ===
+            'playing'
+        ) {
+
+            status.textContent =
+                'Playing';
+
+        } else if (
+            data.state ===
+            'paused'
+        ) {
+
+            status.textContent =
+                'Paused';
+
+        } else {
+
+            status.textContent =
+                'Stopped';
         }
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            '❌ Player API error:',
+            error
+        );
 
         status.textContent =
             'Connection error';
+
+        showMessage(
+            'Could not connect to DuckAI Music.'
+        );
     }
 }
 
@@ -306,16 +640,288 @@ async function loadMusic() {
 async function playMusic() {
 
     if (!guildId) {
+
         return;
     }
 
     try {
 
-        const response =
+        // ----------------------------------------------------
+        // Make sure we have the current song
+        // ----------------------------------------------------
+
+        await loadMusic();
+
+        if (!audio.src) {
+
+            showMessage(
+                '🎵 No song selected.'
+            );
+
+            return;
+        }
+
+        // ----------------------------------------------------
+        // Browser playback
+        // ----------------------------------------------------
+
+        await audio.play();
+
+        status.textContent =
+            'Playing';
+
+        showMessage(
+            '▶️ Playing in your browser.'
+        );
+
+        // ----------------------------------------------------
+        // Update server state
+        // ----------------------------------------------------
+
+        await fetch(
+            '/api/music/play',
+            {
+
+                method:
+                    'POST',
+
+                headers: {
+                    'Content-Type':
+                        'application/json'
+                },
+
+                body:
+                    JSON.stringify({
+                        guildId
+                    })
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            '❌ Audio playback error:',
+            error
+        );
+
+        status.textContent =
+            'Playback error';
+
+        showMessage(
+            '❌ The browser could not play this audio stream.'
+        );
+    }
+}
+
+// ============================================================
+// PAUSE
+// ============================================================
+
+async function pauseMusic() {
+
+    try {
+
+        audio.pause();
+
+        status.textContent =
+            'Paused';
+
+        await fetch(
+            '/api/music/pause',
+            {
+
+                method:
+                    'POST',
+
+                headers: {
+                    'Content-Type':
+                        'application/json'
+                },
+
+                body:
+                    JSON.stringify({
+                        guildId
+                    })
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            '❌ Pause error:',
+            error
+        );
+    }
+}
+
+// ============================================================
+// STOP
+// ============================================================
+
+async function stopMusic() {
+
+    try {
+
+        audio.pause();
+
+        audio.currentTime =
+            0;
+
+        status.textContent =
+            'Stopped';
+
+        await fetch(
+            '/api/music/stop',
+            {
+
+                method:
+                    'POST',
+
+                headers: {
+                    'Content-Type':
+                        'application/json'
+                },
+
+                body:
+                    JSON.stringify({
+                        guildId
+                    })
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            '❌ Stop error:',
+            error
+        );
+    }
+}
+
+// ============================================================
+// PROGRESS UPDATE
+// ============================================================
+
+audio.addEventListener(
+    'timeupdate',
+    () => {
+
+        if (
+            !Number.isFinite(
+                audio.duration
+            ) ||
+            audio.duration <= 0
+        ) {
+
+            return;
+        }
+
+        progress.value =
+            (
+                audio.currentTime /
+                audio.duration
+            ) * 100;
+
+        currentTime.textContent =
+            formatTime(
+                audio.currentTime
+            );
+
+        duration.textContent =
+            formatTime(
+                audio.duration
+            );
+    }
+);
+
+// ============================================================
+// SEEK
+// ============================================================
+
+progress.addEventListener(
+    'input',
+    () => {
+
+        if (
+            !Number.isFinite(
+                audio.duration
+            )
+        ) {
+
+            return;
+        }
+
+        audio.currentTime =
+            (
+                Number(
+                    progress.value
+                ) / 100
+            ) *
+            audio.duration;
+    }
+);
+
+// ============================================================
+// VOLUME
+// ============================================================
+
+volume.addEventListener(
+    'input',
+    () => {
+
+        audio.volume =
+            Number(
+                volume.value
+            );
+    }
+);
+
+// ============================================================
+// AUDIO EVENTS
+// ============================================================
+
+audio.addEventListener(
+    'play',
+    () => {
+
+        status.textContent =
+            'Playing';
+    }
+);
+
+audio.addEventListener(
+    'pause',
+    () => {
+
+        if (
+            audio.currentTime > 0 &&
+            !audio.ended
+        ) {
+
+            status.textContent =
+                'Paused';
+        }
+    }
+);
+
+audio.addEventListener(
+    'ended',
+    async () => {
+
+        status.textContent =
+            'Stopped';
+
+        progress.value =
+            0;
+
+        try {
+
             await fetch(
-                '/api/music/play',
+                '/api/music/stop',
                 {
-                    method: 'POST',
+
+                    method:
+                        'POST',
 
                     headers: {
                         'Content-Type':
@@ -329,128 +935,42 @@ async function playMusic() {
                 }
             );
 
-        const data =
-            await response.json();
+        } catch (error) {
 
-        if (!data.success) {
-
-            status.textContent =
-                data.message ||
-                'Could not play';
-
-            return;
-        }
-
-        // Get current song again
-        const current =
-            await fetch(
-                `/api/music/current?guildId=${encodeURIComponent(guildId)}`
+            console.error(
+                error
             );
-
-        const musicData =
-            await current.json();
-
-        if (musicData.song?.url) {
-
-            audio.src =
-                musicData.song.url;
-
-            await audio.play();
         }
+    }
+);
+
+audio.addEventListener(
+    'error',
+    () => {
+
+        console.error(
+            '❌ HTML audio error:',
+            audio.error
+        );
 
         status.textContent =
-            'Playing';
+            'Audio error';
 
-    } catch (error) {
-
-        console.error(error);
-
-        status.textContent =
-            'Could not play';
+        showMessage(
+            '❌ The audio stream could not be played by this browser.'
+        );
     }
-}
+);
 
 // ============================================================
-// PAUSE
-// ============================================================
-
-async function pauseMusic() {
-
-    audio.pause();
-
-    await fetch(
-        '/api/music/pause',
-        {
-            method: 'POST',
-
-            headers: {
-                'Content-Type':
-                    'application/json'
-            },
-
-            body:
-                JSON.stringify({
-                    guildId
-                })
-        }
-    );
-
-    status.textContent =
-        'Paused';
-}
-
-// ============================================================
-// STOP
-// ============================================================
-
-async function stopMusic() {
-
-    audio.pause();
-
-    audio.currentTime = 0;
-
-    await fetch(
-        '/api/music/stop',
-        {
-            method: 'POST',
-
-            headers: {
-                'Content-Type':
-                    'application/json'
-            },
-
-            body:
-                JSON.stringify({
-                    guildId
-                })
-        }
-    );
-
-    status.textContent =
-        'Stopped';
-}
-
-// ============================================================
-// HELPERS
-// ============================================================
-
-function capitalize(text) {
-
-    if (!text) {
-        return '';
-    }
-
-    return (
-        text.charAt(0).toUpperCase() +
-        text.slice(1)
-    );
-}
-
-// ============================================================
-// INIT
+// INITIAL LOAD
 // ============================================================
 
 loadMusic();
+
+// ============================================================
+// REFRESH
+// ============================================================
 
 setInterval(
     loadMusic,

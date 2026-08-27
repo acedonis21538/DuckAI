@@ -1,13 +1,27 @@
+// ============================================================
+// DUCKAI — WEB MUSIC SERVER
+// ============================================================
+// Servidor temporário do Web Player.
+//
+// IMPORTANTE:
+// • NÃO usa Voice Channels.
+// • NÃO reproduz áudio no Discord.
+// • O áudio é reproduzido APENAS pelo browser.
+// • O music.js controla pesquisa/estado.
+// • O player.html reproduz o stream.
+// ============================================================
+
 require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
 
-const music = require('./music/music');
+const music = require('./capabilities/music/music');
 
 const app = express();
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT =
+    Number(process.env.PORT) || 3000;
 
 // ============================================================
 // CONFIG
@@ -22,12 +36,13 @@ app.use(
 );
 
 // ============================================================
-// PLAYER FILE
+// PLAYER
 // ============================================================
 
 const PLAYER_PATH =
     path.join(
         __dirname,
+        'capabilities',
         'music',
         'player.html'
     );
@@ -37,7 +52,7 @@ console.log(
 );
 
 // ============================================================
-// PLAYER
+// WEB PLAYER
 // ============================================================
 
 app.get(
@@ -61,8 +76,6 @@ app.get(
                             'DuckAI Music Player could not be loaded.'
                         );
                     }
-
-                    return;
                 }
             }
         );
@@ -110,8 +123,11 @@ app.get(
         if (!guildId) {
 
             return res.status(400).json({
+
                 success: false,
-                error: 'Missing guildId.'
+
+                message:
+                    'Missing guildId.'
             });
         }
 
@@ -135,7 +151,9 @@ app.get(
                     song || null,
 
                 state:
-                    state || 'stopped'
+                    typeof state === 'string'
+                        ? state
+                        : state?.state || 'stopped'
             });
 
         } catch (error) {
@@ -149,7 +167,7 @@ app.get(
 
                 success: false,
 
-                error:
+                message:
                     'Could not get current music.'
             });
         }
@@ -212,6 +230,10 @@ app.get(
 // ============================================================
 // PLAY
 // ============================================================
+// Isto NÃO toca áudio.
+//
+// Apenas coloca o estado em "playing".
+// O player.html é que reproduz o stream.
 
 app.post(
     '/api/music/play',
@@ -419,6 +441,164 @@ app.post(
 );
 
 // ============================================================
+// SEEK
+// ============================================================
+
+app.post(
+    '/api/music/seek',
+    async (req, res) => {
+
+        const guildId =
+            req.body?.guildId;
+
+        const position =
+            Number(
+                req.body?.position
+            );
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
+        if (!Number.isFinite(position)) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Invalid position.'
+            });
+        }
+
+        try {
+
+            if (
+                typeof music.seek !==
+                'function'
+            ) {
+
+                return res.status(501).json({
+
+                    success: false,
+
+                    message:
+                        'Seek is not available.'
+                });
+            }
+
+            return res.json(
+                await music.seek(
+                    guildId,
+                    position
+                )
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Music seek error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    'Could not seek music.'
+            });
+        }
+    }
+);
+
+// ============================================================
+// VOLUME
+// ============================================================
+
+app.post(
+    '/api/music/volume',
+    async (req, res) => {
+
+        const guildId =
+            req.body?.guildId;
+
+        const volume =
+            Number(
+                req.body?.volume
+            );
+
+        if (!guildId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Missing guildId.'
+            });
+        }
+
+        if (!Number.isFinite(volume)) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Invalid volume.'
+            });
+        }
+
+        try {
+
+            if (
+                typeof music.setVolume !==
+                'function'
+            ) {
+
+                return res.status(501).json({
+
+                    success: false,
+
+                    message:
+                        'Volume control is not available.'
+                });
+            }
+
+            return res.json(
+                await music.setVolume(
+                    guildId,
+                    volume
+                )
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Music volume error:',
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    'Could not change volume.'
+            });
+        }
+    }
+);
+
+// ============================================================
 // HEALTH
 // ============================================================
 
@@ -431,7 +611,13 @@ app.get(
             success: true,
 
             service:
-                'DuckAI Music Player',
+                'DuckAI Music Web Player',
+
+            audio:
+                'browser-only',
+
+            voiceChannel:
+                false,
 
             port:
                 PORT
@@ -440,7 +626,7 @@ app.get(
 );
 
 // ============================================================
-// START SERVER
+// START
 // ============================================================
 
 const server =
@@ -458,11 +644,19 @@ const server =
             );
 
             console.log(
-                `🎵 Player: /player`
+                '🎵 Web Player: /player'
             );
 
             console.log(
-                `❤️ Health: /health`
+                '🔊 Audio: browser only'
+            );
+
+            console.log(
+                '🚫 Voice Channel: disabled'
+            );
+
+            console.log(
+                '❤️ Health: /health'
             );
 
             console.log(
@@ -483,7 +677,7 @@ server.on(
 );
 
 // ============================================================
-// EXPORT
+// EXPORTS
 // ============================================================
 
 module.exports = {

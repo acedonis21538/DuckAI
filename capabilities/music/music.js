@@ -1,3 +1,30 @@
+// ============================================================
+// DUCKAI — MUSIC ENGINE
+// ============================================================
+//
+// Web Music Player backend.
+//
+// RESPONSIBILITIES:
+//
+// • Search Audius
+// • Store selected song
+// • Store player state
+// • Provide current song information
+// • Provide stream URL for the Web Player
+// • Support play / pause / resume / stop state
+// • Keep one independent player state per guild
+//
+// IMPORTANT:
+//
+// This module NEVER:
+// • joins a Discord voice channel
+// • plays audio through Discord
+// • uses @discordjs/voice
+//
+// The actual audio is played ONLY by player.html.
+//
+// ============================================================
+
 require('dotenv').config();
 
 const https = require('https');
@@ -8,17 +35,57 @@ const https = require('https');
 
 const guilds = new Map();
 
+// ============================================================
+// CREATE GUILD STATE
+// ============================================================
+
+function createGuildState() {
+
+    return {
+
+        song: null,
+
+        state: 'stopped',
+
+        position: 0,
+
+        volume: 1,
+
+        updatedAt: Date.now()
+    };
+}
+
+// ============================================================
+// GET GUILD
+// ============================================================
+
 function getGuild(guildId) {
 
-    if (!guilds.has(guildId)) {
+    if (
+        !guilds.has(guildId)
+    ) {
 
-        guilds.set(guildId, {
-            song: null,
-            state: 'stopped'
-        });
+        guilds.set(
+            guildId,
+            createGuildState()
+        );
     }
 
-    return guilds.get(guildId);
+    return guilds.get(
+        guildId
+    );
+}
+
+// ============================================================
+// VALIDATE GUILD ID
+// ============================================================
+
+function validGuildId(guildId) {
+
+    return (
+        typeof guildId === 'string' &&
+        guildId.trim().length > 0
+    );
 }
 
 // ============================================================
@@ -27,34 +94,60 @@ function getGuild(guildId) {
 
 function requestJSON(url) {
 
-    return new Promise((resolve, reject) => {
+    return new Promise(
+        (resolve, reject) => {
 
-        https.get(
-            url,
-            {
-                headers: {
-                    'User-Agent': 'DuckAI/1.0'
-                }
-            },
-            response => {
+            const request =
+                https.get(
 
-                let data = '';
+                    url,
 
-                response.on(
-                    'data',
-                    chunk => {
-                        data += chunk;
-                    }
-                );
+                    {
+                        headers: {
 
-                response.on(
-                    'end',
-                    () => {
+                            'User-Agent':
+                                'DuckAI/1.0',
+
+                            'Accept':
+                                'application/json'
+                        }
+                    },
+
+                    response => {
+
+                        let data = '';
+
+                        // --------------------------------------------
+                        // Redirect
+                        // --------------------------------------------
+
+                        if (
+                            response.statusCode >= 300 &&
+                            response.statusCode < 400 &&
+                            response.headers.location
+                        ) {
+
+                            response.resume();
+
+                            requestJSON(
+                                response.headers.location
+                            )
+                                .then(resolve)
+                                .catch(reject);
+
+                            return;
+                        }
+
+                        // --------------------------------------------
+                        // HTTP error
+                        // --------------------------------------------
 
                         if (
                             response.statusCode < 200 ||
                             response.statusCode >= 300
                         ) {
+
+                            response.resume();
 
                             reject(
                                 new Error(
@@ -65,24 +158,45 @@ function requestJSON(url) {
                             return;
                         }
 
-                        try {
+                        response.on(
+                            'data',
+                            chunk => {
 
-                            resolve(
-                                JSON.parse(data)
-                            );
+                                data += chunk;
+                            }
+                        );
 
-                        } catch (error) {
+                        response.on(
+                            'end',
+                            () => {
 
-                            reject(error);
-                        }
+                                try {
+
+                                    resolve(
+                                        JSON.parse(
+                                            data
+                                        )
+                                    );
+
+                                } catch (
+                                    error
+                                ) {
+
+                                    reject(
+                                        error
+                                    );
+                                }
+                            }
+                        );
                     }
                 );
-            }
-        ).on(
-            'error',
-            reject
-        );
-    });
+
+            request.on(
+                'error',
+                reject
+            );
+        }
+    );
 }
 
 // ============================================================
@@ -97,49 +211,79 @@ async function search(query) {
     ) {
 
         return {
-            success: false,
+
+            success:
+                false,
+
             message:
-                '🎵 Diz-me qual música queres tocar.'
+                '🎵 Tell me which song you want to play.'
         };
     }
 
+    const cleanQuery =
+        query
+            .trim()
+            .slice(
+                0,
+                200
+            );
+
     const encoded =
         encodeURIComponent(
-            query.trim()
+            cleanQuery
         );
 
     const url =
         `https://discoveryprovider.audius.co/v1/tracks/search` +
         `?query=${encoded}` +
-        `&limit=1`;
+        `&limit=10`;
 
     try {
 
         const data =
-            await requestJSON(url);
+            await requestJSON(
+                url
+            );
 
-        const track =
-            data?.data?.[0];
+        const tracks =
+            Array.isArray(
+                data?.data
+            )
+                ? data.data
+                : [];
 
-        if (!track) {
+        if (
+            !tracks.length
+        ) {
 
             return {
-                success: false,
+
+                success:
+                    false,
+
                 message:
-                    `🦆 Não encontrei **${query}**.`
+                    `🦆 I couldn't find **${cleanQuery}**.`
             };
         }
+
+        // --------------------------------------------------------
+        // First result is the default selection.
+        // --------------------------------------------------------
+
+        const track =
+            tracks[0];
 
         const streamUrl =
             `https://discoveryprovider.audius.co/v1/tracks/${track.id}/stream`;
 
         return {
 
-            success: true,
+            success:
+                true,
 
             title:
                 track.title ||
-                query,
+                cleanQuery,
 
             artist:
                 track.user?.name ||
@@ -149,15 +293,37 @@ async function search(query) {
                 streamUrl,
 
             artwork:
-                track.artwork?.['150x150'] ||
+                track.artwork?.['1000x1000'] ||
                 track.artwork?.['480x480'] ||
+                track.artwork?.['150x150'] ||
                 null,
 
             id:
-                track.id
+                track.id,
+
+            duration:
+                Number.isFinite(
+                    track.duration
+                )
+                    ? track.duration
+                    : null,
+
+            genre:
+                track.genre ||
+                null,
+
+            description:
+                track.description ||
+                null,
+
+            permalink:
+                track.permalink ||
+                null
         };
 
-    } catch (error) {
+    } catch (
+        error
+    ) {
 
         console.error(
             '❌ Audius search error:',
@@ -165,15 +331,18 @@ async function search(query) {
         );
 
         return {
-            success: false,
+
+            success:
+                false,
+
             message:
-                '🦆 Não consegui pesquisar no Audius.'
+                '🦆 I could not search Audius right now.'
         };
     }
 }
 
 // ============================================================
-// SAVE SONG
+// SELECT SONG
 // ============================================================
 
 function setSong({
@@ -181,95 +350,350 @@ function setSong({
     title,
     artist,
     url,
-    artwork,
-    id = null
+    artwork = null,
+    id = null,
+    duration = null,
+    genre = null,
+    description = null,
+    permalink = null
 }) {
 
+    if (
+        !validGuildId(
+            guildId
+        )
+    ) {
+
+        return null;
+    }
+
+    if (
+        typeof url !== 'string' ||
+        !url.trim()
+    ) {
+
+        return null;
+    }
+
     const guild =
-        getGuild(guildId);
+        getGuild(
+            guildId
+        );
 
     guild.song = {
+
         id,
-        title,
-        artist,
+
+        title:
+            title ||
+            'Unknown title',
+
+        artist:
+            artist ||
+            'Unknown artist',
+
         url,
-        artwork
+
+        artwork,
+
+        duration,
+
+        genre,
+
+        description,
+
+        permalink
     };
 
-    guild.state = 'stopped';
+    // Selecting a new song does NOT automatically play it.
+
+    guild.state =
+        'stopped';
+
+    guild.position =
+        0;
+
+    guild.updatedAt =
+        Date.now();
 
     return guild.song;
+}
+
+// ============================================================
+// SET SONG FROM SEARCH RESULT
+// ============================================================
+
+function selectSearchResult(
+    guildId,
+    result
+) {
+
+    if (
+        !result?.success
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                result?.message ||
+                '🎵 No song found.'
+        };
+    }
+
+    const song =
+        setSong({
+
+            guildId,
+
+            title:
+                result.title,
+
+            artist:
+                result.artist,
+
+            url:
+                result.url,
+
+            artwork:
+                result.artwork,
+
+            id:
+                result.id,
+
+            duration:
+                result.duration,
+
+            genre:
+                result.genre,
+
+            description:
+                result.description,
+
+            permalink:
+                result.permalink
+        });
+
+    if (
+        !song
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 I could not select that song.'
+        };
+    }
+
+    return {
+
+        success:
+            true,
+
+        song
+    };
 }
 
 // ============================================================
 // CURRENT SONG
 // ============================================================
 
-function getCurrentSong(guildId) {
+function getCurrentSong(
+    guildId
+) {
 
-    return getGuild(guildId).song;
+    return getGuild(
+        guildId
+    ).song;
 }
 
 // ============================================================
-// STATE
+// CURRENT STATE
 // ============================================================
 
-function getState(guildId) {
+function getState(
+    guildId
+) {
 
-    return getGuild(guildId).state;
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    return {
+
+        success:
+            true,
+
+        song:
+            guild.song,
+
+        state:
+            guild.state,
+
+        position:
+            guild.position,
+
+        volume:
+            guild.volume,
+
+        updatedAt:
+            guild.updatedAt
+    };
 }
 
 // ============================================================
 // PLAY
 // ============================================================
+//
+// IMPORTANT:
+//
+// This DOES NOT play audio.
+//
+// It only changes the backend state.
+//
+// player.html is responsible for:
+//     audio.play()
+//
+// ============================================================
 
-async function play(guildId) {
+function play(
+    guildId
+) {
 
     const guild =
-        getGuild(guildId);
+        getGuild(
+            guildId
+        );
 
-    if (!guild.song?.url) {
+    if (
+        !guild.song?.url
+    ) {
 
         return {
-            success: false,
+
+            success:
+                false,
+
             message:
                 '🎵 No song selected.'
         };
     }
 
-    guild.state = 'playing';
+    guild.state =
+        'playing';
+
+    guild.updatedAt =
+        Date.now();
 
     return {
-        success: true,
-        message:
-            `▶️ A tocar **${guild.song.title}**.`
+
+        success:
+            true,
+
+        state:
+            guild.state,
+
+        song:
+            guild.song
     };
 }
 
 // ============================================================
 // PAUSE
 // ============================================================
+//
+// Backend state only.
+//
+// player.html performs:
+//     audio.pause()
+//
+// ============================================================
 
-function pause(guildId) {
+function pause(
+    guildId
+) {
 
     const guild =
-        getGuild(guildId);
+        getGuild(
+            guildId
+        );
 
-    if (!guild.song) {
+    if (
+        !guild.song
+    ) {
 
         return {
-            success: false,
+
+            success:
+                false,
+
             message:
                 '🎵 No song selected.'
         };
     }
 
-    guild.state = 'paused';
+    guild.state =
+        'paused';
+
+    guild.updatedAt =
+        Date.now();
 
     return {
-        success: true,
-        message:
-            '⏸️ Música pausada.'
+
+        success:
+            true,
+
+        state:
+            guild.state
+    };
+}
+
+// ============================================================
+// RESUME
+// ============================================================
+
+function resume(
+    guildId
+) {
+
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    if (
+        !guild.song
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 No song selected.'
+        };
+    }
+
+    guild.state =
+        'playing';
+
+    guild.updatedAt =
+        Date.now();
+
+    return {
+
+        success:
+            true,
+
+        state:
+            guild.state
     };
 }
 
@@ -277,18 +701,241 @@ function pause(guildId) {
 // STOP
 // ============================================================
 
-function stop(guildId) {
+function stop(
+    guildId
+) {
 
     const guild =
-        getGuild(guildId);
+        getGuild(
+            guildId
+        );
 
-    guild.state = 'stopped';
+    guild.state =
+        'stopped';
+
+    guild.position =
+        0;
+
+    guild.updatedAt =
+        Date.now();
 
     return {
-        success: true,
-        message:
-            '⏹️ Música parada.'
+
+        success:
+            true,
+
+        state:
+            guild.state
     };
+}
+
+// ============================================================
+// SEEK
+// ============================================================
+
+function seek(
+    guildId,
+    position
+) {
+
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    const value =
+        Number(
+            position
+        );
+
+    if (
+        !Number.isFinite(
+            value
+        ) ||
+        value < 0
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 Invalid playback position.'
+        };
+    }
+
+    guild.position =
+        value;
+
+    guild.updatedAt =
+        Date.now();
+
+    return {
+
+        success:
+            true,
+
+        position:
+            guild.position
+    };
+}
+
+// ============================================================
+// VOLUME
+// ============================================================
+
+function setVolume(
+    guildId,
+    volume
+) {
+
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    let value =
+        Number(
+            volume
+        );
+
+    if (
+        !Number.isFinite(
+            value
+        )
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 Invalid volume.'
+        };
+    }
+
+    // Accept either 0–1 or 0–100.
+
+    if (
+        value > 1
+    ) {
+
+        value =
+            value / 100;
+    }
+
+    value =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                value
+            )
+        );
+
+    guild.volume =
+        value;
+
+    guild.updatedAt =
+        Date.now();
+
+    return {
+
+        success:
+            true,
+
+        volume:
+            guild.volume
+    };
+}
+
+// ============================================================
+// CLEAR SONG
+// ============================================================
+
+function clearSong(
+    guildId
+) {
+
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    guild.song =
+        null;
+
+    guild.state =
+        'stopped';
+
+    guild.position =
+        0;
+
+    guild.updatedAt =
+        Date.now();
+
+    return {
+
+        success:
+            true
+    };
+}
+
+// ============================================================
+// DESTROY GUILD STATE
+// ============================================================
+
+function destroyGuild(
+    guildId
+) {
+
+    guilds.delete(
+        guildId
+    );
+
+    return {
+
+        success:
+            true
+    };
+}
+
+// ============================================================
+// LIST ACTIVE GUILDS
+// ============================================================
+
+function getGuilds() {
+
+    return Array.from(
+        guilds.entries()
+    ).map(
+        (
+            [
+                guildId,
+                guild
+            ]
+        ) => ({
+
+            guildId,
+
+            song:
+                guild.song,
+
+            state:
+                guild.state,
+
+            position:
+                guild.position,
+
+            volume:
+                guild.volume,
+
+            updatedAt:
+                guild.updatedAt
+        })
+    );
 }
 
 // ============================================================
@@ -296,11 +943,30 @@ function stop(guildId) {
 // ============================================================
 
 module.exports = {
+
+    // Search
     search,
+
+    // Song
     setSong,
+    selectSearchResult,
     getCurrentSong,
+    clearSong,
+
+    // State
     getState,
+
+    // Playback state
     play,
     pause,
-    stop
+    resume,
+    stop,
+
+    // Player controls
+    seek,
+    setVolume,
+
+    // Management
+    destroyGuild,
+    getGuilds
 };

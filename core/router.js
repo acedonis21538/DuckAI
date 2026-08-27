@@ -1,68 +1,54 @@
+'use strict';
+
 // ============================================================
 // DUCKAI — UNIVERSAL CAPABILITY ROUTER
 // ============================================================
 //
-// This router is capability-agnostic.
+// O router NÃO conhece capabilities específicas.
 //
-// It does NOT know about:
+// Não conhece:
 // • music
 // • images
 // • web
 // • panels
-// • Discord commands
+// • comandos
+// • Discord interactions
 //
-// CAPABILITY STRUCTURE:
+// Apenas conhece o contrato universal:
 //
-// capabilities/
-// ├── music/
-// │   ├── capability.js
-// │   └── ...
-// ├── images/
-// │   ├── capability.js
-// │   └── ...
-// └── anything/
-//     └── capability.js
+// capabilities/<name>/capability.js
 //
-// UNIVERSAL CAPABILITY INTERFACE:
-//
-// module.exports = {
-//
+// {
 //     name: 'example',
 //
-//     async canHandle(message) {
-//         return true;
+//     canHandle(message) {
+//         return true / false;
 //     },
 //
-//     async execute(message) {
+//     execute(message) {
 //         return {
 //             response: '...'
 //         };
 //     }
-// };
+// }
 //
-// FLOW:
+// FLUXO:
 //
 // MESSAGE
 //    ↓
 // ROUTER
 //    ↓
-// DISCOVERED CAPABILITIES
+// DISCOVER CAPABILITIES
 //    ↓
 // canHandle()
-//    │
-//    ├── false → next capability
-//    │
-//    └── true
-//          ↓
-//       execute()
-//          ↓
-//       capability result
+//    ↓
+// execute()
+//    ↓
+// capability result
 //
-// NO CAPABILITY
-//    ↓
-// conversation
-//    ↓
-// BRAIN
+// Se nenhuma capability tratar:
+//
+// ROUTER → conversation
 //
 // ============================================================
 
@@ -73,114 +59,72 @@ const path = require('path');
 // PATHS
 // ============================================================
 
-const ROOT_DIRECTORY =
-    path.resolve(
-        __dirname,
-        '..'
-    );
+const ROOT_DIRECTORY = path.resolve(
+    __dirname,
+    '..'
+);
 
-const CAPABILITIES_DIRECTORY =
-    path.join(
-        ROOT_DIRECTORY,
-        'capabilities'
-    );
+const CAPABILITIES_DIRECTORY = path.join(
+    ROOT_DIRECTORY,
+    'capabilities'
+);
 
 // ============================================================
-// INTERNAL STATE
+// STATE
 // ============================================================
 
 let capabilities = [];
-
 let discovered = false;
 
 // ============================================================
-// IS VALID CAPABILITY
+// VALIDATION
 // ============================================================
 
-function isValidCapability(
-    capability
-) {
+function isValidCapability(module) {
 
-    if (
-        !capability
-    ) {
-
-        return false;
-    }
-
-    return (
-
-        typeof capability.canHandle ===
-        'function'
-
-        &&
-
-        typeof capability.execute ===
-        'function'
-    );
+    return !!module &&
+        typeof module.canHandle === 'function' &&
+        typeof module.execute === 'function';
 }
 
 // ============================================================
-// GET CAPABILITY NAME
+// NAME
 // ============================================================
 
-function getCapabilityName(
-    capability,
-    folderName
-) {
+function getCapabilityName(module, fallback) {
 
     if (
-        typeof capability?.name ===
-        'string'
-
-        &&
-
-        capability.name.trim()
+        typeof module?.name === 'string' &&
+        module.name.trim()
     ) {
-
-        return capability.name
-            .trim();
+        return module.name.trim();
     }
 
-    return folderName;
+    return fallback;
 }
 
 // ============================================================
-// LOAD CAPABILITY
+// LOAD ONE CAPABILITY
 // ============================================================
 
-function loadCapability(
-    filePath,
-    folderName
-) {
+function loadCapability(filePath, folderName) {
 
     try {
 
-        // ----------------------------------------------------
-        // Require capability
-        // ----------------------------------------------------
+        delete require.cache[
+            require.resolve(filePath)
+        ];
 
-        const capability =
-            require(
-                filePath
-            );
+        const module = require(filePath);
 
-        // ----------------------------------------------------
-        // Validate interface
-        // ----------------------------------------------------
-
-        if (
-            !isValidCapability(
-                capability
-            )
-        ) {
+        if (!isValidCapability(module)) {
 
             console.warn(
                 `⚠️ Ignoring invalid capability: ${folderName}`
             );
 
             console.warn(
-                '   A capability must export canHandle() and execute().'
+                '   Required: canHandle() and execute()'
             );
 
             return null;
@@ -190,7 +134,7 @@ function loadCapability(
 
             name:
                 getCapabilityName(
-                    capability,
+                    module,
                     folderName
                 ),
 
@@ -200,8 +144,7 @@ function loadCapability(
             file:
                 filePath,
 
-            module:
-                capability
+            module
         };
 
     } catch (error) {
@@ -210,33 +153,20 @@ function loadCapability(
             `❌ Failed to load capability "${folderName}":`
         );
 
-        console.error(
-            error
-        );
+        console.error(error);
 
         return null;
     }
 }
 
 // ============================================================
-// DISCOVER CAPABILITIES
-// ============================================================
-//
-// Searches:
-//
-// capabilities/<name>/capability.js
-//
+// DISCOVER
 // ============================================================
 
 function discoverCapabilities() {
 
     capabilities = [];
-
     discovered = true;
-
-    // --------------------------------------------------------
-    // Capabilities folder does not exist
-    // --------------------------------------------------------
 
     if (
         !fs.existsSync(
@@ -255,14 +185,12 @@ function discoverCapabilities() {
 
     try {
 
-        entries =
-            fs.readdirSync(
-                CAPABILITIES_DIRECTORY,
-                {
-                    withFileTypes:
-                        true
-                }
-            );
+        entries = fs.readdirSync(
+            CAPABILITIES_DIRECTORY,
+            {
+                withFileTypes: true
+            }
+        );
 
     } catch (error) {
 
@@ -270,112 +198,71 @@ function discoverCapabilities() {
             '❌ Could not read capabilities directory:'
         );
 
-        console.error(
-            error
-        );
+        console.error(error);
 
         return capabilities;
     }
 
-    // --------------------------------------------------------
-    // Read every capability folder
-    // --------------------------------------------------------
-
     for (
-        const entry
-        of entries
+        const entry of entries
     ) {
-
-        // Only directories are capabilities
 
         if (
             !entry.isDirectory()
         ) {
-
             continue;
         }
 
-        // Ignore hidden folders
-
         if (
-            entry.name.startsWith(
-                '.'
-            )
+            entry.name.startsWith('.')
         ) {
-
             continue;
         }
 
         const capabilityFile =
             path.join(
-
                 CAPABILITIES_DIRECTORY,
-
                 entry.name,
-
                 'capability.js'
             );
-
-        // ----------------------------------------------------
-        // capability.js does not exist
-        // ----------------------------------------------------
 
         if (
             !fs.existsSync(
                 capabilityFile
             )
         ) {
-
             continue;
         }
 
-        // ----------------------------------------------------
-        // Load capability
-        // ----------------------------------------------------
-
-        const loaded =
+        const capability =
             loadCapability(
-
                 capabilityFile,
-
                 entry.name
             );
 
         if (
-            !loaded
+            capability
         ) {
 
-            continue;
+            capabilities.push(
+                capability
+            );
         }
-
-        capabilities.push(
-            loaded
-        );
     }
-
-    // --------------------------------------------------------
-    // Sort for deterministic order
-    // --------------------------------------------------------
 
     capabilities.sort(
         (a, b) =>
-
             a.name.localeCompare(
                 b.name
             )
     );
-
-    // --------------------------------------------------------
-    // Log
-    // --------------------------------------------------------
 
     console.log(
         `⚡ Router discovered ${capabilities.length} capability(s).`
     );
 
     for (
-        const capability
-        of capabilities
+        const capability of capabilities
     ) {
 
         console.log(
@@ -387,7 +274,7 @@ function discoverCapabilities() {
 }
 
 // ============================================================
-// ENSURE DISCOVERY
+// ENSURE
 // ============================================================
 
 function ensureDiscovery() {
@@ -405,16 +292,11 @@ function ensureDiscovery() {
 // ============================================================
 // GET CAPABILITIES
 // ============================================================
-//
-// Used by the Brain.
-//
-// ============================================================
 
 function getCapabilities() {
 
     return ensureDiscovery()
         .map(
-
             capability =>
                 capability.name
         );
@@ -423,61 +305,73 @@ function getCapabilities() {
 // ============================================================
 // ROUTE
 // ============================================================
-//
-// The router does not respond to Discord.
-//
-// It only decides:
-//
-// • capability
-// • conversation
-//
-// ============================================================
 
-async function route(
-    message
-) {
-
-    // --------------------------------------------------------
-    // Invalid message
-    // --------------------------------------------------------
+async function route(message) {
 
     if (
         !message
     ) {
 
         return {
-
-            type:
-                'conversation'
+            type: 'conversation'
         };
     }
 
-    const loadedCapabilities =
+    const loaded =
         ensureDiscovery();
 
     // --------------------------------------------------------
-    // Test capabilities
+    // Test every capability
     // --------------------------------------------------------
 
     for (
-        const capability
-        of loadedCapabilities
+        const capability of loaded
     ) {
 
-        let canHandle =
-            false;
+        let handled = false;
 
-        // ----------------------------------------------------
+        // ====================================================
         // CAN HANDLE
-        // ----------------------------------------------------
+        // ====================================================
 
         try {
 
-            canHandle =
-                await capability.module
-                    .canHandle(
-                        message
-                    );
+            const result =
+                await capability.module.canHandle(
+                    message
+                );
+
+            // --------------------------------------------
+            // Normal contract:
+            //
+            // true  → handled
+            // false → next capability
+            // --------------------------------------------
+
+            if (
+                result === true
+            ) {
+
+                handled = true;
+            }
+
+            // --------------------------------------------
+            // Also accept:
+            //
+            // { handled: true }
+            //
+            // This makes the interface more extensible
+            // without making the router capability-specific.
+            // --------------------------------------------
+
+            else if (
+                result &&
+                typeof result === 'object' &&
+                result.handled === true
+            ) {
+
+                handled = true;
+            }
 
         } catch (error) {
 
@@ -485,64 +379,47 @@ async function route(
                 `⚠️ Capability "${capability.name}" failed during canHandle():`
             );
 
-            console.error(
-                error
-            );
-
-            // This capability failed to analyse the message.
-            // Continue to the next capability.
+            console.error(error);
 
             continue;
         }
 
-        // ----------------------------------------------------
-        // NOT HANDLED
-        // ----------------------------------------------------
+        // ====================================================
+        // NOT THIS CAPABILITY
+        // ====================================================
 
         if (
-            canHandle !== true
+            !handled
         ) {
 
             continue;
         }
 
-        // ----------------------------------------------------
-        // CAPABILITY MATCHED
-        // ----------------------------------------------------
-
         console.log(
             `⚡ Router → ${capability.name}`
         );
 
-        // ----------------------------------------------------
+        // ====================================================
         // EXECUTE
-        // ----------------------------------------------------
+        // ====================================================
 
         try {
 
             const result =
-                await capability.module
-                    .execute(
-                        message
-                    );
+                await capability.module.execute(
+                    message
+                );
 
-            // ------------------------------------------------
-            // NORMALIZE RESULT
-            // ------------------------------------------------
-
-            // Empty result
+            // --------------------------------------------
+            // Capability consumed the message.
             //
-            // The capability matched the message, therefore
-            // the Brain must NOT receive it.
+            // Even if it returns nothing, DO NOT send
+            // the message to the Brain.
+            // --------------------------------------------
 
             if (
-                result ===
-                undefined
-
-                ||
-
-                result ===
-                null
+                result === undefined ||
+                result === null
             ) {
 
                 return {
@@ -555,11 +432,12 @@ async function route(
                 };
             }
 
-            // Plain text response
+            // --------------------------------------------
+            // String
+            // --------------------------------------------
 
             if (
-                typeof result ===
-                'string'
+                typeof result === 'string'
             ) {
 
                 return {
@@ -575,11 +453,12 @@ async function route(
                 };
             }
 
-            // Object response
+            // --------------------------------------------
+            // Object
+            // --------------------------------------------
 
             if (
-                typeof result ===
-                'object'
+                typeof result === 'object'
             ) {
 
                 return {
@@ -590,14 +469,13 @@ async function route(
                         'capability',
 
                     capability:
-
-                        result.capability ||
-
                         capability.name
                 };
             }
 
-            // Unknown result
+            // --------------------------------------------
+            // Unknown return type
+            // --------------------------------------------
 
             return {
 
@@ -614,18 +492,14 @@ async function route(
                 `❌ Capability "${capability.name}" failed during execute():`
             );
 
-            console.error(
-                error
-            );
+            console.error(error);
 
-            // ------------------------------------------------
-            // IMPORTANT
+            // --------------------------------------------
+            // IMPORTANT:
             //
-            // The capability already claimed this message.
-            //
-            // Never pass it to the Brain afterwards.
-            //
-            // ------------------------------------------------
+            // Capability already claimed the message.
+            // NEVER send it to the Brain.
+            // --------------------------------------------
 
             return {
 
@@ -653,41 +527,26 @@ async function route(
 }
 
 // ============================================================
-// REFRESH CAPABILITIES
-// ============================================================
-//
-// Optional development function.
-//
-// Example:
-//
-// router.refreshCapabilities();
-//
+// REFRESH
 // ============================================================
 
 function refreshCapabilities() {
 
-    discovered =
-        false;
+    discovered = false;
 
-    capabilities =
-        [];
+    capabilities = [];
 
     return discoverCapabilities();
 }
 
 // ============================================================
-// GET CAPABILITY DETAILS
-// ============================================================
-//
-// Useful for debugging.
-//
+// DETAILS
 // ============================================================
 
 function getCapabilityDetails() {
 
     return ensureDiscovery()
         .map(
-
             capability => ({
 
                 name:
