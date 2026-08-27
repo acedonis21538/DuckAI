@@ -1,32 +1,38 @@
+'use strict';
+
 // ============================================================
 // DUCKAI — MUSIC CAPABILITY
 // ============================================================
 //
-// Universal music capability.
+// Universal bridge between the DuckAI router and the music
+// engine.
+//
+// IMPORTANT:
+//
+// • Detects music-related requests.
+// • Searches/selects music through music.js.
+// • Does NOT play audio.
+// • Does NOT use Discord Voice.
+// • Does NOT start the Web Player.
+// • The browser/player.html is responsible for audio.
 //
 // FLOW:
 //
 // Discord message
 //      ↓
-// Router
+// Universal Router
 //      ↓
 // canHandle()
 //      ↓
 // execute()
 //      ↓
-// Audius search
+// music.js
 //      ↓
-// Select song
+// selected song
 //      ↓
 // Web Player
-//
-// IMPORTANT:
-//
-// • NÃO entra em Voice Channel.
-// • NÃO reproduz áudio.
-// • NÃO usa @discordjs/voice.
-// • NÃO chama audio.play().
-// • O áudio é reproduzido APENAS pelo player.html.
+//      ↓
+// Browser audio
 //
 // ============================================================
 
@@ -44,17 +50,8 @@ const name =
 // MUSIC REQUEST DETECTION
 // ============================================================
 //
-// Exemplos:
-//
-// "toca After Dark"
-// "play After Dark"
-// "play music"
-// "quero ouvir After Dark"
-// "toca Kitty"
-// "put some music on"
-// "resume music"
-// "pausa a música"
-// "para a música"
+// This function intentionally focuses on clear music intent.
+// The router itself remains completely generic.
 //
 // ============================================================
 
@@ -64,7 +61,8 @@ function isMusicRequest(
 
     if (
         !message ||
-        typeof message.content !== 'string'
+        typeof message.content !==
+        'string'
     ) {
 
         return false;
@@ -76,21 +74,22 @@ function isMusicRequest(
             .toLowerCase();
 
     if (!text) {
-
         return false;
     }
 
     // --------------------------------------------------------
-    // Explicit music commands
+    // Explicit commands
     // --------------------------------------------------------
 
-    const commandPatterns = [
+    const explicitPatterns = [
 
         /^toca\b/,
         /^tocar\b/,
         /^toque\b/,
+
         /^play\b/,
-        /^playing\b/,
+        /^listen to\b/,
+        /^listen\b/,
 
         /^ouve\b/,
         /^ouvir\b/,
@@ -102,18 +101,26 @@ function isMusicRequest(
         /^resume\b/,
         /^retoma\b/,
         /^retomar\b/,
+        /^continua\b/,
+        /^continuar\b/,
 
-        /^pausa\b/,
         /^pause\b/,
+        /^pausa\b/,
+        /^pausar\b/,
+
+        /^stop\b/,
+        /^stop music\b/,
+        /^stop the music\b/,
 
         /^para a música\b/,
         /^parar a música\b/,
-        /^stop music\b/,
-        /^stop the music\b/
+
+        /^mete música\b/,
+        /^mete uma música\b/
     ];
 
     if (
-        commandPatterns.some(
+        explicitPatterns.some(
             pattern =>
                 pattern.test(
                     text
@@ -125,25 +132,19 @@ function isMusicRequest(
     }
 
     // --------------------------------------------------------
-    // Music-related phrases
+    // General music references
     // --------------------------------------------------------
 
     const musicPatterns = [
 
         /\bmusic\b/,
         /\bmúsica\b/,
+        /\bmusica\b/,
         /\bsong\b/,
-        /\bcanção\b/,
         /\btrack\b/,
         /\bfaixa\b/,
-
-        /\bplay music\b/,
-        /\btoca música\b/,
-        /\btocar música\b/,
-
-        /\bque toca\b/,
-        /\bmete música\b/,
-        /\bmete uma música\b/
+        /\bcanção\b/,
+        /\bcancao\b/
     ];
 
     return musicPatterns.some(
@@ -155,18 +156,49 @@ function isMusicRequest(
 }
 
 // ============================================================
+// CAN HANDLE
+// ============================================================
+
+function canHandle(
+    message
+) {
+
+    // --------------------------------------------------------
+    // TEMPORARY DEBUG LOG
+    // --------------------------------------------------------
+    //
+    // This confirms that the HOST is executing this exact
+    // capability.js.
+    //
+    // --------------------------------------------------------
+
+    console.log(
+        '🎵 MUSIC CAPABILITY CHECK:',
+        message?.content
+    );
+
+    return isMusicRequest(
+        message
+    );
+}
+
+// ============================================================
 // EXTRACT QUERY
 // ============================================================
 //
-// Converts:
+// Examples:
 //
 // "toca After Dark"
 //       ↓
 // "After Dark"
 //
-// "play Kitty After Dark"
+// "DuckAI toca After Dark"
 //       ↓
-// "Kitty After Dark"
+// "After Dark"
+//
+// "play After Dark by Kitty"
+//       ↓
+// "After Dark by Kitty"
 //
 // ============================================================
 
@@ -175,60 +207,114 @@ function extractQuery(
 ) {
 
     if (
-        typeof content !== 'string'
+        typeof content !==
+        'string'
     ) {
 
         return '';
     }
 
-    let query =
+    let text =
         content.trim();
 
     // --------------------------------------------------------
-    // Remove common command prefixes
+    // Remove Discord mentions
     // --------------------------------------------------------
 
-    query =
-        query.replace(
-            /^(?:hey\s+)?(?:duck\s*ai[\s,:-]*)?/i,
+    text =
+        text.replace(
+            /<@!?\d+>/g,
             ''
         );
 
-    query =
-        query.replace(
-            /^(?:please\s+)?(?:toca|tocar|toque|play|playing)\s+/i,
+    // --------------------------------------------------------
+    // Remove DuckAI trigger
+    // --------------------------------------------------------
+
+    text =
+        text.replace(
+            /^(?:hey\s+)?duck\s*ai[\s,:-]*/i,
             ''
         );
 
-    query =
-        query.replace(
+    // Also handle DuckAI appearing after leading whitespace.
+
+    text =
+        text.replace(
+            /^\s*duck\s*ai[\s,:-]*/i,
+            ''
+        );
+
+    // --------------------------------------------------------
+    // Remove command prefixes
+    // --------------------------------------------------------
+
+    text =
+        text.replace(
+            /^(?:please\s+)?(?:toca|tocar|toque)\s+/i,
+            ''
+        );
+
+    text =
+        text.replace(
+            /^(?:please\s+)?(?:play|play\s+me)\s+/i,
+            ''
+        );
+
+    text =
+        text.replace(
+            /^(?:listen\s+to|listen)\s+/i,
+            ''
+        );
+
+    text =
+        text.replace(
             /^(?:quero\s+)?(?:ouvir|ouve)\s+/i,
             ''
         );
 
-    query =
-        query.replace(
-            /^(?:play\s+me)\s+/i,
+    text =
+        text.replace(
+            /^(?:put\s+on)\s+/i,
             ''
         );
 
-    query =
-        query.replace(
-            /^(?:put\s+(?:on|some\s+music)\s*)/i,
+    text =
+        text.replace(
+            /^(?:mete\s+(?:uma\s+)?m[uú]sica)\s*/i,
             ''
         );
 
-    return query
-        .trim()
-        .replace(
-            /^["']|["']$/g,
-            ''
-        )
-        .trim();
+    // --------------------------------------------------------
+    // Clean quotation marks
+    // --------------------------------------------------------
+
+    text =
+        text
+            .trim()
+            .replace(
+                /^["'“”‘’]+|["'“”‘’]+$/g,
+                ''
+            )
+            .trim();
+
+    return text;
 }
 
 // ============================================================
-// SPECIAL COMMAND DETECTION
+// GET ACTION
+// ============================================================
+//
+// search = search/select song
+// pause  = pause backend state
+// resume = resume backend state
+// stop   = stop backend state
+//
+// IMPORTANT:
+//
+// None of these actions reproduce audio on the server.
+// The browser controls actual audio playback.
+//
 // ============================================================
 
 function getMusicAction(
@@ -236,7 +322,8 @@ function getMusicAction(
 ) {
 
     const text =
-        typeof content === 'string'
+        typeof content ===
+        'string'
             ? content
                 .trim()
                 .toLowerCase()
@@ -260,7 +347,7 @@ function getMusicAction(
     // --------------------------------------------------------
 
     if (
-        /\b(?:resume|retoma|retomar|continuar|continua)\b/.test(
+        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(
             text
         )
     ) {
@@ -273,10 +360,7 @@ function getMusicAction(
     // --------------------------------------------------------
 
     if (
-        /\b(?:stop|parar|para)\b/.test(
-            text
-        ) &&
-        !/\b(?:toca|play)\b/.test(
+        /\b(?:stop|parar)\b/.test(
             text
         )
     ) {
@@ -285,23 +369,25 @@ function getMusicAction(
     }
 
     // --------------------------------------------------------
-    // Play / search
+    // Search/select
     // --------------------------------------------------------
 
     return 'search';
 }
 
 // ============================================================
-// SAFE GUILD ID
+// GET PLAYER ID
+// ============================================================
+//
+// Guild ID is preferred.
+//
+// For DMs, use a stable user-specific identifier.
+//
 // ============================================================
 
-function getGuildId(
+function getPlayerId(
     message
 ) {
-
-    // --------------------------------------------------------
-    // Discord guild
-    // --------------------------------------------------------
 
     if (
         message?.guildId
@@ -317,17 +403,6 @@ function getGuildId(
         return message.guild.id;
     }
 
-    // --------------------------------------------------------
-    // DMs
-    // --------------------------------------------------------
-    //
-    // A DM has no guild.
-    //
-    // Use a stable user-based player ID so the Web Player
-    // can still have an independent state.
-    //
-    // --------------------------------------------------------
-
     if (
         message?.author?.id
     ) {
@@ -339,19 +414,6 @@ function getGuildId(
 }
 
 // ============================================================
-// CAN HANDLE
-// ============================================================
-
-function canHandle(
-    message
-) {
-
-    return isMusicRequest(
-        message
-    );
-}
-
-// ============================================================
 // EXECUTE
 // ============================================================
 
@@ -359,12 +421,20 @@ async function execute(
     message
 ) {
 
-    const guildId =
-        getGuildId(
+    // --------------------------------------------------------
+    // TEMPORARY DEBUG LOG
+    // --------------------------------------------------------
+
+    console.log(
+        '🎵 MUSIC CAPABILITY EXECUTED'
+    );
+
+    const playerId =
+        getPlayerId(
             message
         );
 
-    if (!guildId) {
+    if (!playerId) {
 
         return {
 
@@ -375,7 +445,7 @@ async function execute(
                 name,
 
             response:
-                '🦆 I need a server or user context for the music player.'
+                '🦆 I could not determine the player context.'
         };
     }
 
@@ -389,12 +459,13 @@ async function execute(
     // ========================================================
 
     if (
-        action === 'pause'
+        action ===
+        'pause'
     ) {
 
         const result =
-            await music.pause(
-                guildId
+            music.pause(
+                playerId
             );
 
         return {
@@ -410,8 +481,15 @@ async function execute(
                     ? '⏸️ Music paused in the Web Player.'
                     : result.message,
 
-            data:
+            data: {
+
+                action:
+                    'pause',
+
+                playerId,
+
                 result
+            }
         };
     }
 
@@ -420,12 +498,13 @@ async function execute(
     // ========================================================
 
     if (
-        action === 'resume'
+        action ===
+        'resume'
     ) {
 
         const result =
-            await music.resume(
-                guildId
+            music.resume(
+                playerId
             );
 
         return {
@@ -441,8 +520,15 @@ async function execute(
                     ? '▶️ Music resumed in the Web Player.'
                     : result.message,
 
-            data:
+            data: {
+
+                action:
+                    'resume',
+
+                playerId,
+
                 result
+            }
         };
     }
 
@@ -451,12 +537,13 @@ async function execute(
     // ========================================================
 
     if (
-        action === 'stop'
+        action ===
+        'stop'
     ) {
 
         const result =
-            await music.stop(
-                guildId
+            music.stop(
+                playerId
             );
 
         return {
@@ -472,8 +559,15 @@ async function execute(
                     ? '⏹️ Music stopped in the Web Player.'
                     : result.message,
 
-            data:
+            data: {
+
+                action:
+                    'stop',
+
+                playerId,
+
                 result
+            }
         };
     }
 
@@ -486,40 +580,8 @@ async function execute(
             message.content
         );
 
-    // --------------------------------------------------------
-    // No query
-    // --------------------------------------------------------
-
-    if (!query) {
-
-        return {
-
-            type:
-                'capability',
-
-            capability:
-                name,
-
-            response:
-                '🎵 Tell me which song you want to play.'
-        };
-    }
-
-    // ========================================================
-    // SEARCH AUDIUS
-    // ========================================================
-
-    const result =
-        await music.search(
-            query
-        );
-
-    // --------------------------------------------------------
-    // Search failed
-    // --------------------------------------------------------
-
     if (
-        !result?.success
+        !query
     ) {
 
         return {
@@ -531,11 +593,71 @@ async function execute(
                 name,
 
             response:
-                result?.message ||
+                '🎵 Tell me which song you want to load.'
+        };
+    }
+
+    console.log(
+        '🎵 MUSIC QUERY:',
+        query
+    );
+
+    // ========================================================
+    // AUDIUS SEARCH
+    // ========================================================
+
+    let searchResult;
+
+    try {
+
+        searchResult =
+            await music.search(
+                query
+            );
+
+    } catch (error) {
+
+        console.error(
+            '❌ Music search failed:',
+            error
+        );
+
+        return {
+
+            type:
+                'capability',
+
+            capability:
+                name,
+
+            response:
+                '🦆 I could not search for that song right now.'
+        };
+    }
+
+    if (
+        !searchResult?.success
+    ) {
+
+        return {
+
+            type:
+                'capability',
+
+            capability:
+                name,
+
+            response:
+                searchResult?.message ||
                 `🦆 I couldn't find **${query}**.`,
 
-            data:
-                result
+            data: {
+
+                action:
+                    'search_failed',
+
+                playerId
+            }
         };
     }
 
@@ -543,18 +665,16 @@ async function execute(
     // SELECT SONG
     // ========================================================
     //
-    // IMPORTANT:
-    //
-    // This ONLY prepares the song for the Web Player.
-    //
-    // It does NOT play audio.
+    // This stores the song in the same music.js instance used
+    // by the Web Player because server.js and index.js are now
+    // loaded by the same start.js process.
     //
     // ========================================================
 
     const selected =
         music.selectSearchResult(
-            guildId,
-            result
+            playerId,
+            searchResult
         );
 
     if (
@@ -571,27 +691,32 @@ async function execute(
 
             response:
                 selected?.message ||
-                '🎵 I could not select that song.',
+                '🎵 I could not load that song.',
 
-            data:
-                selected
+            data: {
+
+                action:
+                    'selection_failed',
+
+                playerId
+            }
         };
     }
 
-    // ========================================================
-    // RESPONSE
-    // ========================================================
-    //
-    // We intentionally DO NOT call:
-    //
-    // music.play()
-    //
-    // The Web Player must be opened and the user presses Play.
-    //
-    // ========================================================
-
     const song =
         selected.song;
+
+    // ========================================================
+    // FINAL RESULT
+    // ========================================================
+    //
+    // IMPORTANT:
+    //
+    // We DO NOT call music.play().
+    //
+    // The song is only loaded into the Web Player.
+    //
+    // ========================================================
 
     return {
 
@@ -610,39 +735,11 @@ async function execute(
             action:
                 'selected',
 
-            guildId,
+            playerId,
 
             song
         }
     };
-}
-
-// ============================================================
-// LEGACY COMPATIBILITY
-// ============================================================
-//
-// The router can support either:
-//
-// canHandle()
-// execute()
-//
-// or:
-//
-// isMusicRequest()
-// executeMusic()
-//
-// Export both so the capability remains compatible with
-// older versions of the general router.
-//
-// ============================================================
-
-async function executeMusic(
-    message
-) {
-
-    return execute(
-        message
-    );
 }
 
 // ============================================================
@@ -657,15 +754,15 @@ module.exports = {
 
     execute,
 
-    // Legacy router compatibility
+    // Compatibility aliases
     isMusicRequest,
 
-    executeMusic,
+    executeMusic: execute,
 
     // Helpers
     extractQuery,
 
     getMusicAction,
 
-    getGuildId
+    getPlayerId
 };
