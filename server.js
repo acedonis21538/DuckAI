@@ -4,52 +4,38 @@
 // DUCKAI — WEB MUSIC SERVER
 // ============================================================
 //
-// Servidor do Web Player + OAuth Audio.com.
-//
-// IMPORTANTE:
-//
-// • /player continua a servir o player existente.
-// • /api/music/* continua disponível.
-// • Audio.com OAuth usa este mesmo servidor.
-// • OAuth usa OAuth 2.1 + PKCE S256.
-// • O access token fica em memória por agora.
+// • Web Player
+// • Music API
+// • Audio.com OAuth 2.1 + PKCE
+// • Audio.com usa o mesmo servidor
+// • Access token fica em memória por enquanto
 //
 // ============================================================
 
 require('dotenv').config();
 
-const crypto =
-    require('crypto');
-
-const express =
-    require('express');
-
-const path =
-    require('path');
+const crypto = require('crypto');
+const express = require('express');
+const path = require('path');
 
 const music =
     require('./capabilities/music/music');
 
-const app =
-    express();
+const app = express();
 
 const PORT =
-    Number(
-        process.env.PORT
-    ) || 3000;
+    Number(process.env.PORT) || 3000;
 
 // ============================================================
-// AUDIO.COM OAUTH CONFIG
+// AUDIO.COM CONFIG
 // ============================================================
 
 const AUDIOCOM_CLIENT_ID =
     process.env.AUDIOCOM_CLIENT_ID;
 
-const AUDIOCOM_CLIENT_SECRET =
-    process.env.AUDIOCOM_CLIENT_SECRET;
-
 const AUDIOCOM_REDIRECT_URI =
-    process.env.AUDIOCOM_REDIRECT_URI;
+    process.env.AUDIOCOM_REDIRECT_URI ||
+    'https://duckai-qmfy.onrender.com/auth/audio';
 
 const AUDIOCOM_AUTH_URL =
     process.env.AUDIOCOM_AUTH_URL ||
@@ -60,15 +46,7 @@ const AUDIOCOM_TOKEN_URL =
     'https://api.audio.com/auth/token';
 
 // ============================================================
-// OAUTH STATE
-// ============================================================
-//
-// Temporary in-memory storage.
-//
-// state
-//   ↓
-// code_verifier
-//
+// AUDIO.COM STATE
 // ============================================================
 
 const audioOAuthSessions =
@@ -84,7 +62,7 @@ let audioTokenExpiresAt =
     0;
 
 // ============================================================
-// EXPRESS CONFIG
+// EXPRESS
 // ============================================================
 
 app.use(
@@ -93,13 +71,12 @@ app.use(
 
 app.use(
     express.urlencoded({
-        extended:
-            true
+        extended: true
     })
 );
 
 // ============================================================
-// PLAYER PATH
+// PLAYER
 // ============================================================
 
 const PLAYER_PATH =
@@ -121,12 +98,8 @@ console.log(
 function createCodeVerifier() {
 
     return crypto
-        .randomBytes(
-            64
-        )
-        .toString(
-            'base64url'
-        );
+        .randomBytes(64)
+        .toString('base64url');
 }
 
 function createCodeChallenge(
@@ -134,26 +107,16 @@ function createCodeChallenge(
 ) {
 
     return crypto
-        .createHash(
-            'sha256'
-        )
-        .update(
-            verifier
-        )
-        .digest(
-            'base64url'
-        );
+        .createHash('sha256')
+        .update(verifier)
+        .digest('base64url');
 }
 
 function createOAuthState() {
 
     return crypto
-        .randomBytes(
-            32
-        )
-        .toString(
-            'hex'
-        );
+        .randomBytes(32)
+        .toString('hex');
 }
 
 // ============================================================
@@ -164,29 +127,12 @@ function escapeHtml(
     value
 ) {
 
-    return String(
-        value
-    )
-        .replace(
-            /&/g,
-            '&amp;'
-        )
-        .replace(
-            /</g,
-            '&lt;'
-        )
-        .replace(
-            />/g,
-            '&gt;'
-        )
-        .replace(
-            /"/g,
-            '&quot;'
-        )
-        .replace(
-            /'/g,
-            '&#039;'
-        );
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // ============================================================
@@ -214,9 +160,7 @@ app.get(
                         !res.headersSent
                     ) {
 
-                        res.status(
-                            500
-                        ).send(
+                        res.status(500).send(
                             'DuckAI Music Player could not be loaded.'
                         );
                     }
@@ -247,9 +191,7 @@ app.get(
                         !res.headersSent
                     ) {
 
-                        res.status(
-                            500
-                        ).send(
+                        res.status(500).send(
                             'DuckAI Music Player could not be loaded.'
                         );
                     }
@@ -274,12 +216,9 @@ app.get(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -300,8 +239,7 @@ app.get(
 
             return res.json({
 
-                success:
-                    true,
+                success: true,
 
                 song:
                     song || null,
@@ -320,12 +258,9 @@ app.get(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not get current music.'
@@ -351,12 +286,9 @@ app.get(
             !query
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing music query.'
@@ -381,12 +313,9 @@ app.get(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not search for that song.'
@@ -410,12 +339,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -424,13 +350,10 @@ app.post(
 
         try {
 
-            const result =
+            return res.json(
                 await music.play(
                     guildId
-                );
-
-            return res.json(
-                result
+                )
             );
 
         } catch (error) {
@@ -440,12 +363,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not play music.'
@@ -469,12 +389,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -496,12 +413,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not pause music.'
@@ -525,12 +439,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -544,12 +455,9 @@ app.post(
                 'function'
             ) {
 
-                return res.status(
-                    501
-                ).json({
+                return res.status(501).json({
 
-                    success:
-                        false,
+                    success: false,
 
                     message:
                         'Resume is not available.'
@@ -569,12 +477,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not resume music.'
@@ -598,12 +503,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -625,12 +527,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not stop music.'
@@ -659,12 +558,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -672,17 +568,12 @@ app.post(
         }
 
         if (
-            !Number.isFinite(
-                position
-            )
+            !Number.isFinite(position)
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Invalid position.'
@@ -696,12 +587,9 @@ app.post(
                 'function'
             ) {
 
-                return res.status(
-                    501
-                ).json({
+                return res.status(501).json({
 
-                    success:
-                        false,
+                    success: false,
 
                     message:
                         'Seek is not available.'
@@ -722,12 +610,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not seek music.'
@@ -756,12 +641,9 @@ app.post(
             !guildId
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Missing guildId.'
@@ -769,17 +651,12 @@ app.post(
         }
 
         if (
-            !Number.isFinite(
-                volume
-            )
+            !Number.isFinite(volume)
         ) {
 
-            return res.status(
-                400
-            ).json({
+            return res.status(400).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Invalid volume.'
@@ -793,12 +670,9 @@ app.post(
                 'function'
             ) {
 
-                return res.status(
-                    501
-                ).json({
+                return res.status(501).json({
 
-                    success:
-                        false,
+                    success: false,
 
                     message:
                         'Volume control is not available.'
@@ -819,12 +693,9 @@ app.post(
                 error
             );
 
-            return res.status(
-                500
-            ).json({
+            return res.status(500).json({
 
-                success:
-                    false,
+                success: false,
 
                 message:
                     'Could not change volume.'
@@ -834,158 +705,21 @@ app.post(
 );
 
 // ============================================================
-// AUDIO.COM — START OAUTH
+// AUDIO.COM — START OAUTH / CALLBACK
 // ============================================================
 //
-// Open:
+// GET /auth/audio
 //
-// https://duckai-qmfy.onrender.com/auth/audio
+// Without code/state:
+//     start OAuth.
+//
+// With code/state:
+//     process OAuth callback.
 //
 // ============================================================
 
 app.get(
     '/auth/audio',
-    (req, res) => {
-
-        if (
-            !AUDIOCOM_CLIENT_ID
-        ) {
-
-            return res.status(
-                500
-            ).send(
-                'AUDIOCOM_CLIENT_ID is missing.'
-            );
-        }
-
-        if (
-            !AUDIOCOM_REDIRECT_URI
-        ) {
-
-            return res.status(
-                500
-            ).send(
-                'AUDIOCOM_REDIRECT_URI is missing.'
-            );
-        }
-
-        if (
-            !AUDIOCOM_AUTH_URL
-        ) {
-
-            return res.status(
-                500
-            ).send(
-                'AUDIOCOM_AUTH_URL is missing.'
-            );
-        }
-
-        const codeVerifier =
-            createCodeVerifier();
-
-        const codeChallenge =
-            createCodeChallenge(
-                codeVerifier
-            );
-
-        const state =
-            createOAuthState();
-
-        // --------------------------------------------------------
-        // Store PKCE session
-        // --------------------------------------------------------
-
-        audioOAuthSessions.set(
-            state,
-            {
-
-                codeVerifier,
-
-                createdAt:
-                    Date.now()
-            }
-        );
-
-        // --------------------------------------------------------
-        // Cleanup old sessions
-        // --------------------------------------------------------
-
-        const now =
-            Date.now();
-
-        for (
-            const [
-                storedState,
-                session
-            ]
-            of audioOAuthSessions
-        ) {
-
-            if (
-                storedState ===
-                'access_token'
-            ) {
-
-                continue;
-            }
-
-            if (
-                !session?.createdAt ||
-                now -
-                    session.createdAt >
-                10 * 60 * 1000
-            ) {
-
-                audioOAuthSessions.delete(
-                    storedState
-                );
-            }
-        }
-
-        // --------------------------------------------------------
-        // Authorization URL
-        // --------------------------------------------------------
-
-        const params =
-            new URLSearchParams({
-
-                client_id:
-                    AUDIOCOM_CLIENT_ID,
-
-                redirect_uri:
-                    AUDIOCOM_REDIRECT_URI,
-
-                response_type:
-                    'code',
-
-                code_challenge:
-                    codeChallenge,
-
-                code_challenge_method:
-                    'S256',
-
-                state
-            });
-
-        const authorizationURL =
-            `${AUDIOCOM_AUTH_URL}?${params.toString()}`;
-
-        console.log(
-            '🔐 Starting Audio.com OAuth flow.'
-        );
-
-        return res.redirect(
-            authorizationURL
-        );
-    }
-);
-
-// ============================================================
-// AUDIO.COM — CALLBACK
-// ============================================================
-
-app.get(
-    '/auth/audio/callback',
     async (req, res) => {
 
         const code =
@@ -1003,9 +737,9 @@ app.get(
                 ? req.query.error
                 : null;
 
-        // --------------------------------------------------------
-        // OAuth error
-        // --------------------------------------------------------
+        // ========================================================
+        // OAUTH ERROR
+        // ========================================================
 
         if (
             oauthError
@@ -1016,9 +750,7 @@ app.get(
                 oauthError
             );
 
-            return res.status(
-                400
-            ).send(
+            return res.status(400).send(
                 `
                 <!DOCTYPE html>
                 <html>
@@ -1035,190 +767,21 @@ app.get(
             );
         }
 
-        // --------------------------------------------------------
-        // Callback validation
-        // --------------------------------------------------------
+        // ========================================================
+        // CALLBACK
+        // ========================================================
 
         if (
-            !code ||
-            !state
-        ) {
-
-            return res.status(
-                400
-            ).send(
-                `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>DuckAI — Audio.com</title>
-                </head>
-                <body>
-                    <h2>Invalid Audio.com callback.</h2>
-                    <p>Missing authorization code or state.</p>
-                </body>
-                </html>
-                `
-            );
-        }
-
-        // --------------------------------------------------------
-        // Validate state
-        // --------------------------------------------------------
-
-        const session =
-            audioOAuthSessions.get(
-                state
-            );
-
-        if (
-            !session
-        ) {
-
-            return res.status(
-                400
-            ).send(
-                `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>DuckAI — Audio.com</title>
-                </head>
-                <body>
-                    <h2>Invalid OAuth state.</h2>
-                    <p>The OAuth session expired or is invalid.</p>
-                </body>
-                </html>
-                `
-            );
-        }
-
-        // State is single-use.
-
-        audioOAuthSessions.delete(
+            code ||
             state
-        );
-
-        // --------------------------------------------------------
-        // Validate configuration
-        // --------------------------------------------------------
-
-        if (
-            !AUDIOCOM_CLIENT_ID ||
-            !AUDIOCOM_CLIENT_SECRET ||
-            !AUDIOCOM_REDIRECT_URI ||
-            !AUDIOCOM_TOKEN_URL
         ) {
-
-            console.error(
-                '❌ Audio.com OAuth configuration is incomplete.'
-            );
-
-            return res.status(
-                500
-            ).send(
-                'Audio.com OAuth configuration is incomplete.'
-            );
-        }
-
-        // --------------------------------------------------------
-        // Exchange authorization code for token
-        // --------------------------------------------------------
-
-        try {
-
-            const body =
-                new URLSearchParams({
-
-                    grant_type:
-                        'authorization_code',
-
-                    client_id:
-                        AUDIOCOM_CLIENT_ID,
-
-                    redirect_uri:
-                        AUDIOCOM_REDIRECT_URI,
-
-                    code,
-
-                    code_verifier:
-                        session.codeVerifier
-                });
-
-            // ----------------------------------------------------
-            // Credentials Location = header
-            // ----------------------------------------------------
-
-            const basicCredentials =
-                Buffer
-                    .from(
-                        `${AUDIOCOM_CLIENT_ID}:${AUDIOCOM_CLIENT_SECRET}`
-                    )
-                    .toString(
-                        'base64'
-                    );
-
-            const tokenResponse =
-                await fetch(
-                    AUDIOCOM_TOKEN_URL,
-                    {
-
-                        method:
-                            'POST',
-
-                        headers: {
-
-                            Authorization:
-                                `Basic ${basicCredentials}`,
-
-                            'Content-Type':
-                                'application/x-www-form-urlencoded',
-
-                            Accept:
-                                'application/json'
-                        },
-
-                        body:
-                            body.toString()
-                    }
-                );
-
-            const tokenText =
-                await tokenResponse.text();
-
-            let tokenData;
-
-            try {
-
-                tokenData =
-                    JSON.parse(
-                        tokenText
-                    );
-
-            } catch {
-
-                tokenData = {
-
-                    raw:
-                        tokenText
-                };
-            }
 
             if (
-                !tokenResponse.ok
+                !code ||
+                !state
             ) {
 
-                console.error(
-                    '❌ Audio.com token exchange failed:',
-                    tokenResponse.status,
-                    tokenData
-                );
-
-                return res.status(
-                    502
-                ).send(
+                return res.status(400).send(
                     `
                     <!DOCTYPE html>
                     <html>
@@ -1227,92 +790,356 @@ app.get(
                         <title>DuckAI — Audio.com</title>
                     </head>
                     <body>
-                        <h2>Audio.com token exchange failed.</h2>
-                        <p>HTTP ${tokenResponse.status}</p>
+                        <h2>Invalid Audio.com callback.</h2>
+                        <p>Missing authorization code or state.</p>
                     </body>
                     </html>
                     `
                 );
             }
 
-            if (
-                !tokenData?.access_token
-            ) {
-
-                console.error(
-                    '❌ Audio.com returned no access token.'
+            const session =
+                audioOAuthSessions.get(
+                    state
                 );
 
-                return res.status(
-                    502
-                ).send(
-                    'Audio.com did not return an access token.'
+            if (
+                !session
+            ) {
+
+                return res.status(400).send(
+                    `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>DuckAI — Audio.com</title>
+                    </head>
+                    <body>
+                        <h2>Invalid OAuth state.</h2>
+                        <p>The OAuth session expired or is invalid.</p>
+                    </body>
+                    </html>
+                    `
                 );
             }
 
-            // ----------------------------------------------------
-            // Store token in memory
-            // ----------------------------------------------------
+            // Single use.
 
-            audioAccessToken =
-                tokenData.access_token;
-
-            audioRefreshToken =
-                tokenData.refresh_token ||
-                null;
-
-            const expiresIn =
-                Number(
-                    tokenData.expires_in
-                ) || 3600;
-
-            audioTokenExpiresAt =
-                Date.now() +
-                Math.max(
-                    60,
-                    expiresIn - 60
-                ) *
-                1000;
-
-            console.log(
-                '✅ Audio.com OAuth authorization successful.'
+            audioOAuthSessions.delete(
+                state
             );
 
-            return res.send(
-                `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>DuckAI — Audio.com</title>
-                </head>
-                <body>
-                    <h2>✅ Audio.com connected.</h2>
-                    <p>DuckAI successfully authorized Audio.com.</p>
-                    <p>You can close this page.</p>
-                </body>
-                </html>
-                `
-            );
+            if (
+                !AUDIOCOM_CLIENT_ID ||
+                !AUDIOCOM_REDIRECT_URI ||
+                !AUDIOCOM_TOKEN_URL
+            ) {
 
-        } catch (error) {
+                console.error(
+                    '❌ Audio.com OAuth configuration is incomplete.'
+                );
 
-            console.error(
-                '❌ Audio.com OAuth token request failed:',
-                error
-            );
+                return res.status(500).send(
+                    'Audio.com OAuth configuration is incomplete.'
+                );
+            }
 
-            return res.status(
-                500
-            ).send(
-                'Could not complete Audio.com authorization.'
+            try {
+
+                const body =
+                    new URLSearchParams({
+
+                        grant_type:
+                            'authorization_code',
+
+                        client_id:
+                            AUDIOCOM_CLIENT_ID,
+
+                        redirect_uri:
+                            AUDIOCOM_REDIRECT_URI,
+
+                        code,
+
+                        code_verifier:
+                            session.codeVerifier
+                    });
+
+                // ------------------------------------------------
+                // PKCE public-client token exchange.
+                // No Client Secret is sent.
+                // ------------------------------------------------
+
+                const tokenResponse =
+                    await fetch(
+                        AUDIOCOM_TOKEN_URL,
+                        {
+
+                            method:
+                                'POST',
+
+                            headers: {
+
+                                'Content-Type':
+                                    'application/x-www-form-urlencoded',
+
+                                Accept:
+                                    'application/json'
+                            },
+
+                            body:
+                                body.toString()
+                        }
+                    );
+
+                const tokenText =
+                    await tokenResponse.text();
+
+                let tokenData;
+
+                try {
+
+                    tokenData =
+                        JSON.parse(
+                            tokenText
+                        );
+
+                } catch {
+
+                    tokenData = {
+
+                        raw:
+                            tokenText
+                    };
+                }
+
+                if (
+                    !tokenResponse.ok
+                ) {
+
+                    console.error(
+                        '❌ Audio.com token exchange failed:',
+                        tokenResponse.status,
+                        tokenData
+                    );
+
+                    return res.status(502).send(
+                        `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>DuckAI — Audio.com</title>
+                        </head>
+                        <body>
+                            <h2>Audio.com token exchange failed.</h2>
+                            <p>HTTP ${tokenResponse.status}</p>
+                        </body>
+                        </html>
+                        `
+                    );
+                }
+
+                if (
+                    !tokenData?.access_token
+                ) {
+
+                    console.error(
+                        '❌ Audio.com returned no access token.'
+                    );
+
+                    return res.status(502).send(
+                        'Audio.com did not return an access token.'
+                    );
+                }
+
+                // ------------------------------------------------
+                // Save OAuth token in memory.
+                // ------------------------------------------------
+
+                audioAccessToken =
+                    tokenData.access_token;
+
+                audioRefreshToken =
+                    tokenData.refresh_token ||
+                    null;
+
+                const expiresIn =
+                    Number(
+                        tokenData.expires_in
+                    ) || 3600;
+
+                audioTokenExpiresAt =
+                    Date.now() +
+                    Math.max(
+                        60,
+                        expiresIn - 60
+                    ) *
+                    1000;
+
+                console.log(
+                    '✅ Audio.com OAuth authorization successful.'
+                );
+
+                return res.send(
+                    `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>DuckAI — Audio.com</title>
+                    </head>
+                    <body>
+                        <h2>✅ Audio.com connected.</h2>
+                        <p>DuckAI successfully authorized Audio.com.</p>
+                        <p>You can close this page.</p>
+                    </body>
+                    </html>
+                    `
+                );
+
+            } catch (error) {
+
+                console.error(
+                    '❌ Audio.com token request failed:',
+                    error
+                );
+
+                return res.status(500).send(
+                    'Could not complete Audio.com authorization.'
+                );
+            }
+        }
+
+        // ========================================================
+        // START OAUTH
+        // ========================================================
+
+        if (
+            !AUDIOCOM_CLIENT_ID
+        ) {
+
+            return res.status(500).send(
+                'AUDIOCOM_CLIENT_ID is missing.'
             );
         }
+
+        if (
+            !AUDIOCOM_REDIRECT_URI
+        ) {
+
+            return res.status(500).send(
+                'AUDIOCOM_REDIRECT_URI is missing.'
+            );
+        }
+
+        if (
+            !AUDIOCOM_AUTH_URL
+        ) {
+
+            return res.status(500).send(
+                'AUDIOCOM_AUTH_URL is missing.'
+            );
+        }
+
+        const codeVerifier =
+            createCodeVerifier();
+
+        const codeChallenge =
+            createCodeChallenge(
+                codeVerifier
+            );
+
+        const oauthState =
+            createOAuthState();
+
+        audioOAuthSessions.set(
+            oauthState,
+            {
+
+                codeVerifier,
+
+                createdAt:
+                    Date.now()
+            }
+        );
+
+        // Remove expired PKCE sessions.
+
+        const now =
+            Date.now();
+
+        for (
+            const [
+                storedState,
+                session
+            ]
+            of audioOAuthSessions
+        ) {
+
+            if (
+                !session?.createdAt
+            ) {
+
+                continue;
+            }
+
+            if (
+                now -
+                    session.createdAt >
+                10 * 60 * 1000
+            ) {
+
+                audioOAuthSessions.delete(
+                    storedState
+                );
+            }
+        }
+
+        // ========================================================
+        // AUTHORIZATION REQUEST
+        // ========================================================
+
+        const params =
+            new URLSearchParams({
+
+                response_type:
+                    'code',
+
+                code_challenge:
+                    codeChallenge,
+
+                code_challenge_method:
+                    'S256',
+
+                redirect_uri:
+                    AUDIOCOM_REDIRECT_URI,
+
+                client_id:
+                    AUDIOCOM_CLIENT_ID,
+
+                state:
+                    oauthState,
+
+                scope:
+                    'public'
+            });
+
+        const authorizationURL =
+            `${AUDIOCOM_AUTH_URL}?${params.toString()}`;
+
+        console.log(
+            '🔐 Starting Audio.com OAuth flow.'
+        );
+
+        return res.redirect(
+            authorizationURL
+        );
     }
 );
 
 // ============================================================
-// AUDIO.COM — STATUS
+// AUDIO.COM STATUS
 // ============================================================
 
 app.get(
@@ -1362,7 +1189,12 @@ app.get(
                 true,
 
             port:
-                PORT
+                PORT,
+
+            audioComOAuth:
+                Boolean(
+                    AUDIOCOM_CLIENT_ID
+                )
         });
     }
 );
@@ -1423,8 +1255,6 @@ server.on(
 // ============================================================
 
 module.exports = {
-
     app,
-
     server
 };
