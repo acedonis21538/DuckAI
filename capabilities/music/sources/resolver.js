@@ -1,21 +1,30 @@
 'use strict';
 
 // ============================================================
-// DUCKAI — MUSIC RESOLVER
+// DUCKAI — MUSIC SOURCE RESOLVER
 // ============================================================
 //
-// Goal:
+// Sources:
 //
-// Find the music result that is MOST FAITHFUL to the user's
-// requested song.
+// • Audio.com
+// • Audius
+// • YouTube
 //
-// This resolver does NOT:
-// • play audio
-// • join Voice
-// • use FFmpeg
-// • send Discord messages
+// Responsibilities:
 //
-// It only finds and ranks music results.
+// • Search all available sources.
+// • Normalize results.
+// • Compare title + artist.
+// • Penalize alternate versions.
+// • Prefer playable results.
+// • Return the most faithful usable result.
+//
+// This file does NOT:
+//
+// • Join Voice
+// • Create an AudioPlayer
+// • Start FFmpeg
+// • Send Discord messages
 //
 // ============================================================
 
@@ -56,10 +65,16 @@ function loadProvider(
                 provider.search,
 
             priority:
-                Number.isFinite(priority)
+                Number.isFinite(
+                    priority
+                )
                     ? priority
                     : 0
         });
+
+        console.log(
+            `✅ Music provider loaded: ${name}`
+        );
 
     } catch (error) {
 
@@ -70,12 +85,27 @@ function loadProvider(
     }
 }
 
-// Playable sources get preference.
-// Discovery-only providers can still contribute information.
+// ============================================================
+// ACTIVE SOURCES
+// ============================================================
+//
+// Higher priority means a small preference when results are
+// otherwise similarly accurate.
+//
+// Playable sources:
+//
+// Audio.com
+// Audius
+//
+// Discovery:
+//
+// YouTube
+//
+// ============================================================
 
 loadProvider(
-    'soundcloud',
-    './soundcloud',
+    'audio.com',
+    './audio',
     30
 );
 
@@ -86,25 +116,17 @@ loadProvider(
 );
 
 loadProvider(
-    'spotify',
-    './spotify',
-    15
-);
-
-loadProvider(
     'youtube',
     './youtube',
     10
 );
 
 // ============================================================
-// NOISY TERMS
+// VARIATION TERMS
 // ============================================================
 //
-// These normally mean the result is NOT the original track.
-//
-// We don't automatically reject them because sometimes the
-// user explicitly asks for one.
+// These usually mean that a result is a different version of
+// the requested song.
 //
 // ============================================================
 
@@ -131,16 +153,16 @@ const variationTerms = [
 
     'slowed',
     'slowed down',
-    'slowed + reverb',
     'slowed reverb',
+    'slowed + reverb',
 
     'nightcore',
 
     '8d',
     '8d audio',
 
-    'edit',
     'radio edit',
+    'edit',
 
     'extended',
     'extended mix',
@@ -149,9 +171,11 @@ const variationTerms = [
     'acoustic version',
 
     'piano version',
+
     'orchestral',
 
     'bootleg',
+
     'mashup',
 
     'fanmade',
@@ -159,11 +183,8 @@ const variationTerms = [
 
     'reverb',
 
-    'version',
     'mix'
 ];
-
-// Terms that strongly indicate an alternate version.
 
 const strongVariationTerms = [
 
@@ -182,7 +203,7 @@ const strongVariationTerms = [
 ];
 
 // ============================================================
-// TOKEN NORMALIZATION
+// TEXT NORMALIZATION
 // ============================================================
 
 function normalizeText(
@@ -223,7 +244,7 @@ function normalizeText(
 }
 
 // ============================================================
-// TOKENS
+// TOKENIZE
 // ============================================================
 
 function tokenize(
@@ -239,6 +260,20 @@ function tokenize(
                 .filter(Boolean)
         )
     ];
+}
+
+// ============================================================
+// ESCAPE REGEXP
+// ============================================================
+
+function escapeRegExp(
+    value
+) {
+
+    return value.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+    );
 }
 
 // ============================================================
@@ -267,6 +302,7 @@ function removeVariationTerms(
         if (
             !normalizedTerm
         ) {
+
             continue;
         }
 
@@ -289,24 +325,10 @@ function removeVariationTerms(
 }
 
 // ============================================================
-// ESCAPE REGEXP
-// ============================================================
-
-function escapeRegExp(
-    value
-) {
-
-    return value.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        '\\$&'
-    );
-}
-
-// ============================================================
-// QUERY PARSING
+// PARSE QUERY
 // ============================================================
 //
-// Handles:
+// Supports:
 //
 // After Dark
 // After Dark by Mr.Kitty
@@ -329,7 +351,9 @@ function parseQuery(
     let artist =
         '';
 
+    // --------------------------------------------------------
     // "song by artist"
+    // --------------------------------------------------------
 
     const byMatch =
         normalized.match(
@@ -347,7 +371,9 @@ function parseQuery(
             byMatch[2].trim();
     }
 
+    // --------------------------------------------------------
     // "artist - song"
+    // --------------------------------------------------------
 
     if (
         !artist
@@ -394,59 +420,7 @@ function parseQuery(
 }
 
 // ============================================================
-// TOKEN OVERLAP
-// ============================================================
-
-function tokenOverlap(
-    a,
-    b
-) {
-
-    const aTokens =
-        tokenize(
-            a
-        );
-
-    const bSet =
-        new Set(
-            tokenize(
-                b
-            )
-        );
-
-    if (
-        !aTokens.length
-    ) {
-
-        return 0;
-    }
-
-    let matches =
-        0;
-
-    for (
-        const token
-        of aTokens
-    ) {
-
-        if (
-            bSet.has(
-                token
-            )
-        ) {
-
-            matches++;
-        }
-    }
-
-    return (
-        matches /
-        aTokens.length
-    );
-}
-
-// ============================================================
-// BIDIRECTIONAL TOKEN SIMILARITY
+// TOKEN SIMILARITY
 // ============================================================
 
 function symmetricTokenSimilarity(
@@ -510,7 +484,7 @@ function symmetricTokenSimilarity(
 }
 
 // ============================================================
-// EXACT / CONTAINMENT SCORE
+// STRING SIMILARITY
 // ============================================================
 
 function stringSimilarity(
@@ -558,7 +532,59 @@ function stringSimilarity(
 }
 
 // ============================================================
-// VARIATION DETECTION
+// TOKEN OVERLAP
+// ============================================================
+
+function tokenOverlap(
+    a,
+    b
+) {
+
+    const aTokens =
+        tokenize(
+            a
+        );
+
+    const bSet =
+        new Set(
+            tokenize(
+                b
+            )
+        );
+
+    if (
+        !aTokens.length
+    ) {
+
+        return 0;
+    }
+
+    let matches =
+        0;
+
+    for (
+        const token
+        of aTokens
+    ) {
+
+        if (
+            bSet.has(
+                token
+            )
+        ) {
+
+            matches++;
+        }
+    }
+
+    return (
+        matches /
+        aTokens.length
+    );
+}
+
+// ============================================================
+// VARIATION PENALTY
 // ============================================================
 
 function getVariationPenalty(
@@ -592,27 +618,28 @@ function getVariationPenalty(
         if (
             !normalizedTerm
         ) {
+
             continue;
         }
 
-        const resultHas =
+        const pattern =
             new RegExp(
                 `\\b${escapeRegExp(normalizedTerm)}\\b`,
                 'i'
-            ).test(
+            );
+
+        const resultHas =
+            pattern.test(
                 normalizedResult
             );
 
         const queryHas =
-            new RegExp(
-                `\\b${escapeRegExp(normalizedTerm)}\\b`,
-                'i'
-            ).test(
+            pattern.test(
                 normalizedQuery
             );
 
-        // Penalize alternate versions only when the user did
-        // not explicitly request that variation.
+        // User explicitly asked for the variation:
+        // do not punish it.
 
         if (
             resultHas &&
@@ -623,7 +650,7 @@ function getVariationPenalty(
                 strongVariationTerms.includes(
                     normalizedTerm
                 )
-                    ? 45
+                    ? 50
                     : 20;
         }
     }
@@ -633,11 +660,6 @@ function getVariationPenalty(
 
 // ============================================================
 // DURATION SCORE
-// ============================================================
-//
-// A matching title with a wildly different duration is often
-// a remix/live/edit.
-//
 // ============================================================
 
 function durationScore(
@@ -671,27 +693,25 @@ function durationScore(
             resultDuration
         );
 
-    // Exact-ish duration.
-
     if (
         difference <= 2
     ) {
 
-        return 25;
+        return 30;
     }
 
     if (
         difference <= 5
     ) {
 
-        return 20;
+        return 24;
     }
 
     if (
         difference <= 10
     ) {
 
-        return 15;
+        return 16;
     }
 
     if (
@@ -708,7 +728,7 @@ function durationScore(
         return 0;
     }
 
-    return -10;
+    return -12;
 }
 
 // ============================================================
@@ -812,6 +832,77 @@ function normalizeResult(
 }
 
 // ============================================================
+// PROVIDER SEARCH
+// ============================================================
+
+async function searchProvider(
+    provider,
+    query
+) {
+
+    try {
+
+        const raw =
+            await provider.search(
+                query
+            );
+
+        // ----------------------------------------------------
+        // Single result
+        // ----------------------------------------------------
+
+        if (
+            raw &&
+            typeof raw === 'object' &&
+            !Array.isArray(raw)
+        ) {
+
+            const normalized =
+                normalizeResult(
+                    provider,
+                    raw
+                );
+
+            return normalized
+                ? [normalized]
+                : [];
+        }
+
+        // ----------------------------------------------------
+        // Multiple results
+        // ----------------------------------------------------
+
+        if (
+            Array.isArray(raw)
+        ) {
+
+            return raw
+                .map(
+                    item =>
+                        normalizeResult(
+                            provider,
+                            item
+                        )
+                )
+                .filter(
+                    Boolean
+                );
+        }
+
+        return [];
+
+    } catch (error) {
+
+        console.warn(
+            `⚠️ ${provider.name} search failed:`,
+            error.message
+        );
+
+        return [];
+    }
+}
+
+// ============================================================
 // SCORE RESULT
 // ============================================================
 
@@ -853,11 +944,17 @@ function scoreResult(
     ) {
 
         score +=
-            60;
+            70;
+    } else {
+
+        // Discovery-only result.
+
+        score -=
+            50;
     }
 
     // ========================================================
-    // PROVIDER
+    // SOURCE PRIORITY
     // ========================================================
 
     score +=
@@ -867,17 +964,15 @@ function scoreResult(
     // TITLE
     // ========================================================
 
-    const titleExact =
+    const titleSimilarity =
         stringSimilarity(
             parsedQuery.titleClean,
             cleanResultTitle
         );
 
     score +=
-        titleExact *
-        120;
-
-    // Exact title should be extremely important.
+        titleSimilarity *
+        140;
 
     if (
         parsedQuery.titleClean &&
@@ -888,8 +983,6 @@ function scoreResult(
         score +=
             100;
     }
-
-    // Token overlap.
 
     score +=
         tokenOverlap(
@@ -914,7 +1007,7 @@ function scoreResult(
 
         score +=
             artistSimilarity *
-            130;
+            150;
 
         if (
             cleanResultArtist ===
@@ -922,35 +1015,26 @@ function scoreResult(
         ) {
 
             score +=
-                120;
+                130;
         }
 
-    } else {
+    } else if (
+        result.artist &&
+        result.artist !==
+            'Unknown artist'
+    ) {
 
-        // When the user didn't give an artist, don't let the
-        // artist overwhelm the title match.
-
-        if (
-            result.artist &&
-            result.artist !==
-                'Unknown artist'
-        ) {
-
-            score +=
-                5;
-        }
+        score +=
+            5;
     }
 
     // ========================================================
     // VARIATION PENALTY
     // ========================================================
 
-    const fullResultText =
-        `${result.title} ${result.artist}`;
-
     score -=
         getVariationPenalty(
-            fullResultText,
+            `${result.title} ${result.artist}`,
             query
         );
 
@@ -966,100 +1050,34 @@ function scoreResult(
             5;
     }
 
+    // ========================================================
+    // DURATION
+    // ========================================================
+    //
+    // This only contributes when a provider gives us a
+    // reference duration.
+    //
+    // ========================================================
+
+    // No query-side duration is available from plain text, so
+    // duration is intentionally not guessed.
+
+    // ========================================================
+    // SOURCE SPECIFIC
+    // ========================================================
+
+    // Slight preference for playable sources with a real id.
+
     if (
-        result.duration
+        result.playable &&
+        result.id
     ) {
 
         score +=
             5;
     }
 
-    // ========================================================
-    // DISCOVERY-ONLY RESULTS
-    // ========================================================
-    //
-    // A non-playable result can still identify a song, but it
-    // should never beat a strongly matching playable result
-    // merely because of metadata.
-    //
-    // ========================================================
-
-    if (
-        !result.playable
-    ) {
-
-        score -=
-            50;
-    }
-
     return score;
-}
-
-// ============================================================
-// PROVIDER SEARCH
-// ============================================================
-
-async function searchProvider(
-    provider,
-    query
-) {
-
-    try {
-
-        const raw =
-            await provider.search(
-                query
-            );
-
-        // Single result.
-
-        if (
-            raw &&
-            typeof raw === 'object' &&
-            !Array.isArray(raw)
-        ) {
-
-            const result =
-                normalizeResult(
-                    provider,
-                    raw
-                );
-
-            return result
-                ? [result]
-                : [];
-        }
-
-        // Multiple results.
-
-        if (
-            Array.isArray(raw)
-        ) {
-
-            return raw
-                .map(
-                    result =>
-                        normalizeResult(
-                            provider,
-                            result
-                        )
-                )
-                .filter(
-                    Boolean
-                );
-        }
-
-        return [];
-
-    } catch (error) {
-
-        console.warn(
-            `⚠️ ${provider.name} search failed:`,
-            error.message
-        );
-
-        return [];
-    }
 }
 
 // ============================================================
@@ -1095,7 +1113,7 @@ async function search(
                 false,
 
             message:
-                '🦆 No music providers are available.'
+                '🦆 No music providers are currently available.'
         };
     }
 
@@ -1117,7 +1135,7 @@ async function search(
     );
 
     // ========================================================
-    // SEARCH ALL SOURCES
+    // SEARCH ALL PROVIDERS
     // ========================================================
 
     const batches =
@@ -1136,6 +1154,7 @@ async function search(
             .flat()
             .filter(
                 result =>
+                    result &&
                     result.success
             );
 
@@ -1180,8 +1199,6 @@ async function search(
             b
         ) => {
 
-            // Score is primary.
-
             if (
                 b._score !==
                 a._score
@@ -1193,29 +1210,46 @@ async function search(
                 );
             }
 
-            // Provider priority is secondary.
-
-            return (
-                b._providerPriority -
+            if (
+                b._providerPriority !==
                 a._providerPriority
-            );
+            ) {
+
+                return (
+                    b._providerPriority -
+                    a._providerPriority
+                );
+            }
+
+            return 0;
         }
     );
 
     const best =
         allResults[0];
 
+    // ========================================================
+    // DEBUG
+    // ========================================================
+
     console.log(
-        [
-            `🎯 Best match: ${best.title} — ${best.artist}`,
-            `📡 Source: ${best.source}`,
-            `📊 Score: ${best._score.toFixed(2)}`,
-            `🔊 Playable: ${best.playable ? 'yes' : 'no'}`
-        ].join('\n')
+        `🎯 Best match: ${best.title} — ${best.artist}`
+    );
+
+    console.log(
+        `📡 Source: ${best.source}`
+    );
+
+    console.log(
+        `📊 Score: ${best._score.toFixed(2)}`
+    );
+
+    console.log(
+        `🔊 Playable: ${best.playable ? 'yes' : 'no'}`
     );
 
     // ========================================================
-    // NORMALIZED PUBLIC RESULT
+    // RETURN NORMALIZED RESULT
     // ========================================================
 
     return {
