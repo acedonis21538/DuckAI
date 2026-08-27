@@ -4,50 +4,98 @@
 // DUCKAI — MUSIC CAPABILITY
 // ============================================================
 //
-// Universal interface between:
-//     core/router.js
-//          ↓
-//     this capability
-//          ↓
-//     capabilities/music/music.js
+// This module owns the music feature.
+//
+// RESPONSIBILITIES:
+//
+// • Detect music requests
+// • Extract the requested song
+// • Search Audius through music.js
+// • Select/store the song
+// • Create/update the Discord music panel
+// • Return a universal capability result
 //
 // IMPORTANT:
 //
-// • Detects music requests.
-// • Searches Audius.
-// • Selects/loads the song into the Web Player.
-// • NEVER plays audio.
-// • NEVER uses a Discord voice channel.
-// • NEVER calls music.play().
+// • NO Discord event listeners here.
+// • NO interactionCreate here.
+// • NO client.on(...) here.
+// • NO Brain calls.
+// • NO capability XML.
+// • NO direct Voice connection here.
 //
-// Actual audio playback happens ONLY inside player.html.
+// MESSAGE FLOW:
 //
+// Discord message
+//      ↓
+// index.js
+//      ↓
+// router.js
+//      ↓
+// canHandle()
+//      ↓
+// execute()
+//      ↓
+// music.js
+//      ↓
+// panel.js
+//
+// BUTTON FLOW:
+//
+// Discord button
+//      ↓
+// handler/interactionCreate.js
+//      ↓
+// panel.handleInteraction()
+//      ↓
+// music.js
+//
+// ============================================================
+
+// ============================================================
+// DEPENDENCIES
 // ============================================================
 
 const music =
     require('./music');
 
+const panel =
+    require('./panel');
+
 // ============================================================
-// NAME
+// CAPABILITY NAME
 // ============================================================
 
 const name =
     'music';
 
 // ============================================================
+// PANEL CACHE
+// ============================================================
+//
+// Keeps one panel message per guild during the current process.
+//
+// The cache is intentionally in-memory.
+// A restart simply allows a new panel to be created.
+//
+// ============================================================
+
+const panelMessages =
+    new Map();
+
+// ============================================================
 // NORMALIZE MESSAGE
 // ============================================================
 //
-// Removes:
-// • Discord user/bot mentions
-// • @DuckAI
-// • DuckAI
-//
-// This makes all of these equivalent:
+// Supported examples:
 //
 // @DuckAI play After Dark
 // DuckAI play After Dark
-// <@123456> play After Dark
+// <@123456789> play After Dark
+// play After Dark
+//
+// All become:
+//
 // play After Dark
 //
 // ============================================================
@@ -57,23 +105,29 @@ function normalizeMessage(
 ) {
 
     if (
-        typeof content !==
-        'string'
+        typeof content !== 'string'
     ) {
+
         return '';
     }
 
     let text =
         content.trim();
 
-    // Discord mention at the beginning
+    // --------------------------------------------------------
+    // Discord mention
+    // --------------------------------------------------------
+
     text =
         text.replace(
             /^<@!?\d+>\s*/i,
             ''
         );
 
-    // @DuckAI / DuckAI
+    // --------------------------------------------------------
+    // DuckAI name
+    // --------------------------------------------------------
+
     text =
         text.replace(
             /^@?duck\s*ai[\s,:-]*/i,
@@ -93,9 +147,9 @@ function isMusicRequest(
 
     if (
         !message ||
-        typeof message.content !==
-        'string'
+        typeof message.content !== 'string'
     ) {
+
         return false;
     }
 
@@ -104,52 +158,51 @@ function isMusicRequest(
             message.content
         ).toLowerCase();
 
-    if (!text) {
+    if (
+        !text
+    ) {
+
         return false;
     }
 
     // --------------------------------------------------------
-    // Explicit commands
+    // Explicit music actions
     // --------------------------------------------------------
 
     const explicitPatterns = [
 
+        // English
         /^play\b/,
         /^playing\b/,
-
-        /^toca\b/,
-        /^tocar\b/,
-        /^toque\b/,
-
         /^listen\b/,
         /^listen\s+to\b/,
-
-        /^ouve\b/,
-        /^ouvir\b/,
-        /^quero\s+ouvir\b/,
-
         /^put\s+on\b/,
         /^play\s+me\b/,
 
+        // Portuguese
+        /^toca\b/,
+        /^tocar\b/,
+        /^toque\b/,
+        /^ouve\b/,
+        /^ouvir\b/,
+        /^quero\s+ouvir\b/,
+        /^mete\s+m[uú]sica\b/,
+        /^mete\s+uma\s+m[uú]sica\b/,
+
+        // Playback controls
         /^pause\b/,
+        /^resume\b/,
+        /^stop\b/,
+
         /^pausa\b/,
         /^pausar\b/,
-
-        /^resume\b/,
         /^retoma\b/,
         /^retomar\b/,
         /^continua\b/,
         /^continuar\b/,
-
-        /^stop\b/,
-        /^stop\s+music\b/,
-        /^stop\s+the\s+music\b/,
-
+        /^parar\b/,
         /^para\s+a\s+m[uú]sica\b/,
-        /^parar\s+a\s+m[uú]sica\b/,
-
-        /^mete\s+m[uú]sica\b/,
-        /^mete\s+uma\s+m[uú]sica\b/
+        /^parar\s+a\s+m[uú]sica\b/
     ];
 
     if (
@@ -201,18 +254,16 @@ function canHandle(
 }
 
 // ============================================================
-// EXTRACT MUSIC QUERY
+// EXTRACT QUERY
 // ============================================================
 //
-// Examples:
+// Converts:
 //
 // @DuckAI play After Dark by Kitty
-//                     ↓
-// After Dark by Kitty
 //
-// DuckAI toca After Dark
-//             ↓
-// After Dark
+// into:
+//
+// After Dark by Kitty
 //
 // ============================================================
 
@@ -294,24 +345,51 @@ function getMusicAction(
             content
         ).toLowerCase();
 
+    // --------------------------------------------------------
+    // Pause
+    // --------------------------------------------------------
+
     if (
-        /\b(?:pause|pausa|pausar)\b/.test(text)
+        /\b(?:pause|pausa|pausar)\b/.test(
+            text
+        )
     ) {
+
         return 'pause';
     }
 
+    // --------------------------------------------------------
+    // Resume
+    // --------------------------------------------------------
+
     if (
-        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(text)
+        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(
+            text
+        )
     ) {
+
         return 'resume';
     }
 
+    // --------------------------------------------------------
+    // Stop
+    // --------------------------------------------------------
+
     if (
-        /\b(?:stop|parar)\b/.test(text) &&
-        !/\b(?:play|toca|tocar)\b/.test(text)
+        /\b(?:stop|parar)\b/.test(
+            text
+        ) &&
+        !/\b(?:play|toca|tocar)\b/.test(
+            text
+        )
     ) {
+
         return 'stop';
     }
+
+    // --------------------------------------------------------
+    // Default
+    // --------------------------------------------------------
 
     return 'search';
 }
@@ -320,10 +398,9 @@ function getMusicAction(
 // PLAYER ID
 // ============================================================
 //
-// Guild ID is preferred because the Web Player is associated
-// with a specific Discord server.
+// Guilds use the Discord guild ID.
 //
-// For DMs, use a user-specific fallback.
+// DMs use a stable user-specific fallback.
 //
 // ============================================================
 
@@ -334,22 +411,200 @@ function getPlayerId(
     if (
         message?.guildId
     ) {
-        return message.guildId;
+
+        return String(
+            message.guildId
+        );
     }
 
     if (
         message?.guild?.id
     ) {
-        return message.guild.id;
+
+        return String(
+            message.guild.id
+        );
     }
 
     if (
         message?.author?.id
     ) {
+
         return `dm:${message.author.id}`;
     }
 
     return null;
+}
+
+// ============================================================
+// PANEL MESSAGE
+// ============================================================
+//
+// Creates a new panel or updates the previous one.
+//
+// ============================================================
+
+async function sendOrUpdatePanel(
+    message,
+    playerId
+) {
+
+    if (
+        !message?.channel ||
+        typeof message.channel.send !== 'function'
+    ) {
+
+        console.error(
+            '❌ Music panel cannot access the message channel.'
+        );
+
+        return null;
+    }
+
+    const panelPayload =
+        panel.buildPanel(
+            playerId
+        );
+
+    // --------------------------------------------------------
+    // Existing panel
+    // --------------------------------------------------------
+
+    const existing =
+        panelMessages.get(
+            playerId
+        );
+
+    if (
+        existing
+    ) {
+
+        try {
+
+            await existing.edit(
+                panelPayload
+            );
+
+            return existing;
+
+        } catch (error) {
+
+            console.warn(
+                `⚠️ Existing music panel is unavailable [${playerId}].`
+            );
+
+            panelMessages.delete(
+                playerId
+            );
+        }
+    }
+
+    // --------------------------------------------------------
+    // Create new panel
+    // --------------------------------------------------------
+
+    try {
+
+        const created =
+            await message.channel.send(
+                panelPayload
+            );
+
+        panelMessages.set(
+            playerId,
+            created
+        );
+
+        return created;
+
+    } catch (error) {
+
+        console.error(
+            '❌ Could not send music panel:',
+            error
+        );
+
+        return null;
+    }
+}
+
+// ============================================================
+// UPDATE EXISTING PANEL
+// ============================================================
+
+async function updateExistingPanel(
+    playerId
+) {
+
+    const existing =
+        panelMessages.get(
+            playerId
+        );
+
+    if (
+        !existing
+    ) {
+
+        return null;
+    }
+
+    try {
+
+        await existing.edit(
+            panel.buildPanel(
+                playerId
+            )
+        );
+
+        return existing;
+
+    } catch (error) {
+
+        console.warn(
+            `⚠️ Could not update music panel [${playerId}].`
+        );
+
+        panelMessages.delete(
+            playerId
+        );
+
+        return null;
+    }
+}
+
+// ============================================================
+// CAPABILITY RESULT
+// ============================================================
+//
+// The panel is already sent by this point.
+//
+// Therefore there is deliberately NO "response" property.
+//
+// This is important because index.js does:
+//
+// if (route.response) {
+//     safeReply(...)
+// }
+//
+// With no response, index.js simply stops here and does not
+// send an additional text message.
+//
+// ============================================================
+
+function capabilityResult(
+    data = {}
+) {
+
+    return {
+
+        type:
+            'capability',
+
+        capability:
+            name,
+
+        data
+    };
 }
 
 // ============================================================
@@ -369,20 +624,31 @@ async function execute(
             message
         );
 
-    if (!playerId) {
+    // ========================================================
+    // INVALID PLAYER CONTEXT
+    // ========================================================
 
-        return {
+    if (
+        !playerId
+    ) {
 
-            type:
-                'capability',
+        console.error(
+            '❌ Music capability has no player context.'
+        );
 
-            capability:
-                name,
+        return capabilityResult({
 
-            response:
-                '🦆 I could not determine the Web Player context.'
-        };
+            action:
+                'error',
+
+            reason:
+                'missing_player_context'
+        });
     }
+
+    // ========================================================
+    // ACTION
+    // ========================================================
 
     const action =
         getMusicAction(
@@ -402,29 +668,19 @@ async function execute(
                 playerId
             );
 
-        return {
+        await updateExistingPanel(
+            playerId
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'pause',
 
-            response:
-                result.success
-                    ? '⏸️ Music paused in the Web Player.'
-                    : result.message,
+            playerId,
 
-            data: {
-
-                action:
-                    'pause',
-
-                playerId,
-
-                result
-            }
-        };
+            result
+        });
     }
 
     // ========================================================
@@ -440,29 +696,19 @@ async function execute(
                 playerId
             );
 
-        return {
+        await updateExistingPanel(
+            playerId
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'resume',
 
-            response:
-                result.success
-                    ? '▶️ Music resumed in the Web Player.'
-                    : result.message,
+            playerId,
 
-            data: {
-
-                action:
-                    'resume',
-
-                playerId,
-
-                result
-            }
-        };
+            result
+        });
     }
 
     // ========================================================
@@ -478,33 +724,23 @@ async function execute(
                 playerId
             );
 
-        return {
+        await updateExistingPanel(
+            playerId
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'stop',
 
-            response:
-                result.success
-                    ? '⏹️ Music stopped in the Web Player.'
-                    : result.message,
+            playerId,
 
-            data: {
-
-                action:
-                    'stop',
-
-                playerId,
-
-                result
-            }
-        };
+            result
+        });
     }
 
     // ========================================================
-    // SEARCH
+    // SEARCH QUERY
     // ========================================================
 
     const query =
@@ -512,19 +748,22 @@ async function execute(
             message.content
         );
 
-    if (!query) {
+    if (
+        !query
+    ) {
 
-        return {
+        await sendOrUpdatePanel(
+            message,
+            playerId
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'missing_query',
 
-            response:
-                '🎵 Tell me which song you want to load.'
-        };
+            playerId
+        });
     }
 
     console.log(
@@ -552,55 +791,42 @@ async function execute(
             error
         );
 
-        return {
+        return capabilityResult({
 
-            type:
-                'capability',
+            action:
+                'search_error',
 
-            capability:
-                name,
+            playerId,
 
-            response:
-                '🦆 I could not search for that song right now.'
-        };
+            query
+        });
     }
+
+    // ========================================================
+    // SEARCH FAILED
+    // ========================================================
 
     if (
         !searchResult?.success
     ) {
 
-        return {
+        console.warn(
+            `⚠️ Music search failed for: ${query}`
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'search_failed',
 
-            response:
-                searchResult?.message ||
-                `🦆 I couldn't find **${query}**.`,
+            playerId,
 
-            data: {
-
-                action:
-                    'search_failed',
-
-                playerId
-            }
-        };
+            query
+        });
     }
 
     // ========================================================
-    // SELECT SONG
-    // ========================================================
-    //
-    // IMPORTANT:
-    //
-    // This does NOT play the song.
-    //
-    // It only stores it so player.html can load it.
-    //
+    // SELECT RESULT
     // ========================================================
 
     const selected =
@@ -613,26 +839,20 @@ async function execute(
         !selected?.success
     ) {
 
-        return {
+        console.error(
+            '❌ Could not select Audius result:',
+            selected
+        );
 
-            type:
-                'capability',
+        return capabilityResult({
 
-            capability:
-                name,
+            action:
+                'selection_failed',
 
-            response:
-                selected?.message ||
-                '🎵 I could not load that song.',
+            playerId,
 
-            data: {
-
-                action:
-                    'selection_failed',
-
-                playerId
-            }
-        };
+            query
+        });
     }
 
     const song =
@@ -643,31 +863,54 @@ async function execute(
     );
 
     // ========================================================
-    // FINAL RESPONSE
+    // PANEL
     // ========================================================
 
-    return {
+    const panelMessage =
+        await sendOrUpdatePanel(
+            message,
+            playerId
+        );
 
-        type:
-            'capability',
+    // ========================================================
+    // RESULT
+    // ========================================================
 
-        capability:
-            name,
+    return capabilityResult({
 
-        response:
-            `🎵 **${song.title}** — ${song.artist}\n` +
-            `🖥️ Loaded into the DuckAI Web Player. Press ▶️ to play.`,
+        action:
+            'selected',
 
-        data: {
+        playerId,
 
-            action:
-                'selected',
+        song,
 
-            playerId,
+        panelMessageId:
+            panelMessage?.id ||
+            null
+    });
+}
 
-            song
-        }
-    };
+// ============================================================
+// PANEL CACHE CLEANUP
+// ============================================================
+
+function clearPanel(
+    playerId
+) {
+
+    if (
+        !playerId
+    ) {
+
+        return;
+    }
+
+    panelMessages.delete(
+        String(
+            playerId
+        )
+    );
 }
 
 // ============================================================
@@ -682,7 +925,7 @@ module.exports = {
 
     execute,
 
-    // Compatibility exports
+    // Compatibility
     isMusicRequest,
 
     executeMusic:
@@ -695,5 +938,12 @@ module.exports = {
 
     getMusicAction,
 
-    getPlayerId
+    getPlayerId,
+
+    // Panel
+    sendOrUpdatePanel,
+
+    updateExistingPanel,
+
+    clearPanel
 };

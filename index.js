@@ -1,3 +1,5 @@
+'use strict';
+
 // ============================================================
 // DUCKAI — PERMANENT CORE INDEX
 // ============================================================
@@ -91,7 +93,9 @@ const client =
 
             GatewayIntentBits.DirectMessages,
 
-            GatewayIntentBits.MessageContent
+            GatewayIntentBits.MessageContent,
+            
+            GatewayIntentBits.GuildVoiceStates
         ],
 
         partials: [
@@ -257,7 +261,7 @@ function isGoodbye(
 //
 // This is informational only.
 //
-// The Brain NEVER executes a capability itself.
+// The Brain NEVER executes a capability.
 //
 
 function getCapabilities() {
@@ -470,7 +474,6 @@ async function executeRouter(
 //
 // The index does not care which capability produced it.
 //
-// ============================================================
 
 function isCapabilityResult(
     route
@@ -993,9 +996,13 @@ client.on(
 // ============================================================
 // READY
 // ============================================================
+//
+// discord.js v15 uses clientReady.
+// This avoids the deprecation warning caused by "ready".
+//
 
 client.once(
-    'ready',
+    'clientReady',
     () => {
 
         console.log(

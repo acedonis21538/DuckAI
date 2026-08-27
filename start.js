@@ -1,32 +1,20 @@
 'use strict';
 
 // ============================================================
-// DUCKAI — UNIFIED LAUNCHER
+// DUCKAI — UNIFIED STARTER
 // ============================================================
 //
 // ONE NODE PROCESS
 //
-// This loads:
+// Loads:
+//   1. index.js
+//      → Discord client
+//   2. handler/interactionCreate.js
+//      → Discord button interactions
+//   3. server.js
+//      → Web Player
 //
-//     server.js
-//     index.js
-//
-// inside the SAME Node.js process.
-//
-// That is important because both sides then share the exact
-// same instances of modules such as:
-//
-//     capabilities/music/music.js
-//
-// Therefore:
-//
-// Discord capability
-//        ↓
-// music.js state
-//        ↓
-// Web Player
-//
-// all use the same in-memory state.
+// index.js remains unchanged.
 //
 // ============================================================
 
@@ -35,37 +23,15 @@ console.log(
 );
 
 // ============================================================
-// WEB SERVER
+// DISCORD CORE
 // ============================================================
+
+let core;
 
 try {
 
-    require('./server');
-
-    console.log(
-        '🌐 Web Player server loaded.'
-    );
-
-} catch (error) {
-
-    console.error(
-        '❌ Failed to load Web Player server:'
-    );
-
-    console.error(
-        error
-    );
-
-    process.exit(1);
-}
-
-// ============================================================
-// DISCORD BOT
-// ============================================================
-
-try {
-
-    require('./index');
+    core =
+        require('./index');
 
     console.log(
         '🤖 Discord bot loaded.'
@@ -85,7 +51,102 @@ try {
 }
 
 // ============================================================
-// PROCESS ERRORS
+// GET DISCORD CLIENT
+// ============================================================
+
+const client =
+    core?.client;
+
+if (
+    !client
+) {
+
+    console.error(
+        '❌ Could not obtain Discord client from index.js.'
+    );
+
+    process.exit(1);
+}
+
+// ============================================================
+// INTERACTION HANDLER
+// ============================================================
+//
+// The music capability itself does NOT register Discord
+// listeners.
+//
+// The universal handler does.
+//
+// ============================================================
+
+try {
+
+    const interactionHandler =
+        require(
+            './handlers/interactionCreate'
+        );
+
+    if (
+        typeof interactionHandler.execute !==
+        'function'
+    ) {
+
+        throw new Error(
+            'handler/interactionCreate.js must export execute(interaction).'
+        );
+    }
+
+    client.on(
+        'interactionCreate',
+        interactionHandler.execute
+    );
+
+    console.log(
+        '🎛️ Interaction handler loaded.'
+    );
+
+} catch (error) {
+
+    console.error(
+        '❌ Failed to load interaction handler:'
+    );
+
+    console.error(
+        error
+    );
+
+    process.exit(1);
+}
+
+// ============================================================
+// WEB PLAYER
+// ============================================================
+
+try {
+
+    require(
+        './server'
+    );
+
+    console.log(
+        '🌐 Web Player server loaded.'
+    );
+
+} catch (error) {
+
+    console.error(
+        '❌ Failed to load Web Player server:'
+    );
+
+    console.error(
+        error
+    );
+
+    process.exit(1);
+}
+
+// ============================================================
+// GLOBAL ERROR HANDLING
 // ============================================================
 
 process.on(
@@ -122,7 +183,9 @@ function shutdown(
         `🛑 DuckAI shutting down (${signal})...`
     );
 
-    process.exit(0);
+    process.exit(
+        0
+    );
 }
 
 process.on(
@@ -133,4 +196,12 @@ process.on(
 process.on(
     'SIGTERM',
     () => shutdown('SIGTERM')
+);
+
+// ============================================================
+// READY
+// ============================================================
+
+console.log(
+    '✅ DuckAI launcher initialized.'
 );
