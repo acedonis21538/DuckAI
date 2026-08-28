@@ -13,19 +13,16 @@
 //
 // Requirements:
 //
-// • yt-dlp installed and available in PATH.
+// • yt-dlp installed and available.
 // • Node.js 22+.
-// • Current yt-dlp builds may require an external JS runtime
-//   and EJS challenge solver for YouTube extraction.
+// • yt-dlp may require a JavaScript runtime for YouTube
+//   extraction. Node.js is explicitly requested below.
 //
 // ============================================================
 
 const {
     spawn
 } = require('child_process');
-
-const path =
-    require('path');
 
 const fs =
     require('fs');
@@ -34,14 +31,78 @@ const fs =
 // CONFIG
 // ============================================================
 
-const YTDLP_COMMAND =
-    process.env.YTDLP_COMMAND ||
-    'yt-dlp';
-
 const YTDLP_TIMEOUT =
     Number(
         process.env.YTDLP_TIMEOUT
     ) || 30000;
+
+// ------------------------------------------------------------
+// yt-dlp command
+//
+// Local Codespace:
+//   /home/codespace/.python/current/bin/yt-dlp
+//
+// Render:
+//   Set YTDLP_COMMAND to the installed executable path,
+//   or make yt-dlp available in PATH.
+// ------------------------------------------------------------
+
+const YTDLP_CANDIDATES = [
+
+    process.env.YTDLP_COMMAND,
+
+    'yt-dlp',
+
+    '/home/codespace/.python/current/bin/yt-dlp',
+
+    '/usr/local/bin/yt-dlp',
+
+    '/usr/bin/yt-dlp',
+
+    '/opt/render/project/.venv/bin/yt-dlp'
+].filter(
+    Boolean
+);
+
+function resolveYtDlpCommand() {
+
+    for (
+        const candidate
+        of YTDLP_CANDIDATES
+    ) {
+
+        if (
+            candidate === 'yt-dlp'
+        ) {
+
+            return candidate;
+        }
+
+        try {
+
+            if (
+                fs.existsSync(
+                    candidate
+                )
+            ) {
+
+                return candidate;
+            }
+
+        } catch {
+            // Ignore invalid candidates.
+        }
+    }
+
+    return 'yt-dlp';
+}
+
+const YTDLP_COMMAND =
+    resolveYtDlpCommand();
+
+console.log(
+    `🎬 yt-dlp command: ${YTDLP_COMMAND}`
+);
 
 // ============================================================
 // COMMAND HELPER
@@ -49,8 +110,7 @@ const YTDLP_TIMEOUT =
 
 function runYtDlp(
     args,
-    timeout =
-        YTDLP_TIMEOUT
+    timeout = YTDLP_TIMEOUT
 ) {
 
     return new Promise(
@@ -64,7 +124,6 @@ function runYtDlp(
                     YTDLP_COMMAND,
                     args,
                     {
-
                         windowsHide:
                             true,
 
@@ -86,6 +145,8 @@ function runYtDlp(
             let settled =
                 false;
 
+            let timer;
+
             const finish =
                 (
                     callback,
@@ -102,9 +163,14 @@ function runYtDlp(
                     settled =
                         true;
 
-                    clearTimeout(
+                    if (
                         timer
-                    );
+                    ) {
+
+                        clearTimeout(
+                            timer
+                        );
+                    }
 
                     callback(
                         value
@@ -151,7 +217,6 @@ function runYtDlp(
                         finish(
                             resolve,
                             {
-
                                 stdout:
                                     stdout.trim(),
 
@@ -184,7 +249,7 @@ function runYtDlp(
                 }
             );
 
-            const timer =
+            timer =
                 setTimeout(
                     () => {
 
@@ -219,7 +284,7 @@ function runYtDlp(
 }
 
 // ============================================================
-// VALIDATE YOUTUBE URL
+// YOUTUBE URL VALIDATION
 // ============================================================
 
 function isYouTubeUrl(
@@ -249,12 +314,16 @@ function isYouTubeUrl(
                 );
 
         return (
+
             hostname ===
                 'youtube.com' ||
+
             hostname ===
                 'youtu.be' ||
+
             hostname ===
                 'm.youtube.com' ||
+
             hostname ===
                 'music.youtube.com'
         );
@@ -271,9 +340,9 @@ function isYouTubeUrl(
 //
 // Accepts:
 //
-// https://www.youtube.com/watch?v=...
-// https://youtu.be/...
-// YouTube video ID
+// • https://www.youtube.com/watch?v=VIDEO_ID
+// • https://youtu.be/VIDEO_ID
+// • YouTube video ID
 //
 // ============================================================
 
@@ -303,7 +372,9 @@ function normalizeYouTubeInput(
         return value;
     }
 
-    // 11-character YouTube video ID.
+    // --------------------------------------------------------
+    // Standard YouTube video ID
+    // --------------------------------------------------------
 
     if (
         /^[A-Za-z0-9_-]{11}$/.test(
@@ -333,23 +404,6 @@ async function getStream(
         normalizeYouTubeInput(
             input
         );
-
-    // --------------------------------------------------------
-    // We ask yt-dlp for the best audio-only format.
-    //
-    // --no-playlist:
-    // Never accidentally process an entire playlist.
-    //
-    // --js-runtimes node:
-    // Current yt-dlp YouTube extraction can require an external
-    // JavaScript runtime.
-    //
-    // --format bestaudio/best:
-    // Prefer audio-only formats.
-    //
-    // --get-url:
-    // Return the direct media URL instead of downloading.
-    // --------------------------------------------------------
 
     const args = [
 
@@ -414,10 +468,6 @@ async function getStream(
 
 // ============================================================
 // GET METADATA + STREAM
-// ============================================================
-//
-// Useful when the player wants both metadata and stream data.
-//
 // ============================================================
 
 async function getTrack(
@@ -560,7 +610,9 @@ async function checkAvailable() {
                 true,
 
             version:
-                result.stdout || null
+                result.stdout ||
+                null
+
         };
 
     } catch (error) {
@@ -583,10 +635,11 @@ async function checkAvailable() {
 // CACHE
 // ============================================================
 //
-// Direct YouTube URLs can expire. Do not persist them.
+// Direct YouTube media URLs expire.
+// Therefore:
 //
-// We cache only briefly to avoid repeatedly running yt-dlp
-// during a single playback request.
+// • Do NOT persist them.
+// • Cache them only briefly.
 //
 // ============================================================
 
@@ -595,6 +648,10 @@ const streamCache =
 
 const STREAM_CACHE_TTL =
     60 * 1000;
+
+// ============================================================
+// GET CACHE
+// ============================================================
 
 function getCachedStream(
     key
@@ -628,6 +685,10 @@ function getCachedStream(
     return cached.value;
 }
 
+// ============================================================
+// SET CACHE
+// ============================================================
+
 function setCachedStream(
     key,
     value
@@ -636,7 +697,6 @@ function setCachedStream(
     streamCache.set(
         key,
         {
-
             value,
 
             createdAt:
@@ -684,7 +744,7 @@ async function getCachedOrExtractStream(
 }
 
 // ============================================================
-// CLEANUP
+// CACHE CLEANUP
 // ============================================================
 
 function cleanupCache() {

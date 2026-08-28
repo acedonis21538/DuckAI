@@ -3,13 +3,23 @@
 // ============================================================
 // DUCKAI — DISCORD MUSIC PANEL
 // ============================================================
+//
+// • Elegant music control panel
+// • Safe interaction handling
+// • Supports already-acknowledged interactions
+// • Does not depend on editReply() to update the panel
+// • Keeps the existing music engine untouched
+//
+// ============================================================
 
 const {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
-} = require('discord.js');
+    ButtonStyle,
+    ActivityType
+} =
+    require('discord.js');
 
 const music =
     require('./music');
@@ -40,11 +50,14 @@ const BUTTON = {
 };
 
 // ============================================================
-// PANEL COLOR
+// PANEL CONFIG
 // ============================================================
 
 const PANEL_COLOR =
     0x5865F2;
+
+const PANEL_TITLE =
+    '🦆 DuckAI Music';
 
 // ============================================================
 // STATE
@@ -122,34 +135,77 @@ function getState(
 // STATUS
 // ============================================================
 
-function statusText(
-    state,
-    connected
+function getPlaybackStatus(
+    state
 ) {
 
-    let playback;
-
-    switch (state) {
+    switch (
+        state
+    ) {
 
         case 'playing':
-            playback = '🟢 Playing';
-            break;
+            return '🟢 Playing';
 
         case 'paused':
-            playback = '🟡 Paused';
-            break;
+            return '🟡 Paused';
 
         default:
-            playback = '🔴 Stopped';
-            break;
+            return '🔴 Stopped';
+    }
+}
+
+// ============================================================
+// FORMAT TIME
+// ============================================================
+
+function formatTime(
+    seconds
+) {
+
+    const value =
+        Number(
+            seconds
+        );
+
+    if (
+        !Number.isFinite(value) ||
+        value < 0
+    ) {
+
+        return '0:00';
     }
 
-    const voice =
-        connected
-            ? '🔊 Connected to Voice'
-            : '⚪ Not connected';
+    const total =
+        Math.floor(
+            value
+        );
 
-    return `${playback}\n${voice}`;
+    const hours =
+        Math.floor(
+            total / 3600
+        );
+
+    const minutes =
+        Math.floor(
+            (total % 3600) / 60
+        );
+
+    const secondsPart =
+        String(
+            total % 60
+        ).padStart(
+            2,
+            '0'
+        );
+
+    if (
+        hours > 0
+    ) {
+
+        return `${hours}:${String(minutes).padStart(2, '0')}:${secondsPart}`;
+    }
+
+    return `${minutes}:${secondsPart}`;
 }
 
 // ============================================================
@@ -165,7 +221,8 @@ function buildPanel(
         song,
         state,
         connected,
-        position
+        position,
+        volume
 
     } =
         getState(
@@ -178,31 +235,72 @@ function buildPanel(
                 PANEL_COLOR
             )
             .setTitle(
-                '🦆 DuckAI Music'
-            );
+                PANEL_TITLE
+            )
+            .setTimestamp();
 
-    if (song) {
+    // ========================================================
+    // SONG
+    // ========================================================
+
+    if (
+        song
+    ) {
+
+        const source =
+            typeof song.source === 'string' &&
+            song.source.trim()
+                ? song.source.trim()
+                : 'unknown';
+
+        const sourceLabel =
+            source === 'youtube'
+                ? 'YouTube'
+                : source === 'audius'
+                    ? 'Audius'
+                    : source;
+
+        const description = [
+
+            `🎵 **${song.title || 'Unknown title'}**`,
+
+            `👤 ${song.artist || 'Unknown artist'}`,
+
+            `📡 ${sourceLabel}`
+        ];
 
         embed.setDescription(
-            [
-                `🎵 **${song.title}**`,
-                `👤 ${song.artist || 'Unknown artist'}`
-            ].join('\n')
+            description.join(
+                '\n'
+            )
         );
 
-        if (song.artwork) {
+        if (
+            song.artwork
+        ) {
 
             embed.setThumbnail(
                 song.artwork
             );
         }
 
-        if (song.duration) {
+        // ----------------------------------------------------
+        // TRACK INFO
+        // ----------------------------------------------------
 
-            embed.addFields({
+        const trackFields = [];
+
+        if (
+            Number.isFinite(
+                song.duration
+            ) &&
+            song.duration > 0
+        ) {
+
+            trackFields.push({
 
                 name:
-                    'Duration',
+                    '⏱ Duration',
 
                 value:
                     formatTime(
@@ -214,12 +312,35 @@ function buildPanel(
             });
         }
 
-        if (position > 0) {
+        trackFields.push({
 
-            embed.addFields({
+            name:
+                '🔊 Volume',
+
+            value:
+                `${Math.round(
+                    Math.max(
+                        0,
+                        Math.min(
+                            1,
+                            volume
+                        )
+                    ) * 100
+                )}%`,
+
+            inline:
+                true
+        });
+
+        if (
+            Number.isFinite(position) &&
+            position > 0
+        ) {
+
+            trackFields.push({
 
                 name:
-                    'Position',
+                    '⏭ Position',
 
                 value:
                     formatTime(
@@ -231,12 +352,36 @@ function buildPanel(
             });
         }
 
+        if (
+            trackFields.length
+        ) {
+
+            embed.addFields(
+                trackFields
+            );
+        }
+
     } else {
 
         embed.setDescription(
-            '🎵 **No song selected.**'
+            [
+                '🎵 **Nothing is playing**',
+                '',
+                'Use the music command to search for a song.'
+            ].join(
+                '\n'
+            )
         );
     }
+
+    // ========================================================
+    // STATUS
+    // ========================================================
+
+    const voiceStatus =
+        connected
+            ? '🔊 Connected'
+            : '⚪ Not connected';
 
     embed.addFields({
 
@@ -244,23 +389,14 @@ function buildPanel(
             'Status',
 
         value:
-            statusText(
-                state,
-                connected
-            ),
+            `${getPlaybackStatus(state)} • ${voiceStatus}`,
 
         inline:
             false
     });
 
-    embed.setFooter({
-
-        text:
-            'DuckAI Music • Discord Voice'
-    });
-
     // ========================================================
-    // PLAYBACK
+    // CONTROLS
     // ========================================================
 
     const playback =
@@ -281,7 +417,8 @@ function buildPanel(
                         ButtonStyle.Success
                     )
                     .setDisabled(
-                        !song
+                        !song ||
+                        state === 'playing'
                     ),
 
                 new ButtonBuilder()
@@ -376,14 +513,27 @@ function buildPanel(
                     )
             );
 
+    // ========================================================
+    // FOOTER
+    // ========================================================
+
+    embed.setFooter({
+
+        text:
+            'DuckAI Music • Discord Voice'
+    });
+
     return {
 
         embeds: [
+
             embed
         ],
 
         components: [
+
             playback,
+
             utility
         ]
     };
@@ -393,14 +543,16 @@ function buildPanel(
 // HANDLE INTERACTION
 // ============================================================
 //
-// CRITICAL:
+// IMPORTANT:
 //
-// Discord interactions must be acknowledged within the
-// interaction window.
+// The interaction may already have been acknowledged by another
+// handler/capability.
 //
-// We ALWAYS defer FIRST.
+// In that case:
 //
-// Only after that do we connect to Voice / start FFmpeg.
+// • DO NOT call deferUpdate() again.
+// • Continue normally.
+// • Update interaction.message directly.
 //
 // ============================================================
 
@@ -409,7 +561,7 @@ async function handleInteraction(
 ) {
 
     // --------------------------------------------------------
-    // Validate
+    // VALIDATE
     // --------------------------------------------------------
 
     if (
@@ -425,7 +577,9 @@ async function handleInteraction(
 
     if (
         typeof customId !== 'string' ||
-        !customId.startsWith('music:')
+        !customId.startsWith(
+            'music:'
+        )
     ) {
 
         return false;
@@ -467,27 +621,50 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // ACKNOWLEDGE IMMEDIATELY
+    // ACKNOWLEDGE SAFELY
     // ========================================================
 
     try {
 
+        // Only acknowledge if nobody already did.
+
         if (
-            !interaction.deferred &&
-            !interaction.replied
+            !interaction.replied &&
+            !interaction.deferred
         ) {
 
             await interaction.deferUpdate();
+
+        } else {
+
+            console.log(
+                `ℹ️ Music interaction already acknowledged: ${customId}`
+            );
         }
 
     } catch (error) {
 
-        console.error(
-            '❌ Could not acknowledge music button:',
-            error
-        );
+        // 40060 means another handler already acknowledged it.
+        //
+        // We DO NOT stop the action in that case.
 
-        return true;
+        if (
+            error?.code === 40060
+        ) {
+
+            console.log(
+                `ℹ️ Music interaction was already acknowledged: ${customId}`
+            );
+
+        } else {
+
+            console.error(
+                '❌ Could not acknowledge music button:',
+                error
+            );
+
+            return true;
+        }
     }
 
     console.log(
@@ -506,11 +683,13 @@ async function handleInteraction(
 
     try {
 
-        switch (customId) {
+        switch (
+            customId
+        ) {
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // PLAY
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.PLAY:
 
@@ -522,9 +701,9 @@ async function handleInteraction(
 
                 break;
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // PAUSE
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.PAUSE:
 
@@ -535,9 +714,9 @@ async function handleInteraction(
 
                 break;
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // RESUME
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.RESUME:
 
@@ -548,9 +727,9 @@ async function handleInteraction(
 
                 break;
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // STOP
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.STOP:
 
@@ -561,9 +740,9 @@ async function handleInteraction(
 
                 break;
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // LEAVE
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.LEAVE:
 
@@ -586,9 +765,9 @@ async function handleInteraction(
 
                 break;
 
-            // ----------------------------------------------
+            // ------------------------------------------------
             // REFRESH
-            // ----------------------------------------------
+            // ------------------------------------------------
 
             case BUTTON.REFRESH:
 
@@ -623,16 +802,44 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // UPDATE ORIGINAL PANEL
+    // UPDATE PANEL MESSAGE
+    // ========================================================
+    //
+    // IMPORTANT:
+    //
+    // We edit the original panel message directly instead of
+    // interaction.editReply().
+    //
+    // This prevents conflicts when another handler has already
+    // acknowledged the interaction.
+    //
     // ========================================================
 
     try {
 
-        await interaction.editReply(
-            buildPanel(
-                guildId
-            )
-        );
+        if (
+            interaction.message &&
+            typeof interaction.message.edit ===
+                'function'
+        ) {
+
+            await interaction.message.edit(
+                buildPanel(
+                    guildId
+                )
+            );
+
+        } else if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply(
+                buildPanel(
+                    guildId
+                )
+            );
+        }
 
     } catch (error) {
 
@@ -742,49 +949,6 @@ async function updatePanel(
 
         return false;
     }
-}
-
-// ============================================================
-// FORMAT TIME
-// ============================================================
-
-function formatTime(
-    seconds
-) {
-
-    const value =
-        Number(
-            seconds
-        );
-
-    if (
-        !Number.isFinite(value) ||
-        value < 0
-    ) {
-
-        return '0:00';
-    }
-
-    const total =
-        Math.floor(
-            value
-        );
-
-    const minutes =
-        Math.floor(
-            total / 60
-        );
-
-    const secondsPart =
-        String(
-            total % 60
-        )
-            .padStart(
-                2,
-                '0'
-            );
-
-    return `${minutes}:${secondsPart}`;
 }
 
 // ============================================================

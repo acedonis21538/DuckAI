@@ -9,38 +9,28 @@
 // • Search music through the multi-source resolver
 // • Store selected song
 // • Join Discord Voice
-// • Stream playable audio into Discord Voice
+// • Stream direct audio sources into Discord Voice
 // • Play / Pause / Resume / Stop
 // • Leave Voice
 // • Volume control
-// • Keep independent state per guild
+// • Independent state per guild
 // • Prevent concurrent playback initialization
 //
-// Audio path:
+// Sources:
 //
-// Audius
-//   ↓
-// HTTPS stream
-//   ↓
-// FFmpeg
-//   ↓
-// Ogg/Opus
-//   ↓
-// @discordjs/voice
+// • Audius
+//     → direct audio stream
+//     → FFmpeg
+//     → Discord Voice
 //
-// YouTube
-//   ↓
-// YouTube URL
-//   ↓
-// youtubeStream.js
-//   ↓
-// direct audio stream
-//   ↓
-// FFmpeg
-//   ↓
-// Ogg/Opus
-//   ↓
-// @discordjs/voice
+// • YouTube
+//     → search / metadata / matching
+//     → Web Player playback
+//
+// IMPORTANT:
+//
+// YouTube video URLs are NOT treated as direct audio URLs.
+// We do not use yt-dlp in this engine.
 //
 // ============================================================
 
@@ -67,13 +57,6 @@ const ffmpegPath =
 
 const resolver =
     require('./sources/resolver');
-
-// ============================================================
-// YOUTUBE STREAM EXTRACTOR
-// ============================================================
-
-const youtubeStream =
-    require('./sources/youtubeStream');
 
 // ============================================================
 // DISCORD VOICE
@@ -224,7 +207,7 @@ function createGuildState() {
 }
 
 // ============================================================
-// GET GUILD STATE
+// GET GUILD
 // ============================================================
 
 function getGuild(
@@ -266,10 +249,8 @@ function validGuildId(
 // MUSIC SEARCH
 // ============================================================
 //
-// The resolver chooses the best source.
-//
-// YouTube results are kept as YouTube video URLs.
-// The youtubeStream extractor is used later by play().
+// Resolver searches YouTube + Audius and chooses the best
+// matching result.
 //
 // ============================================================
 
@@ -337,7 +318,7 @@ async function search(
                     false,
 
                 message:
-                    `🦆 I found **${result.title}**, but there is no playable source.`
+                    `🦆 I found **${result.title}**, but the result has no URL.`
             };
         }
 
@@ -397,7 +378,7 @@ async function search(
                 result.url,
 
             playable:
-                result.playable !== false
+                result.playable === true
         };
 
         console.log(
@@ -406,6 +387,10 @@ async function search(
 
         console.log(
             `📡 MUSIC SOURCE: ${normalized.source}`
+        );
+
+        console.log(
+            `🔊 MUSIC PLAYABLE: ${normalized.playable ? 'yes' : 'no'}`
         );
 
         return normalized;
@@ -432,7 +417,7 @@ async function search(
 // HTTP JSON REQUEST
 // ============================================================
 //
-// Kept for compatibility.
+// Kept for compatibility with older modules.
 //
 // ============================================================
 
@@ -465,6 +450,10 @@ function requestJSON(
 
                     response => {
 
+                        // ------------------------------------------------
+                        // Redirect
+                        // ------------------------------------------------
+
                         if (
                             response.statusCode >= 300 &&
                             response.statusCode < 400 &&
@@ -481,6 +470,10 @@ function requestJSON(
 
                             return;
                         }
+
+                        // ------------------------------------------------
+                        // HTTP error
+                        // ------------------------------------------------
 
                         if (
                             response.statusCode < 200 ||
@@ -555,10 +548,13 @@ function setSong({
     source = null,
     artwork = null,
     id = null,
+    channelId = null,
+    channelTitle = null,
     duration = null,
     genre = null,
     description = null,
-    permalink = null
+    permalink = null,
+    playable = false
 }) {
 
     if (
@@ -605,13 +601,20 @@ function setSong({
 
         artwork,
 
+        channelId,
+
+        channelTitle,
+
         duration,
 
         genre,
 
         description,
 
-        permalink
+        permalink,
+
+        playable:
+            playable === true
     };
 
     guild.state =
@@ -673,6 +676,12 @@ function selectSearchResult(
             id:
                 result.id,
 
+            channelId:
+                result.channelId,
+
+            channelTitle:
+                result.channelTitle,
+
             duration:
                 result.duration,
 
@@ -683,7 +692,10 @@ function selectSearchResult(
                 result.description,
 
             permalink:
-                result.permalink
+                result.permalink,
+
+            playable:
+                result.playable
         });
 
     if (
@@ -769,7 +781,12 @@ function getState(
 }
 
 // ============================================================
-// OPEN AUDIO STREAM
+// CREATE DIRECT AUDIO STREAM
+// ============================================================
+//
+// Used only with direct audio URLs such as Audius.
+// A YouTube webpage URL must never reach this function.
+//
 // ============================================================
 
 function createAudioStream(
@@ -789,7 +806,7 @@ function createAudioStream(
 
                 reject(
                     new Error(
-                        'Audio URL is empty'
+                        'Audio URL is empty.'
                     )
                 );
 
@@ -893,10 +910,6 @@ async function connectVoice(
         };
     }
 
-    // ========================================================
-    // FETCH MEMBER
-    // ========================================================
-
     let member;
 
     try {
@@ -922,10 +935,6 @@ async function connectVoice(
                 '🔊 I could not determine your Voice Channel.'
         };
     }
-
-    // ========================================================
-    // USER VOICE CHANNEL
-    // ========================================================
 
     const voiceChannel =
         member?.voice?.channel;
@@ -1015,7 +1024,7 @@ async function connectVoice(
     }
 
     // ========================================================
-    // JOIN VOICE
+    // JOIN
     // ========================================================
 
     let connection;
@@ -1111,7 +1120,7 @@ async function connectVoice(
     );
 
     // ========================================================
-    // SUBSCRIBE PLAYER
+    // SUBSCRIBE
     // ========================================================
 
     try {
@@ -1147,7 +1156,7 @@ async function connectVoice(
     }
 
     // ========================================================
-    // WAIT FOR READY
+    // WAIT READY
     // ========================================================
 
     try {
@@ -1298,6 +1307,15 @@ function stopPlayback(
 // ============================================================
 // PLAY
 // ============================================================
+//
+// Audius:
+//     direct stream → FFmpeg → Discord
+//
+// YouTube:
+//     selected as a search result,
+//     but playback is intended for the Web Player.
+//
+// ============================================================
 
 async function play(
     interaction,
@@ -1319,10 +1337,6 @@ async function play(
                 '🎵 Invalid server.'
         };
     }
-
-    // ========================================================
-    // PLAY LOCK
-    // ========================================================
 
     if (
         playLocks.has(
@@ -1366,6 +1380,50 @@ async function play(
 
                 message:
                     '🎵 No song selected.'
+            };
+        }
+
+        // ====================================================
+        // YOUTUBE
+        // ====================================================
+
+        if (
+            guild.song.source ===
+            'youtube'
+        ) {
+
+            console.log(
+                `📺 YouTube track selected: ${guild.song.title}`
+            );
+
+            return {
+
+                success:
+                    false,
+
+                webOnly:
+                    true,
+
+                message:
+                    '📺 This YouTube result is available in the Web Player.'
+            };
+        }
+
+        // ====================================================
+        // DIRECT SOURCE
+        // ====================================================
+
+        if (
+            !guild.song.url
+        ) {
+
+            return {
+
+                success:
+                    false,
+
+                message:
+                    '🎵 No playable audio source is available.'
             };
         }
 
@@ -1430,82 +1488,14 @@ async function play(
         }
 
         // ====================================================
-        // RESOLVE PLAYBACK URL
-        // ========================================================
-
-        let playbackURL =
-            guild.song.url;
-
-        // ----------------------------------------------------
-        // YOUTUBE EXTRACTION
-        // ----------------------------------------------------
-
-        if (
-            guild.song.source ===
-            'youtube'
-        ) {
-
-            try {
-
-                const youtubeInput =
-                    guild.song.permalink ||
-                    guild.song.url ||
-                    guild.song.id;
-
-                console.log(
-                    `🎬 Extracting YouTube audio: ${youtubeInput}`
-                );
-
-                const extracted =
-                    await youtubeStream
-                        .getCachedOrExtractStream(
-                            youtubeInput
-                        );
-
-                if (
-                    !extracted?.success ||
-                    !extracted.url
-                ) {
-
-                    throw new Error(
-                        'YouTube extractor did not return a playable stream.'
-                    );
-                }
-
-                playbackURL =
-                    extracted.url;
-
-                console.log(
-                    '✅ YouTube audio stream extracted.'
-                );
-
-            } catch (error) {
-
-                console.error(
-                    '❌ YouTube extraction failed:',
-                    error
-                );
-
-                return {
-
-                    success:
-                        false,
-
-                    message:
-                        '🎵 I found the YouTube track, but I could not extract its audio stream.'
-                };
-            }
-        }
-
-        // ====================================================
-        // OPEN SOURCE STREAM
+        // OPEN DIRECT SOURCE
         // ====================================================
 
         try {
 
             guild.inputStream =
                 await createAudioStream(
-                    playbackURL
+                    guild.song.url
                 );
 
         } catch (error) {
@@ -1683,7 +1673,7 @@ async function play(
         );
 
         // ====================================================
-        // CREATE RESOURCE
+        // AUDIO RESOURCE
         // ====================================================
 
         try {
@@ -1748,7 +1738,7 @@ async function play(
         }
 
         // ====================================================
-        // PIPE SOURCE → FFMPEG
+        // PIPE
         // ====================================================
 
         try {
@@ -2150,8 +2140,6 @@ function setVolume(
                 '🎵 Invalid volume.'
         };
     }
-
-    // Accept 0–1 or 0–100.
 
     if (
         value > 1
