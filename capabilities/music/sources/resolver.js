@@ -104,12 +104,6 @@ function loadProvider(
 // ============================================================
 
 loadProvider(
-    'audio.com',
-    './audio',
-    30
-);
-
-loadProvider(
     'audius',
     './audius',
     25
