@@ -9,24 +9,11 @@
 // • Extract a direct audio stream URL from YouTube.
 // • Try play-dl first.
 // • Fall back to yt-dlp.
-// • Use secure YouTube cookies with yt-dlp when configured.
-// • Use Deno + yt-dlp-ejs for YouTube JavaScript challenges.
-// • Return metadata useful to the music system.
+// • Support YouTube cookies when configured.
+// • Automatically detect Node/Deno JS runtimes.
+// • Support yt-dlp-ejs when available.
 // • Never download the complete audio file.
-//
-// Playback:
-//
-// YouTube URL
-//      ↓
-// play-dl
-//      ↓
-// direct media URL
-//      ↓
-// fallback: yt-dlp
-//      ↓
-// cookies + Deno + EJS
-//      ↓
-// direct media URL
+// • Return metadata useful to the music system.
 //
 // ============================================================
 
@@ -42,7 +29,6 @@ let playdl = null;
 
 try {
     playdl = require('play-dl');
-
     console.log('✅ play-dl loaded.');
 } catch (error) {
     console.warn(
@@ -61,20 +47,6 @@ const YTDLP_TIMEOUT =
 // ============================================================
 // YOUTUBE COOKIES
 // ============================================================
-//
-// Cookies are OPTIONAL.
-//
-// Configure through:
-//
-// YOUTUBE_COOKIES_PATH=./secure/youtube-cookies.txt
-//
-// The cookie contents are NEVER logged or returned.
-//
-// IMPORTANT:
-// Keep the cookies file outside Git.
-// Never expose it through Discord, HTTP, logs or an API.
-//
-// ============================================================
 
 function getYouTubeCookiesPath() {
     const configuredPath =
@@ -88,27 +60,22 @@ function getYouTubeCookiesPath() {
     }
 
     const cookiePath =
-        path.resolve(
-            configuredPath.trim()
-        );
+        path.resolve(configuredPath.trim());
 
     try {
         if (!fs.existsSync(cookiePath)) {
             console.warn(
                 '⚠️ YouTube cookies file was configured but was not found.'
             );
-
             return null;
         }
 
-        const stats =
-            fs.statSync(cookiePath);
+        const stats = fs.statSync(cookiePath);
 
         if (!stats.isFile()) {
             console.warn(
                 '⚠️ YouTube cookies path is not a file.'
             );
-
             return null;
         }
 
@@ -187,6 +154,82 @@ if (hasYouTubeCookies()) {
     console.log(
         '🍪 YouTube cookies: not configured.'
     );
+}
+
+// ============================================================
+// JS RUNTIME DETECTION
+// ============================================================
+//
+// yt-dlp now uses a JS runtime for some YouTube extraction
+// challenges.
+//
+// Render already provides Node.js, so Node is preferred.
+// Deno is used when available.
+//
+// ============================================================
+
+function commandExists(command) {
+    return new Promise(resolve => {
+        const child = spawn(
+            command,
+            ['--version'],
+            {
+                windowsHide: true,
+                stdio: [
+                    'ignore',
+                    'ignore',
+                    'ignore'
+                ]
+            }
+        );
+
+        child.once('error', () => {
+            resolve(false);
+        });
+
+        child.once('close', code => {
+            resolve(code === 0);
+        });
+    });
+}
+
+async function detectJsRuntimes() {
+    const runtimes = [];
+
+    try {
+        if (await commandExists('node')) {
+            runtimes.push('node');
+        }
+    } catch {}
+
+    try {
+        if (await commandExists('deno')) {
+            runtimes.push('deno');
+        }
+    } catch {}
+
+    return runtimes;
+}
+
+// ============================================================
+// YT-DLP BASE ARGS
+// ============================================================
+
+function getYtDlpBaseArgs() {
+    return [
+        '--no-playlist',
+        '--no-warnings',
+
+        // Enable the yt-dlp EJS system when installed.
+        '--remote-components',
+        'ejs:github',
+
+        // Prefer the best available audio stream.
+        '--format',
+        'bestaudio/best',
+
+        ...getYouTubeCookieArgs()
+    ];
 }
 
 // ============================================================
@@ -306,9 +349,7 @@ function runYtDlp(
             timer = setTimeout(
                 () => {
                     try {
-                        child.kill(
-                            'SIGKILL'
-                        );
+                        child.kill('SIGKILL');
                     } catch {}
 
                     const error =
@@ -398,13 +439,6 @@ function normalizeYouTubeInput(input) {
 // ============================================================
 // PLAY-DL STREAM
 // ============================================================
-//
-// play-dl is intentionally independent from the cookie system.
-//
-// If play-dl succeeds, yt-dlp is not needed.
-// If it fails, yt-dlp receives the configured cookies.
-//
-// ============================================================
 
 async function getPlayDlStream(input) {
     if (
@@ -452,13 +486,14 @@ async function getPlayDlStream(input) {
 // YT-DLP STREAM
 // ============================================================
 //
-// yt-dlp configuration:
+// Strategy:
 //
-// • Deno handles the JavaScript runtime.
-// • yt-dlp-ejs handles YouTube extraction challenges.
-// • Cookies are added only when configured.
-// • --get-url returns the direct media URL.
-// • No complete media file is downloaded.
+// 1. Try Node runtime.
+// 2. Try Deno runtime.
+// 3. Try without explicitly specifying a JS runtime.
+//
+// This makes the provider work on environments where only
+// Node is available, such as the standard Render Node service.
 //
 // ============================================================
 
@@ -470,69 +505,125 @@ async function getYtDlpStream(input) {
         `🎬 yt-dlp extracting: ${url}`
     );
 
-    const args = [
-        '--no-playlist',
-        '--no-warnings',
+    const runtimes =
+        await detectJsRuntimes();
 
-        // YouTube JavaScript challenge runtime.
-        '--js-runtimes',
-        'deno',
+    console.log(
+        `🧠 yt-dlp JS runtimes: ${
+            runtimes.length
+                ? runtimes.join(', ')
+                : 'none detected'
+        }`
+    );
 
-        '--format',
-        'bestaudio/best',
+    const attempts = [];
 
-        '--get-url',
-
-        // Optional authenticated cookies.
-        ...getYouTubeCookieArgs(),
-
-        url
-    ];
-
-    const result =
-        await runYtDlp(args);
-
-    const streamURL =
-        result.stdout
-            .split(/\r?\n/)
-            .map(
-                line => line.trim()
-            )
-            .find(
-                line =>
-                    /^https?:\/\//i.test(
-                        line
-                    )
-            );
-
-    if (!streamURL) {
-        throw new Error(
-            `yt-dlp did not return a stream URL.${
-                result.stderr
-                    ? ` ${result.stderr}`
-                    : ''
-            }`
-        );
+    // Prefer Node because Render already provides Node.
+    if (runtimes.includes('node')) {
+        attempts.push({
+            name: 'node',
+            args: [
+                ...getYtDlpBaseArgs(),
+                '--js-runtimes',
+                'node',
+                '--get-url',
+                url
+            ]
+        });
     }
 
-    return {
-        success: true,
-        source: 'youtube',
-        provider: 'yt-dlp',
-        url: streamURL,
-        playable: true
-    };
+    // Deno remains available when installed.
+    if (runtimes.includes('deno')) {
+        attempts.push({
+            name: 'deno',
+            args: [
+                ...getYtDlpBaseArgs(),
+                '--js-runtimes',
+                'deno',
+                '--get-url',
+                url
+            ]
+        });
+    }
+
+    // Final compatibility attempt.
+    attempts.push({
+        name: 'automatic',
+        args: [
+            ...getYtDlpBaseArgs(),
+            '--get-url',
+            url
+        ]
+    });
+
+    let lastError = null;
+
+    for (const attempt of attempts) {
+        try {
+            console.log(
+                `🎬 yt-dlp attempt: ${attempt.name}`
+            );
+
+            const result =
+                await runYtDlp(
+                    attempt.args
+                );
+
+            const streamURL =
+                result.stdout
+                    .split(/\r?\n/)
+                    .map(
+                        line =>
+                            line.trim()
+                    )
+                    .find(
+                        line =>
+                            /^https?:\/\//i.test(
+                                line
+                            )
+                    );
+
+            if (!streamURL) {
+                throw new Error(
+                    `yt-dlp did not return a stream URL.${
+                        result.stderr
+                            ? ` ${result.stderr}`
+                            : ''
+                    }`
+                );
+            }
+
+            console.log(
+                `✅ yt-dlp succeeded using ${attempt.name}.`
+            );
+
+            return {
+                success: true,
+                source: 'youtube',
+                provider: 'yt-dlp',
+                url: streamURL,
+                playable: true
+            };
+        } catch (error) {
+            lastError = error;
+
+            console.warn(
+                `⚠️ yt-dlp ${attempt.name} failed:`,
+                error.message
+            );
+        }
+    }
+
+    throw (
+        lastError ||
+        new Error(
+            'yt-dlp could not extract the YouTube audio stream.'
+        )
+    );
 }
 
 // ============================================================
 // EXTRACT STREAM
-// ============================================================
-//
-// Priority:
-//
-// 1. play-dl
-// 2. yt-dlp + Deno + EJS + optional cookies
-//
 // ============================================================
 
 async function getStream(input) {
@@ -661,7 +752,7 @@ async function getMetadataWithPlayDl(input) {
 }
 
 // ============================================================
-// GET METADATA + STREAM
+// GET TRACK
 // ============================================================
 
 async function getTrack(input) {
@@ -671,7 +762,7 @@ async function getTrack(input) {
     let metadata;
 
     // --------------------------------------------------------
-    // TRY PLAY-DL METADATA
+    // PLAY-DL METADATA
     // --------------------------------------------------------
 
     try {
@@ -689,39 +780,62 @@ async function getTrack(input) {
         // YT-DLP METADATA FALLBACK
         // ----------------------------------------------------
 
-        const args = [
-            '--no-playlist',
-            '--no-warnings',
+        const runtimes =
+            await detectJsRuntimes();
 
-            // Use Deno for YouTube JS challenges.
-            '--js-runtimes',
-            'deno',
+        const attempts = [];
 
+        if (runtimes.includes('node')) {
+            attempts.push([
+                ...getYtDlpBaseArgs(),
+                '--js-runtimes',
+                'node',
+                '--dump-single-json',
+                url
+            ]);
+        }
+
+        if (runtimes.includes('deno')) {
+            attempts.push([
+                ...getYtDlpBaseArgs(),
+                '--js-runtimes',
+                'deno',
+                '--dump-single-json',
+                url
+            ]);
+        }
+
+        attempts.push([
+            ...getYtDlpBaseArgs(),
             '--dump-single-json',
-            '--format',
-            'bestaudio/best',
-
-            // Optional cookies.
-            ...getYouTubeCookieArgs(),
-
             url
-        ];
+        ]);
 
-        const result =
-            await runYtDlp(args);
+        let data = null;
+        let lastError = null;
 
-        let data;
+        for (const args of attempts) {
+            try {
+                const result =
+                    await runYtDlp(args);
 
-        try {
-            data =
-                JSON.parse(
-                    result.stdout
-                );
-        } catch {
+                data =
+                    JSON.parse(
+                        result.stdout
+                    );
+
+                break;
+            } catch (attemptError) {
+                lastError =
+                    attemptError;
+            }
+        }
+
+        if (!data) {
             throw new Error(
-                `Could not parse yt-dlp metadata.${
-                    result.stderr
-                        ? ` ${result.stderr}`
+                `Could not obtain yt-dlp metadata.${
+                    lastError
+                        ? ` ${lastError.message}`
                         : ''
                 }`
             );
@@ -752,9 +866,13 @@ async function getTrack(input) {
 
             duration:
                 Number.isFinite(
-                    data.duration
+                    Number(
+                        data.duration
+                    )
                 )
-                    ? data.duration
+                    ? Number(
+                        data.duration
+                    )
                     : null,
 
             artwork:
@@ -838,11 +956,6 @@ function checkPlayDlAvailable() {
 // ============================================================
 // CHECK YOUTUBE COOKIES
 // ============================================================
-//
-// Returns only status information.
-// NEVER returns cookie contents.
-//
-// ============================================================
 
 function checkYouTubeCookiesAvailable() {
     const cookiePath =
@@ -863,15 +976,6 @@ function checkYouTubeCookiesAvailable() {
 
 // ============================================================
 // CACHE
-// ============================================================
-//
-// YouTube direct media URLs are temporary.
-//
-// The cache is intentionally short-lived.
-//
-// If playback receives an expired URL,
-// the music layer should request a fresh extraction.
-//
 // ============================================================
 
 const streamCache =
@@ -986,11 +1090,9 @@ module.exports = {
     getStream,
     getCachedOrExtractStream,
     getTrack,
-
     checkAvailable,
     checkPlayDlAvailable,
     checkYouTubeCookiesAvailable,
-
     isYouTubeUrl,
     normalizeYouTubeInput
 };
