@@ -16,6 +16,10 @@ async function search(
         !query.trim()
     ) {
 
+        console.warn(
+            '⚠️ YouTube: API key missing or query invalid.'
+        );
+
         return [];
     }
 
@@ -40,13 +44,19 @@ async function search(
                     'relevance',
 
                 regionCode:
-                    'PT'
+                    'PT',
+
+                key:
+                    API_KEY
             });
 
         const response =
             await fetch(
-                `https://www.googleapis.com/youtube/v3/search?${params}`,
+                `https://www.googleapis.com/youtube/v3/search?${params.toString()}`,
                 {
+
+                    method:
+                        'GET',
 
                     headers: {
 
@@ -56,17 +66,51 @@ async function search(
                 }
             );
 
+        const rawText =
+            await response.text();
+
+        let data;
+
+        try {
+
+            data =
+                JSON.parse(
+                    rawText
+                );
+
+        } catch {
+
+            data = null;
+        }
+
         if (
             !response.ok
         ) {
 
-            throw new Error(
-                `YouTube API HTTP ${response.status}`
-            );
-        }
+            const reason =
+                data?.error?.errors?.[0]?.reason ||
+                'unknown';
 
-        const data =
-            await response.json();
+            const message =
+                data?.error?.message ||
+                rawText ||
+                `HTTP ${response.status}`;
+
+            console.warn(
+                '⚠️ YouTube API error:',
+                JSON.stringify({
+
+                    status:
+                        response.status,
+
+                    reason,
+
+                    message
+                })
+            );
+
+            return [];
+        }
 
         const items =
             Array.isArray(
