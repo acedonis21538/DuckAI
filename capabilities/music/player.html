@@ -3,2199 +3,4490 @@
 
 <head>
 
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
 
-    <meta
-        name="theme-color"
-        content="#080808"
-    >
+<meta
+    name="theme-color"
+    content="#05070d"
+>
 
-    <meta
-        name="description"
-        content="DuckAI Music — Modern music dashboard"
-    >
+<meta
+    name="description"
+    content="DuckAI Music — midnight lake music dashboard"
+>
 
-    <title>DuckAI Music</title>
+<title>DuckAI Music</title>
 
-    <style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-        /* ============================================================
-           RESET
-           ============================================================ */
+<style>
 
-        * {
-            box-sizing: border-box;
-        }
+/* ============================================================
+   DUCKAI MUSIC — MIDNIGHT LAKE
+   ============================================================ */
 
-        html {
-            scroll-behavior: smooth;
-        }
+:root {
 
-        :root {
+    --blue:
+        #1e6bff;
 
-            --bg:
-                #080808;
+    --blue-light:
+        #35d8ff;
 
-            --bg-soft:
-                #0d0d0f;
+    --blue-deep:
+        #0a2e8f;
 
-            --panel:
-                rgba(20, 20, 23, 0.78);
+    --blue-soft:
+        rgba(30,107,255,.16);
 
-            --panel-solid:
-                #141417;
+    --red:
+        #ff1744;
 
-            --panel-light:
-                rgba(255, 255, 255, 0.055);
+    --red-light:
+        #ff5c7a;
 
-            --border:
-                rgba(255, 255, 255, 0.075);
+    --red-deep:
+        #8f0022;
 
-            --border-strong:
-                rgba(255, 255, 255, 0.12);
+    --red-soft:
+        rgba(255,23,68,.16);
 
-            --text:
-                #ffffff;
+    --black:
+        #05070d;
 
-            --muted:
-                rgba(255, 255, 255, 0.55);
+    --black-2:
+        #0a0f1c;
 
-            --muted-2:
-                rgba(255, 255, 255, 0.35);
+    --black-3:
+        #0f1526;
 
-            --red:
-                #ef233c;
+    --surface:
+        rgba(16,22,38,.68);
 
-            --red-light:
-                #ff3b50;
+    --surface-strong:
+        rgba(18,25,44,.88);
 
-            --red-dark:
-                #b91c32;
+    --surface-blue:
+        rgba(20,32,58,.62);
 
-            --green:
-                #22c55e;
-        }
+    --text:
+        #eef3ff;
 
-        body {
+    --text-2:
+        #c3d1ec;
 
-            margin: 0;
+    --muted:
+        rgba(198,212,240,.62);
 
-            min-height: 100vh;
+    --muted-2:
+        rgba(198,212,240,.40);
 
-            color:
-                var(--text);
+    --border:
+        rgba(120,155,255,.14);
 
-            font-family:
-                Inter,
-                ui-sans-serif,
-                system-ui,
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                sans-serif;
+    --border-blue:
+        rgba(30,107,255,.34);
 
-            background:
-                radial-gradient(
-                    circle at 15% 0%,
-                    rgba(239, 35, 60, 0.16),
-                    transparent 28%
-                ),
-                radial-gradient(
-                    circle at 90% 20%,
-                    rgba(180, 20, 45, 0.09),
-                    transparent 25%
-                ),
-                linear-gradient(
-                    135deg,
-                    #050505 0%,
-                    #09090b 45%,
-                    #0c0c0f 100%
-                );
+    --shadow:
+        rgba(0,0,0,.55);
 
-            overflow-x: hidden;
-        }
+    --green:
+        #1fd97a;
 
-        body::before {
+    --yellow:
+        #ffb020;
 
-            content: "";
+    --sidebar:
+        250px;
+
+    --bottom:
+        100px;
+
+    --radius:
+        22px;
+
+    --font-display:
+        "Space Grotesk",
+        "Trebuchet MS",
+        sans-serif;
+
+    --font-body:
+        "Inter",
+        "Segoe UI",
+        system-ui,
+        sans-serif;
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+
+* {
+    box-sizing:
+        border-box;
+}
+
+html {
+    scroll-behavior:
+        smooth;
+}
+
+body {
+
+    margin:
+        0;
+
+    min-height:
+        100vh;
+
+    color:
+        var(--text);
+
+    font-family:
+        var(--font-body);
+
+    overflow-x:
+        hidden;
+
+    background:
+        radial-gradient(
+            circle at 8% 2%,
+            rgba(255,23,68,.16),
+            transparent 26%
+        ),
+        radial-gradient(
+            circle at 95% 6%,
+            rgba(30,107,255,.24),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 55% 98%,
+            rgba(30,107,255,.16),
+            transparent 36%
+        ),
+        radial-gradient(
+            circle at 18% 80%,
+            rgba(255,23,68,.10),
+            transparent 30%
+        ),
+        linear-gradient(
+            160deg,
+            #060810,
+            #05070d 45%,
+            #030409
+        );
+}
+
+body::before {
+
+    content:
+        "";
+
+    position:
+        fixed;
+
+    inset:
+        -20%;
+
+    z-index:
+        -5;
+
+    pointer-events:
+        none;
+
+    background:
+        radial-gradient(
+            ellipse at 20% 30%,
+            rgba(30,107,255,.16),
+            transparent 26%
+        ),
+        radial-gradient(
+            ellipse at 75% 20%,
+            rgba(53,216,255,.10),
+            transparent 25%
+        ),
+        radial-gradient(
+            ellipse at 70% 75%,
+            rgba(255,23,68,.11),
+            transparent 24%
+        );
+
+    filter:
+        blur(20px);
+
+    animation:
+        waterDrift 13s ease-in-out infinite alternate;
+}
+
+body::after {
+
+    content:
+        "";
+
+    position:
+        fixed;
+
+    left:
+        -10%;
+
+    right:
+        -10%;
+
+    bottom:
+        -130px;
+
+    height:
+        320px;
+
+    z-index:
+        -4;
+
+    pointer-events:
+        none;
+
+    background:
+        radial-gradient(
+            ellipse at 12% 50%,
+            rgba(30,107,255,.24),
+            transparent 27%
+        ),
+        radial-gradient(
+            ellipse at 42% 25%,
+            rgba(53,216,255,.15),
+            transparent 28%
+        ),
+        radial-gradient(
+            ellipse at 72% 60%,
+            rgba(255,23,68,.16),
+            transparent 27%
+        ),
+        radial-gradient(
+            ellipse at 91% 35%,
+            rgba(255,23,68,.10),
+            transparent 22%
+        );
+
+    filter:
+        blur(17px);
+
+    animation:
+        waterWave 8s ease-in-out infinite alternate;
+}
+
+@keyframes waterDrift {
+
+    from {
+        transform:
+            translate(-2%, -1%)
+            scale(1);
+    }
+
+    to {
+        transform:
+            translate(3%, 2%)
+            scale(1.06);
+    }
+}
+
+@keyframes waterWave {
+
+    from {
+        transform:
+            translateX(-3%)
+            scaleX(1);
+    }
+
+    to {
+        transform:
+            translateX(3%)
+            scaleX(1.08);
+    }
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    border:
+        0;
+
+    cursor:
+        pointer;
+}
+
+img {
+    display:
+        block;
+}
+
+/* ============================================================
+   APP
+   ============================================================ */
+
+.app {
+    min-height:
+        100vh;
+
+    display:
+        flex;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.sidebar {
+
+    position:
+        fixed;
+
+    left:
+        0;
+
+    top:
+        0;
+
+    bottom:
+        0;
+
+    width:
+        var(--sidebar);
+
+    z-index:
+        100;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    padding:
+        20px 14px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(10,14,26,.94),
+            rgba(6,9,17,.92)
+        );
+
+    backdrop-filter:
+        blur(28px);
+
+    -webkit-backdrop-filter:
+        blur(28px);
+
+    border-right:
+        1px solid
+        var(--border);
+
+    box-shadow:
+        12px 0 55px
+        rgba(0,0,0,.55);
+
+    transition:
+        transform .35s cubic-bezier(.2,.8,.2,1);
+}
+
+.sidebar.closed {
+
+    transform:
+        translateX(
+            calc(
+                -100% + 58px
+            )
+        );
+}
+
+/* ============================================================
+   SIDEBAR TOGGLE
+   ============================================================ */
+
+.sidebar-toggle {
+
+    position:
+        absolute;
+
+    right:
+        -52px;
+
+    top:
+        18px;
+
+    width:
+        42px;
+
+    height:
+        42px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        13px;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--blue-light),
+            var(--blue-deep)
+        );
+
+    box-shadow:
+        0 10px 28px
+        rgba(30,107,255,.38),
+        0 0 0 1px
+        rgba(53,216,255,.25) inset;
+
+    transition:
+        transform .22s ease,
+        box-shadow .22s ease;
+}
+
+.sidebar-toggle:hover {
+
+    transform:
+        translateY(-2px)
+        scale(1.06);
+
+    box-shadow:
+        0 15px 38px
+        rgba(30,107,255,.5),
+        0 0 22px
+        rgba(53,216,255,.45);
+}
+
+.sidebar-toggle:active {
+    transform:
+        scale(.92);
+}
+
+.hamburger {
+
+    position:
+        relative;
+
+    width:
+        18px;
+
+    height:
+        14px;
+}
+
+.hamburger span,
+.hamburger::before,
+.hamburger::after {
+
+    content:
+        "";
+
+    position:
+        absolute;
+
+    left:
+        0;
+
+    width:
+        18px;
+
+    height:
+        2px;
+
+    border-radius:
+        4px;
+
+    background:
+        white;
+
+    transition:
+        transform .25s ease,
+        opacity .2s ease;
+}
+
+.hamburger span {
+    top:
+        6px;
+}
+
+.hamburger::before {
+    top:
+        0;
+}
+
+.hamburger::after {
+    top:
+        12px;
+}
+
+/* ============================================================
+   BRAND
+   ============================================================ */
+
+.brand {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        11px;
+
+    padding:
+        6px 9px 16px;
+}
+
+.brand-logo {
+
+    width:
+        44px;
+
+    height:
+        44px;
+
+    display:
+        grid;
 
-            position: fixed;
+    place-items:
+        center;
+
+    border-radius:
+        15px;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--red-light),
+            var(--red-deep)
+        );
 
-            inset: 0;
+    box-shadow:
+        0 11px 30px
+        var(--red-soft),
+        0 0 0 1px
+        rgba(255,92,122,.3) inset;
+
+    font-size:
+        22px;
+
+    transition:
+        transform .3s ease,
+        box-shadow .3s ease;
+}
 
-            pointer-events: none;
+.brand-logo:hover {
 
-            background:
-                linear-gradient(
-                    115deg,
-                    transparent 0%,
-                    rgba(255,255,255,0.018) 50%,
-                    transparent 100%
-                );
+    transform:
+        rotate(-6deg)
+        translateY(-2px)
+        scale(1.05);
 
-            z-index: -1;
-        }
+    box-shadow:
+        0 14px 36px
+        rgba(255,23,68,.42),
+        0 0 20px
+        rgba(255,92,122,.35);
+}
 
-        button,
-        input {
+.brand-name {
 
-            font: inherit;
-        }
+    font-family:
+        var(--font-display);
 
-        button {
+    font-size:
+        17px;
 
-            border: 0;
+    font-weight:
+        800;
 
-            cursor: pointer;
-        }
+    letter-spacing:
+        -.03em;
 
-        /* ============================================================
-           APP
-           ============================================================ */
+    color:
+        var(--text);
+}
 
-        .app {
+.brand-sub {
 
-            min-height: 100vh;
+    margin-top:
+        3px;
 
-            display: flex;
-        }
+    color:
+        var(--muted-2);
 
-        /* ============================================================
-           SIDEBAR
-           ============================================================ */
+    font-size:
+        9px;
 
-        .sidebar {
+    letter-spacing:
+        .02em;
+}
 
-            position: fixed;
+/* ============================================================
+   ACCOUNT
+   ============================================================ */
 
-            left: 0;
+.sidebar-account-top {
 
-            top: 0;
+    display:
+        flex;
 
-            bottom: 0;
+    align-items:
+        center;
 
-            width: 245px;
+    gap:
+        10px;
 
-            z-index: 40;
+    padding:
+        10px;
 
-            padding:
-                22px 15px;
+    margin-bottom:
+        18px;
 
-            display: flex;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(30,107,255,.10),
+            rgba(255,23,68,.06)
+        );
 
-            flex-direction: column;
+    border:
+        1px solid
+        var(--border);
 
-            background:
-                rgba(8, 8, 9, 0.94);
+    border-radius:
+        16px;
 
-            backdrop-filter:
-                blur(22px);
+    cursor:
+        pointer;
 
-            -webkit-backdrop-filter:
-                blur(22px);
+    transition:
+        transform .2s ease,
+        border-color .2s ease,
+        box-shadow .2s ease;
+}
 
-            border-right:
-                1px solid
-                var(--border);
-        }
+.sidebar-account-top:hover {
 
-        .brand {
+    transform:
+        translateY(-2px);
 
-            display: flex;
+    border-color:
+        var(--border-blue);
 
-            align-items: center;
+    box-shadow:
+        0 12px 30px
+        rgba(30,107,255,.16);
+}
 
-            gap: 11px;
+.sidebar-avatar {
 
-            padding:
-                6px 10px 26px;
-        }
+    width:
+        38px;
 
-        .brand-logo {
+    height:
+        38px;
 
-            width: 42px;
+    flex:
+        0 0 38px;
 
-            height: 42px;
+    display:
+        grid;
 
-            display: grid;
+    place-items:
+        center;
 
-            place-items: center;
+    color:
+        white;
 
-            border-radius: 13px;
+    border-radius:
+        12px;
 
-            background:
-                linear-gradient(
-                    135deg,
-                    var(--red),
-                    var(--red-dark)
-                );
+    background:
+        linear-gradient(
+            145deg,
+            var(--blue-light),
+            var(--blue-deep)
+        );
 
-            box-shadow:
-                0 10px 30px
-                rgba(239,35,60,0.22);
+    box-shadow:
+        0 0 0 2px
+        rgba(53,216,255,.18);
+}
 
-            font-size: 22px;
-        }
+.sidebar-account-name {
 
-        .brand-name {
+    font-size:
+        11px;
 
-            font-size: 17px;
+    font-weight:
+        800;
 
-            font-weight: 850;
+    color:
+        var(--text);
+}
 
-            letter-spacing:
-                -0.035em;
-        }
+.sidebar-account-sub {
 
-        .brand-subtitle {
+    margin-top:
+        2px;
 
-            margin-top: 2px;
+    color:
+        var(--muted-2);
 
-            color:
-                var(--muted-2);
+    font-size:
+        9px;
+}
 
-            font-size: 10px;
-        }
+/* ============================================================
+   NAV
+   ============================================================ */
 
-        .nav-section {
+.nav-title {
 
-            margin:
-                0 8px 9px;
+    margin:
+        0 8px 7px;
 
-            color:
-                var(--muted-2);
+    color:
+        var(--muted-2);
 
-            font-size: 10px;
+    font-size:
+        9px;
 
-            font-weight: 800;
+    font-weight:
+        800;
 
-            letter-spacing:
-                0.09em;
+    letter-spacing:
+        .12em;
 
-            text-transform:
-                uppercase;
-        }
+    text-transform:
+        uppercase;
+}
 
-        .nav {
+.nav {
 
-            display: flex;
+    display:
+        flex;
 
-            flex-direction: column;
+    flex-direction:
+        column;
 
-            gap: 4px;
-        }
+    gap:
+        4px;
+}
 
-        .nav-button {
+.nav-button {
 
-            width: 100%;
+    width:
+        100%;
 
-            min-height: 44px;
+    height:
+        43px;
 
-            display: flex;
+    display:
+        flex;
 
-            align-items: center;
+    align-items:
+        center;
 
-            gap: 12px;
+    gap:
+        12px;
 
-            padding:
-                0 12px;
+    padding:
+        0 12px;
 
-            border-radius: 12px;
+    border-radius:
+        13px;
 
-            text-align: left;
+    color:
+        var(--muted);
 
-            color:
-                var(--muted);
+    background:
+        transparent;
 
-            background:
-                transparent;
+    border:
+        1px solid
+        transparent;
 
-            transition:
-                background 0.18s ease,
-                color 0.18s ease,
-                transform 0.18s ease;
-        }
+    transition:
+        transform .2s ease,
+        background .2s ease,
+        border-color .2s ease,
+        color .2s ease,
+        box-shadow .2s ease;
+}
 
-        .nav-button:hover {
+.nav-button:hover {
 
-            color:
-                #ffffff;
+    color:
+        var(--blue-light);
 
-            background:
-                rgba(255,255,255,0.05);
+    background:
+        rgba(30,107,255,.10);
 
-            transform:
-                translateX(2px);
-        }
+    border-color:
+        rgba(30,107,255,.22);
 
-        .nav-button.active {
+    transform:
+        translateX(4px);
 
-            color:
-                #ffffff;
+    box-shadow:
+        0 6px 20px
+        rgba(30,107,255,.10);
+}
 
-            background:
-                rgba(239,35,60,0.12);
+.nav-button.active {
 
-            box-shadow:
-                inset 3px 0 0
-                var(--red);
-        }
+    color:
+        white;
 
-        .nav-icon {
+    background:
+        linear-gradient(
+            100deg,
+            var(--red),
+            var(--red-light)
+        );
 
-            width: 20px;
+    border-color:
+        transparent;
 
-            text-align: center;
+    box-shadow:
+        0 9px 26px
+        rgba(255,23,68,.30);
+}
 
-            font-size: 17px;
-        }
+.nav-button:active {
+    transform:
+        scale(.97);
+}
 
-        .nav-label {
+.nav-icon {
 
-            font-size: 13px;
+    width:
+        20px;
 
-            font-weight: 650;
-        }
+    text-align:
+        center;
 
-        .sidebar-spacer {
+    font-size:
+        16px;
+}
 
-            flex: 1;
-        }
+.nav-label {
 
-        .account-mini {
+    font-size:
+        12px;
 
-            padding:
-                11px;
+    font-weight:
+        700;
+}
 
-            display: flex;
+.sidebar-spacer {
+    flex:
+        1;
+}
 
-            align-items: center;
+.sidebar-footer-tag {
 
-            gap: 10px;
+    padding:
+        10px 12px;
 
-            border-radius: 15px;
+    color:
+        var(--muted-2);
 
-            background:
-                rgba(255,255,255,0.04);
+    font-size:
+        9px;
 
-            border:
-                1px solid
-                var(--border);
-        }
+    text-align:
+        center;
 
-        .avatar {
+    letter-spacing:
+        .04em;
+}
 
-            width: 35px;
+.sidebar-footer-tag b {
+    color:
+        var(--blue-light);
+}
 
-            height: 35px;
+/* ============================================================
+   MAIN
+   ============================================================ */
 
-            display: grid;
+.main {
 
-            place-items: center;
+    width:
+        calc(
+            100% - var(--sidebar)
+        );
 
-            flex-shrink: 0;
+    min-width:
+        0;
 
-            border-radius: 11px;
+    margin-left:
+        var(--sidebar);
 
-            background:
-                linear-gradient(
-                    135deg,
-                    #29292d,
-                    #17171a
-                );
+    padding:
+        18px 22px
+        calc(
+            var(--bottom) + 28px
+        );
 
-            font-size: 17px;
-        }
+    transition:
+        margin-left .35s ease,
+        width .35s ease;
+}
 
-        .account-name {
+.sidebar.closed + .main {
 
-            min-width: 0;
+    width:
+        calc(
+            100% - 58px
+        );
 
-            font-size: 12px;
+    margin-left:
+        58px;
+}
 
-            font-weight: 750;
+/* ============================================================
+   TOPBAR
+   ============================================================ */
 
-            overflow: hidden;
+.topbar {
 
-            text-overflow:
-                ellipsis;
+    display:
+        flex;
 
-            white-space:
-                nowrap;
-        }
+    align-items:
+        center;
 
-        .account-status {
+    justify-content:
+        space-between;
 
-            margin-top: 2px;
+    gap:
+        15px;
 
-            color:
-                var(--muted-2);
+    margin-bottom:
+        16px;
+}
 
-            font-size: 10px;
-        }
+.search {
 
-        /* ============================================================
-           MAIN
-           ============================================================ */
+    width:
+        min(
+            560px,
+            100%
+        );
 
-        .main {
+    position:
+        relative;
+}
 
-            width: calc(
-                100% - 245px
+.search-icon {
+
+    position:
+        absolute;
+
+    left:
+        15px;
+
+    top:
+        50%;
+
+    transform:
+        translateY(-50%);
+
+    color:
+        var(--blue-light);
+
+    opacity:
+        .6;
+
+    pointer-events:
+        none;
+}
+
+.search-input {
+
+    width:
+        100%;
+
+    height:
+        45px;
+
+    padding:
+        0 16px 0 43px;
+
+    color:
+        var(--text);
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        14px;
+
+    outline:
+        none;
+
+    box-shadow:
+        0 10px 30px
+        rgba(0,0,0,.30);
+
+    transition:
+        .25s ease;
+}
+
+.search-input::placeholder {
+    color:
+        var(--muted-2);
+}
+
+.search-input:focus {
+
+    background:
+        rgba(255,255,255,.07);
+
+    border-color:
+        rgba(30,107,255,.55);
+
+    box-shadow:
+        0 0 0 4px
+        rgba(30,107,255,.14),
+        0 15px 35px
+        rgba(0,0,0,.35);
+}
+
+.top-actions {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+}
+
+.icon-button {
+
+    width:
+        42px;
+
+    height:
+        42px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        12px;
+
+    color:
+        var(--blue-light);
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid
+        var(--border);
+
+    transition:
+        .22s ease;
+}
+
+.icon-button:hover {
+
+    transform:
+        translateY(-2px);
+
+    background:
+        rgba(30,107,255,.14);
+
+    border-color:
+        rgba(30,107,255,.4);
+
+    box-shadow:
+        0 10px 25px
+        rgba(30,107,255,.18);
+}
+
+.account-chip {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        9px;
+
+    height:
+        42px;
+
+    padding:
+        0 14px 0 6px;
+
+    color:
+        var(--text);
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(30,107,255,.14),
+            rgba(255,23,68,.08)
+        );
+
+    border:
+        1px solid
+        var(--border-blue);
+
+    border-radius:
+        999px;
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease,
+        border-color .2s ease;
+}
+
+.account-chip:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 12px 28px
+        rgba(30,107,255,.22);
+
+    border-color:
+        rgba(53,216,255,.55);
+}
+
+.account-chip-avatar {
+
+    width:
+        30px;
+
+    height:
+        30px;
+
+    flex:
+        0 0 30px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        50%;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--blue-light),
+            var(--blue-deep)
+        );
+
+    font-size:
+        14px;
+}
+
+.account-chip-text {
+    text-align:
+        left;
+}
+
+.account-chip-name {
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+
+    line-height:
+        1.1;
+}
+
+.account-chip-sub {
+
+    margin-top:
+        1px;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        8px;
+}
+
+/* ============================================================
+   GUILD
+   ============================================================ */
+
+.guild-bar {
+
+    min-height:
+        67px;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        auto
+        minmax(180px,1fr)
+        auto;
+
+    align-items:
+        center;
+
+    gap:
+        12px;
+
+    margin-bottom:
+        17px;
+
+    padding:
+        10px 12px;
+
+    border-radius:
+        17px;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(30,107,255,.10),
+            rgba(255,23,68,.05)
+        );
+
+    border:
+        1px solid
+        var(--border);
+
+    box-shadow:
+        0 15px 42px
+        rgba(0,0,0,.30);
+}
+
+.guild-icon {
+
+    width:
+        39px;
+
+    height:
+        39px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        12px;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--blue-light),
+            var(--blue-deep)
+        );
+
+    box-shadow:
+        0 0 18px
+        rgba(53,216,255,.3);
+}
+
+.guild-label {
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        .08em;
+}
+
+.guild-status {
+
+    margin-top:
+        2px;
+
+    color:
+        var(--text-2);
+
+    font-size:
+        10px;
+}
+
+.guild-input-wrap {
+
+    display:
+        flex;
+
+    gap:
+        7px;
+}
+
+.guild-input {
+
+    width:
+        270px;
+
+    height:
+        37px;
+
+    padding:
+        0 11px;
+
+    outline:
+        none;
+
+    color:
+        var(--text);
+
+    background:
+        rgba(255,255,255,.05);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        10px;
+
+    font-size:
+        10px;
+}
+
+.guild-input::placeholder {
+    color:
+        var(--muted-2);
+}
+
+.guild-input:focus {
+    border-color:
+        rgba(30,107,255,.55);
+}
+
+.primary-button {
+
+    height:
+        37px;
+
+    padding:
+        0 14px;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--red-light),
+            var(--red-deep)
+        );
+
+    border-radius:
+        10px;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+
+    box-shadow:
+        0 8px 20px
+        var(--red-soft);
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease,
+        filter .2s ease;
+}
+
+.primary-button:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 14px 32px
+        rgba(255,23,68,.4);
+
+    filter:
+        brightness(1.08);
+}
+
+.primary-button:active {
+    transform:
+        scale(.96);
+}
+
+/* ============================================================
+   CONTENT GRID
+   ============================================================ */
+
+.content-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0,1fr)
+        minmax(320px,370px);
+
+    gap:
+        17px;
+
+    align-items:
+        start;
+}
+
+/* ============================================================
+   PANEL
+   ============================================================ */
+
+.panel {
+
+    min-width:
+        0;
+
+    background:
+        linear-gradient(
+            160deg,
+            var(--surface),
+            var(--surface-blue)
+        );
+
+    backdrop-filter:
+        blur(24px);
+
+    -webkit-backdrop-filter:
+        blur(24px);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        var(--radius);
+
+    box-shadow:
+        0 25px 70px
+        var(--shadow);
+
+    transition:
+        transform .3s ease,
+        box-shadow .3s ease,
+        border-color .3s ease;
+}
+
+.panel:hover {
+
+    transform:
+        translateY(-2px);
+
+    border-color:
+        rgba(30,107,255,.32);
+
+    box-shadow:
+        0 32px 82px
+        rgba(0,0,0,.6),
+        0 0 30px
+        rgba(30,107,255,.08);
+}
+
+.panel-header {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        12px;
+}
+
+.panel-title {
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        13px;
+
+    font-weight:
+        700;
+
+    color:
+        var(--text);
+}
+
+.panel-subtitle {
+
+    margin-top:
+        3px;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        10px;
+}
+
+.source-pill {
+
+    padding:
+        6px 10px;
+
+    border-radius:
+        999px;
+
+    color:
+        var(--red-light);
+
+    background:
+        var(--red-soft);
+
+    border:
+        1px solid
+        rgba(255,23,68,.25);
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+}
+
+/* ============================================================
+   NOW PLAYING
+   ============================================================ */
+
+.now-playing {
+    padding:
+        24px;
+}
+
+.artwork-area {
+
+    width:
+        min(
+            345px,
+            76%
+        );
+
+    aspect-ratio:
+        1;
+
+    position:
+        relative;
+
+    margin:
+        24px auto;
+}
+
+.artwork-area::before {
+
+    content:
+        "";
+
+    position:
+        absolute;
+
+    inset:
+        -14px;
+
+    z-index:
+        -1;
+
+    border-radius:
+        30px;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(30,107,255,.22),
+            transparent 70%
+        );
+
+    filter:
+        blur(10px);
+
+    opacity:
+        .8;
+}
+
+.artwork {
+
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    width:
+        100%;
+
+    height:
+        100%;
+
+    object-fit:
+        cover;
+
+    border:
+        0 !important;
+
+    outline:
+        0 !important;
+
+    border-radius:
+        24px;
+
+    background:
+        transparent;
+
+    opacity:
+        0;
+
+    pointer-events:
+        none;
+
+    box-shadow:
+        0 28px 68px
+        rgba(0,0,0,.55),
+        0 0 0 1px
+        rgba(30,107,255,.18) inset;
+
+    transition:
+        opacity .45s ease,
+        transform .45s cubic-bezier(.2,.8,.2,1);
+}
+
+.artwork.loaded {
+
+    opacity:
+        1;
+
+    pointer-events:
+        auto;
+}
+
+.artwork.loaded:hover {
+    transform:
+        scale(1.02);
+}
+
+.artwork-placeholder {
+
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border:
+        0 !important;
+
+    outline:
+        0 !important;
+
+    border-radius:
+        24px;
+
+    background:
+        linear-gradient(
+            160deg,
+            var(--black-3),
+            var(--black)
+        );
+
+    color:
+        white;
+
+    font-size:
+        53px;
+
+    box-shadow:
+        0 28px 68px
+        rgba(0,0,0,.5);
+
+    transition:
+        opacity .4s ease,
+        transform .4s ease;
+}
+
+.artwork.loaded + .artwork-placeholder {
+
+    opacity:
+        0;
+
+    transform:
+        scale(.96);
+
+    pointer-events:
+        none;
+}
+
+.track-info {
+    text-align:
+        center;
+}
+
+.track-title {
+
+    margin:
+        0;
+
+    color:
+        var(--text);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        clamp(
+            25px,
+            3.4vw,
+            33px
+        );
+
+    line-height:
+        1.1;
+
+    letter-spacing:
+        -.03em;
+
+    font-weight:
+        700;
+
+    overflow-wrap:
+        anywhere;
+}
+
+.track-artist {
+
+    margin:
+        8px 0 14px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        13px;
+}
+
+.track-tags {
+
+    display:
+        flex;
+
+    justify-content:
+        center;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        7px;
+}
+
+.track-tag {
+
+    padding:
+        6px 9px;
+
+    color:
+        var(--blue-light);
+
+    background:
+        var(--blue-soft);
+
+    border:
+        1px solid
+        rgba(30,107,255,.22);
+
+    border-radius:
+        999px;
+
+    font-size:
+        9px;
+
+    font-weight:
+        700;
+}
+
+/* ============================================================
+   PROGRESS
+   ============================================================ */
+
+.progress-wrap {
+    margin-top:
+        25px;
+}
+
+.range {
+
+    width:
+        100%;
+
+    height:
+        5px;
+
+    appearance:
+        none;
+
+    -webkit-appearance:
+        none;
+
+    border:
+        0;
+
+    outline:
+        none;
+
+    border-radius:
+        999px;
+
+    background:
+        rgba(255,255,255,.10);
+}
+
+.range::-webkit-slider-thumb {
+
+    appearance:
+        none;
+
+    -webkit-appearance:
+        none;
+
+    width:
+        14px;
+
+    height:
+        14px;
+
+    border:
+        2px solid
+        var(--black);
+
+    border-radius:
+        50%;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--blue-light),
+            var(--blue)
+        );
+
+    box-shadow:
+        0 0 0 4px
+        rgba(30,107,255,.18),
+        0 0 12px
+        rgba(53,216,255,.5);
+
+    cursor:
+        pointer;
+}
+
+.range::-moz-range-thumb {
+
+    width:
+        14px;
+
+    height:
+        14px;
+
+    border:
+        2px solid
+        var(--black);
+
+    border-radius:
+        50%;
+
+    background:
+        var(--blue);
+
+    cursor:
+        pointer;
+}
+
+.time-row {
+
+    display:
+        flex;
+
+    justify-content:
+        space-between;
+
+    margin-top:
+        7px;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+/* ============================================================
+   CENTRAL CONTROLS
+   ============================================================ */
+
+.controls {
+
+    width:
+        100%;
+
+    height:
+        64px;
+
+    min-height:
+        64px;
+
+    display:
+        flex;
+
+    flex-direction:
+        row;
+
+    flex-wrap:
+        nowrap;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        10px;
+
+    margin-top:
+        17px;
+
+    padding:
+        0;
+
+    position:
+        relative;
+
+    overflow:
+        visible;
+}
+
+.control-button {
+
+    width:
+        42px !important;
+
+    height:
+        42px !important;
+
+    min-width:
+        42px !important;
+
+    min-height:
+        42px !important;
+
+    max-width:
+        42px !important;
+
+    max-height:
+        42px !important;
+
+    flex:
+        0 0 42px !important;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        0 !important;
+
+    margin:
+        0 !important;
+
+    position:
+        relative;
+
+    color:
+        var(--blue-light);
+
+    background:
+        rgba(30,107,255,.09);
+
+    border:
+        1px solid
+        rgba(30,107,255,.20);
+
+    border-radius:
+        13px;
+
+    line-height:
+        0;
+
+    aspect-ratio:
+        1 / 1;
+
+    transition:
+        transform .2s ease,
+        background .2s ease,
+        box-shadow .2s ease,
+        border-color .2s ease;
+}
+
+.control-button:hover {
+
+    transform:
+        translateY(-3px);
+
+    background:
+        rgba(30,107,255,.18);
+
+    border-color:
+        rgba(53,216,255,.5);
+
+    box-shadow:
+        0 12px 26px
+        rgba(30,107,255,.25);
+}
+
+.control-button:active {
+    transform:
+        scale(.90);
+}
+
+/* ============================================================
+   MAIN PLAY — RIGID 57x57
+   ============================================================ */
+
+.control-button.main {
+
+    width:
+        57px !important;
+
+    height:
+        57px !important;
+
+    min-width:
+        57px !important;
+
+    min-height:
+        57px !important;
+
+    max-width:
+        57px !important;
+
+    max-height:
+        57px !important;
+
+    flex:
+        0 0 57px !important;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        0 !important;
+
+    margin:
+        0 !important;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--red-light),
+            var(--red-deep)
+        );
+
+    border:
+        0;
+
+    border-radius:
+        17px;
+
+    box-shadow:
+        0 16px 35px
+        var(--red-soft);
+
+    aspect-ratio:
+        1 / 1;
+
+    z-index:
+        3;
+}
+
+.control-button.main:hover {
+
+    color:
+        white;
+
+    transform:
+        translateY(-3px)
+        scale(1.06);
+
+    box-shadow:
+        0 20px 46px
+        rgba(255,23,68,.45),
+        0 0 26px
+        rgba(255,92,122,.35);
+}
+
+/* ============================================================
+   WATER RIPPLES
+   ============================================================ */
+
+.control-button.main::before,
+.control-button.main::after {
+
+    content:
+        "";
+
+    position:
+        absolute;
+
+    inset:
+        -5px;
+
+    z-index:
+        -1;
+
+    border:
+        2px solid
+        transparent;
+
+    border-radius:
+        21px;
+
+    pointer-events:
+        none;
+}
+
+.control-button.main.ripple::before {
+
+    animation:
+        rippleOne .8s cubic-bezier(.15,.75,.2,1);
+}
+
+.control-button.main.ripple::after {
+
+    animation:
+        rippleTwo 1.05s cubic-bezier(.15,.75,.2,1);
+}
+
+@keyframes rippleOne {
+
+    0% {
+
+        opacity:
+            .95;
+
+        transform:
+            scale(.93);
+
+        border-color:
+            rgba(255,23,68,.85);
+    }
+
+    100% {
+
+        opacity:
+            0;
+
+        transform:
+            scale(1.9);
+
+        border-color:
+            rgba(255,23,68,0);
+    }
+}
+
+@keyframes rippleTwo {
+
+    0% {
+
+        opacity:
+            .6;
+
+        transform:
+            scale(.96);
+
+        border-color:
+            rgba(53,216,255,.7);
+    }
+
+    100% {
+
+        opacity:
+            0;
+
+        transform:
+            scale(2.25);
+
+        border-color:
+            rgba(53,216,255,0);
+    }
+}
+
+/* ============================================================
+   SPLASH
+   ============================================================ */
+
+.splash-drop {
+
+    position:
+        absolute;
+
+    left:
+        50%;
+
+    top:
+        50%;
+
+    width:
+        7px;
+
+    height:
+        7px;
+
+    border-radius:
+        50%;
+
+    background:
+        var(--blue-light);
+
+    box-shadow:
+        0 0 14px
+        rgba(53,216,255,.75);
+
+    pointer-events:
+        none;
+
+    opacity:
+        0;
+}
+
+.splash-drop.is-red {
+
+    background:
+        var(--red-light);
+
+    box-shadow:
+        0 0 14px
+        rgba(255,92,122,.75);
+}
+
+.splash-drop.animate {
+
+    animation:
+        splashDrop .7s ease-out forwards;
+}
+
+@keyframes splashDrop {
+
+    0% {
+
+        opacity:
+            .95;
+
+        transform:
+            translate(0,0)
+            scale(.5);
+    }
+
+    100% {
+
+        opacity:
+            0;
+
+        transform:
+            translate(
+                var(--sx),
+                var(--sy)
+            )
+            scale(1.15);
+    }
+}
+
+/* ============================================================
+   VOLUME
+   ============================================================ */
+
+.volume-row {
+
+    width:
+        min(
+            280px,
+            82%
+        );
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    margin:
+        18px auto 0;
+
+    color:
+        var(--muted);
+}
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.status-line {
+
+    display:
+        flex;
+
+    justify-content:
+        center;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+
+    margin-top:
+        15px;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+.status-dot {
+
+    width:
+        7px;
+
+    height:
+        7px;
+
+    border-radius:
+        50%;
+
+    background:
+        #4a5872;
+}
+
+.status-dot.playing {
+
+    background:
+        var(--green);
+
+    box-shadow:
+        0 0 0 4px
+        rgba(31,217,122,.16);
+
+    animation:
+        statusPulse 1.5s ease infinite;
+}
+
+.status-dot.paused {
+
+    background:
+        var(--yellow);
+
+    box-shadow:
+        0 0 0 4px
+        rgba(255,176,32,.16);
+}
+
+@keyframes statusPulse {
+
+    50% {
+        transform:
+            scale(1.35);
+    }
+}
+
+.message {
+
+    min-height:
+        18px;
+
+    margin-top:
+        10px;
+
+    color:
+        var(--muted-2);
+
+    text-align:
+        center;
+
+    font-size:
+        10px;
+}
+
+/* ============================================================
+   RIGHT SIDE
+   ============================================================ */
+
+.side-stack {
+
+    min-width:
+        0;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        17px;
+}
+
+.side-panel {
+    padding:
+        19px;
+}
+
+/* ============================================================
+   QUEUE
+   ============================================================ */
+
+.queue-list {
+
+    margin-top:
+        13px;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        3px;
+
+    max-height:
+        270px;
+
+    overflow-y:
+        auto;
+}
+
+.queue-empty {
+
+    min-height:
+        180px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        20px;
+
+    text-align:
+        center;
+
+    color:
+        var(--muted-2);
+
+    background:
+        rgba(30,107,255,.05);
+
+    border:
+        1px solid
+        rgba(30,107,255,.10);
+
+    border-radius:
+        15px;
+
+    font-size:
+        10px;
+
+    line-height:
+        1.65;
+}
+
+.queue-item {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    padding:
+        8px;
+
+    border-radius:
+        12px;
+
+    transition:
+        .2s ease;
+}
+
+.queue-item:hover {
+
+    background:
+        rgba(30,107,255,.10);
+
+    transform:
+        translateX(2px);
+}
+
+.queue-art {
+
+    width:
+        41px;
+
+    height:
+        41px;
+
+    flex:
+        0 0 41px;
+
+    object-fit:
+        cover;
+
+    border:
+        0;
+
+    border-radius:
+        10px;
+
+    background:
+        var(--black);
+}
+
+.queue-info {
+
+    min-width:
+        0;
+
+    flex:
+        1;
+}
+
+.queue-name {
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+}
+
+.queue-artist {
+
+    margin-top:
+        3px;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+/* ============================================================
+   LYRICS
+   ============================================================ */
+
+.lyrics-preview {
+
+    min-height:
+        235px;
+
+    margin-top:
+        13px;
+
+    padding:
+        25px 20px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    text-align:
+        center;
+
+    color:
+        var(--muted);
+
+    background:
+        linear-gradient(
+            160deg,
+            rgba(30,107,255,.09),
+            rgba(255,23,68,.03)
+        );
+
+    border:
+        1px solid
+        rgba(30,107,255,.14);
+
+    border-radius:
+        17px;
+
+    font-size:
+        12px;
+
+    line-height:
+        1.85;
+
+    transition:
+        background .3s ease,
+        transform .3s ease;
+}
+
+.lyrics-preview:hover {
+
+    transform:
+        translateY(-2px);
+
+    background:
+        linear-gradient(
+            160deg,
+            rgba(30,107,255,.14),
+            rgba(255,23,68,.05)
+        );
+}
+
+.panel-action {
+
+    padding:
+        0;
+
+    color:
+        var(--blue-light);
+
+    background:
+        transparent;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+
+    transition:
+        .2s ease;
+}
+
+.panel-action:hover {
+
+    color:
+        var(--red-light);
+}
+
+/* ============================================================
+   CONNECTION
+   ============================================================ */
+
+.info-list {
+    margin-top:
+        12px;
+}
+
+.info-row {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        15px;
+
+    padding:
+        10px 0;
+
+    border-bottom:
+        1px solid
+        rgba(255,255,255,.06);
+}
+
+.info-row:last-child {
+    border-bottom:
+        0;
+}
+
+.info-key {
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+.info-value {
+
+    max-width:
+        65%;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    text-align:
+        right;
+
+    color:
+        var(--text-2);
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+}
+
+/* ============================================================
+   BOTTOM PLAYER
+   ============================================================ */
+
+.bottom-player {
+
+    position:
+        fixed;
+
+    left:
+        var(--sidebar);
+
+    right:
+        0;
+
+    bottom:
+        0;
+
+    height:
+        var(--bottom);
+
+    z-index:
+        150;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0,1fr)
+        auto
+        minmax(0,1fr);
+
+    align-items:
+        center;
+
+    gap:
+        18px;
+
+    padding:
+        10px 18px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(9,13,23,.92),
+            rgba(5,7,13,.98)
+        );
+
+    backdrop-filter:
+        blur(28px);
+
+    -webkit-backdrop-filter:
+        blur(28px);
+
+    border-top:
+        1px solid
+        var(--border);
+
+    box-shadow:
+        0 -18px 55px
+        rgba(0,0,0,.6);
+
+    transition:
+        left .35s ease;
+}
+
+.sidebar.closed ~ .bottom-player {
+    left:
+        58px;
+}
+
+/* ============================================================
+   WATER LINE
+   ============================================================ */
+
+.bottom-player::before {
+
+    content:
+        "";
+
+    position:
+        absolute;
+
+    left:
+        0;
+
+    right:
+        0;
+
+    top:
+        -8px;
+
+    height:
+        14px;
+
+    pointer-events:
+        none;
+
+    background:
+        radial-gradient(
+            ellipse at 10% 100%,
+            rgba(30,107,255,.42),
+            transparent 21%
+        ),
+        radial-gradient(
+            ellipse at 30% 0%,
+            rgba(53,216,255,.26),
+            transparent 20%
+        ),
+        radial-gradient(
+            ellipse at 53% 100%,
+            rgba(255,23,68,.28),
+            transparent 21%
+        ),
+        radial-gradient(
+            ellipse at 76% 20%,
+            rgba(255,23,68,.20),
+            transparent 19%
+        ),
+        radial-gradient(
+            ellipse at 94% 100%,
+            rgba(30,107,255,.34),
+            transparent 20%
+        );
+
+    filter:
+        blur(4px);
+
+    animation:
+        waterLine 6s ease-in-out infinite alternate;
+}
+
+@keyframes waterLine {
+
+    from {
+        transform:
+            translateX(-2%)
+            scaleX(1);
+    }
+
+    to {
+        transform:
+            translateX(2%)
+            scaleX(1.05);
+    }
+}
+
+/* ============================================================
+   MINI TRACK
+   ============================================================ */
+
+.mini-track {
+
+    min-width:
+        0;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+}
+
+.mini-art {
+
+    width:
+        54px;
+
+    height:
+        54px;
+
+    flex:
+        0 0 54px;
+
+    object-fit:
+        cover;
+
+    border:
+        0 !important;
+
+    outline:
+        0 !important;
+
+    border-radius:
+        11px;
+
+    background:
+        var(--black);
+
+    box-shadow:
+        0 0 0 1px
+        rgba(30,107,255,.2) inset;
+}
+
+.mini-info {
+    min-width:
+        0;
+}
+
+.mini-title {
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    color:
+        var(--text);
+
+    font-size:
+        11px;
+
+    font-weight:
+        800;
+}
+
+.mini-artist {
+
+    margin-top:
+        3px;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+/* ============================================================
+   MINI CONTROLS — RIGID LAYOUT
+   ============================================================ */
+
+.mini-controls {
+
+    width:
+        238px !important;
+
+    min-width:
+        238px !important;
+
+    max-width:
+        238px !important;
+
+    height:
+        66px !important;
+
+    min-height:
+        66px !important;
+
+    max-height:
+        66px !important;
+
+    display:
+        flex;
+
+    flex-direction:
+        row;
+
+    flex-wrap:
+        nowrap;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        7px;
+
+    padding:
+        0 8px !important;
+
+    margin:
+        0;
+
+    overflow:
+        visible;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(30,107,255,.12),
+            rgba(255,23,68,.06)
+        );
+
+    border:
+        1px solid
+        rgba(30,107,255,.20);
+
+    border-radius:
+        20px;
+
+    box-shadow:
+        0 12px 35px
+        rgba(0,0,0,.35);
+
+    flex-shrink:
+        0;
+}
+
+.mini-button {
+
+    width:
+        36px !important;
+
+    height:
+        36px !important;
+
+    min-width:
+        36px !important;
+
+    min-height:
+        36px !important;
+
+    max-width:
+        36px !important;
+
+    max-height:
+        36px !important;
+
+    flex:
+        0 0 36px !important;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        0 !important;
+
+    margin:
+        0 !important;
+
+    color:
+        var(--blue-light);
+
+    background:
+        transparent;
+
+    border-radius:
+        11px;
+
+    line-height:
+        0;
+
+    aspect-ratio:
+        1 / 1;
+
+    transition:
+        transform .2s ease,
+        background .2s ease,
+        box-shadow .2s ease;
+}
+
+.mini-button:hover {
+
+    background:
+        rgba(30,107,255,.16);
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 8px 18px
+        rgba(30,107,255,.2);
+}
+
+.mini-button:active {
+    transform:
+        scale(.91);
+}
+
+.mini-button.main {
+
+    width:
+        50px !important;
+
+    height:
+        50px !important;
+
+    min-width:
+        50px !important;
+
+    min-height:
+        50px !important;
+
+    max-width:
+        50px !important;
+
+    max-height:
+        50px !important;
+
+    flex:
+        0 0 50px !important;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        0 !important;
+
+    margin:
+        0 !important;
+
+    color:
+        white;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--red-light),
+            var(--red-deep)
+        );
+
+    border-radius:
+        15px;
+
+    aspect-ratio:
+        1 / 1;
+
+    box-shadow:
+        0 12px 28px
+        var(--red-soft);
+}
+
+.mini-button.main:hover {
+
+    box-shadow:
+        0 16px 34px
+        rgba(255,23,68,.4),
+        0 0 18px
+        rgba(255,92,122,.35);
+}
+
+/* ============================================================
+   MINI RIGHT
+   ============================================================ */
+
+.mini-right {
+
+    min-width:
+        0;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        flex-end;
+
+    gap:
+        9px;
+}
+
+.mini-source {
+
+    max-width:
+        150px;
+
+    padding:
+        7px 10px;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    color:
+        var(--blue-light);
+
+    background:
+        rgba(30,107,255,.10);
+
+    border:
+        1px solid
+        rgba(30,107,255,.20);
+
+    border-radius:
+        999px;
+
+    font-size:
+        8px;
+}
+
+/* ============================================================
+   ICONS — FIXED SIZE
+   ============================================================ */
+
+.icon-play {
+
+    width:
+        0 !important;
+
+    height:
+        0 !important;
+
+    min-width:
+        0 !important;
+
+    min-height:
+        0 !important;
+
+    flex:
+        0 0 auto !important;
+
+    margin:
+        0 0 0 3px !important;
+
+    border-top:
+        8px solid transparent;
+
+    border-bottom:
+        8px solid transparent;
+
+    border-left:
+        12px solid currentColor;
+}
+
+.icon-pause {
+
+    width:
+        14px !important;
+
+    height:
+        16px !important;
+
+    min-width:
+        14px !important;
+
+    min-height:
+        16px !important;
+
+    max-width:
+        14px !important;
+
+    max-height:
+        16px !important;
+
+    flex:
+        0 0 14px !important;
+
+    position:
+        relative;
+}
+
+.icon-pause::before,
+.icon-pause::after {
+
+    content:
+        "";
+
+    position:
+        absolute;
+
+    top:
+        0;
+
+    width:
+        4px;
+
+    height:
+        16px;
+
+    border-radius:
+        3px;
+
+    background:
+        currentColor;
+}
+
+.icon-pause::before {
+    left:
+        0;
+}
+
+.icon-pause::after {
+    right:
+        0;
+}
+
+.icon-stop {
+
+    width:
+        12px !important;
+
+    height:
+        12px !important;
+
+    min-width:
+        12px !important;
+
+    min-height:
+        12px !important;
+
+    max-width:
+        12px !important;
+
+    max-height:
+        12px !important;
+
+    flex:
+        0 0 12px !important;
+
+    border-radius:
+        3px;
+
+    background:
+        currentColor;
+}
+
+.icon-prev,
+.icon-next {
+
+    display:
+        block;
+
+    width:
+        20px;
+
+    height:
+        26px;
+
+    line-height:
+        22px;
+
+    font-size:
+        24px;
+
+    font-weight:
+        300;
+
+    text-align:
+        center;
+
+    flex:
+        0 0 20px;
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+
+.modal {
+
+    position:
+        fixed;
+
+    inset:
+        0;
+
+    z-index:
+        300;
+
+    display:
+        none;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        18px;
+
+    background:
+        rgba(2,3,7,.65);
+
+    backdrop-filter:
+        blur(12px);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+}
+
+.modal.active {
+    display:
+        flex;
+}
+
+.modal-card {
+
+    width:
+        min(
+            720px,
+            100%
+        );
+
+    max-height:
+        84vh;
+
+    overflow-y:
+        auto;
+
+    padding:
+        24px;
+
+    background:
+        linear-gradient(
+            160deg,
+            var(--surface-strong),
+            var(--black-2)
+        );
+
+    border:
+        1px solid
+        var(--border-blue);
+
+    border-radius:
+        22px;
+
+    box-shadow:
+        0 35px 100px
+        rgba(0,0,0,.7);
+
+    animation:
+        modalIn .24s ease;
+}
+
+@keyframes modalIn {
+
+    from {
+
+        opacity:
+            0;
+
+        transform:
+            translateY(10px)
+            scale(.985);
+    }
+
+    to {
+
+        opacity:
+            1;
+
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+.modal-header {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    margin-bottom:
+        18px;
+}
+
+.modal-title {
+
+    margin:
+        0;
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        21px;
+
+    font-weight:
+        700;
+
+    letter-spacing:
+        -.02em;
+
+    color:
+        var(--text);
+}
+
+.modal-close {
+
+    width:
+        36px;
+
+    height:
+        36px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        11px;
+
+    color:
+        var(--blue-light);
+
+    background:
+        rgba(30,107,255,.10);
+
+    transition:
+        .2s ease;
+}
+
+.modal-close:hover {
+
+    color:
+        white;
+
+    background:
+        var(--red);
+
+    transform:
+        rotate(90deg);
+
+    box-shadow:
+        0 8px 20px
+        rgba(255,23,68,.4);
+}
+
+.modal-card h3 {
+
+    margin:
+        19px 0 6px;
+
+    font-size:
+        13px;
+
+    color:
+        var(--text);
+}
+
+.modal-card p {
+
+    margin:
+        0 0 10px;
+
+    color:
+        var(--muted);
+
+    font-size:
+        12px;
+
+    line-height:
+        1.7;
+}
+
+/* ============================================================
+   LYRICS
+   ============================================================ */
+
+.lyrics-modal-box {
+
+    min-height:
+        350px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    padding:
+        30px;
+
+    text-align:
+        center;
+
+    color:
+        var(--muted);
+
+    background:
+        linear-gradient(
+            150deg,
+            rgba(30,107,255,.09),
+            rgba(255,23,68,.03)
+        );
+
+    border:
+        1px solid
+        rgba(30,107,255,.14);
+
+    border-radius:
+        18px;
+
+    font-size:
+        13px;
+
+    line-height:
+        1.95;
+}
+
+/* ============================================================
+   SEARCH RESULTS
+   ============================================================ */
+
+.search-results {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        7px;
+
+    margin-top:
+        15px;
+}
+
+.search-result {
+
+    width:
+        100%;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        11px;
+
+    padding:
+        10px;
+
+    text-align:
+        left;
+
+    color:
+        var(--text);
+
+    background:
+        rgba(255,255,255,.03);
+
+    border:
+        1px solid
+        rgba(30,107,255,.14);
+
+    border-radius:
+        14px;
+
+    transition:
+        .2s ease;
+}
+
+.search-result:hover {
+
+    transform:
+        translateX(3px);
+
+    background:
+        rgba(30,107,255,.10);
+
+    border-color:
+        rgba(30,107,255,.35);
+
+    box-shadow:
+        0 10px 24px
+        rgba(30,107,255,.14);
+}
+
+.search-result-art {
+
+    width:
+        48px;
+
+    height:
+        48px;
+
+    flex:
+        0 0 48px;
+
+    object-fit:
+        cover;
+
+    border:
+        0;
+
+    border-radius:
+        10px;
+
+    background:
+        var(--black);
+}
+
+.search-result-info {
+
+    min-width:
+        0;
+
+    flex:
+        1;
+}
+
+.search-result-title {
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    font-size:
+        11px;
+
+    font-weight:
+        800;
+}
+
+.search-result-artist {
+
+    margin-top:
+        3px;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    color:
+        var(--muted-2);
+
+    font-size:
+        9px;
+}
+
+.search-result-source {
+
+    padding:
+        5px 8px;
+
+    color:
+        var(--blue-light);
+
+    background:
+        var(--blue-soft);
+
+    border:
+        1px solid
+        rgba(30,107,255,.22);
+
+    border-radius:
+        999px;
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+}
+
+/* ============================================================
+   COOKIES
+   ============================================================ */
+
+.cookie-banner {
+
+    position:
+        fixed;
+
+    left:
+        calc(
+            var(--sidebar) + 18px
+        );
+
+    right:
+        18px;
+
+    bottom:
+        calc(
+            var(--bottom) + 14px
+        );
+
+    z-index:
+        260;
+
+    width:
+        min(
+            820px,
+            calc(
+                100% - var(--sidebar) - 36px
+            )
+        );
+
+    margin:
+        0 auto;
+
+    display:
+        none;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        17px;
+
+    padding:
+        15px 17px;
+
+    background:
+        linear-gradient(
+            150deg,
+            var(--surface-strong),
+            var(--black-2)
+        );
+
+    border:
+        1px solid
+        var(--border-blue);
+
+    border-radius:
+        17px;
+
+    box-shadow:
+        0 25px 70px
+        rgba(0,0,0,.65);
+
+    animation:
+        cookieIn .3s ease;
+}
+
+.cookie-banner.active {
+    display:
+        flex;
+}
+
+@keyframes cookieIn {
+
+    from {
+
+        opacity:
+            0;
+
+        transform:
+            translateY(12px);
+    }
+
+    to {
+
+        opacity:
+            1;
+
+        transform:
+            translateY(0);
+    }
+}
+
+.cookie-title {
+
+    margin-bottom:
+        3px;
+
+    font-size:
+        11px;
+
+    font-weight:
+        800;
+
+    color:
+        var(--text);
+}
+
+.cookie-text {
+
+    color:
+        var(--muted);
+
+    font-size:
+        9px;
+
+    line-height:
+        1.55;
+}
+
+.cookie-actions {
+
+    display:
+        flex;
+
+    gap:
+        7px;
+
+    flex-shrink:
+        0;
+}
+
+.cookie-button {
+
+    height:
+        35px;
+
+    padding:
+        0 12px;
+
+    color:
+        var(--blue-light);
+
+    background:
+        rgba(30,107,255,.08);
+
+    border:
+        1px solid
+        rgba(30,107,255,.20);
+
+    border-radius:
+        10px;
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+
+    transition:
+        .2s ease;
+}
+
+.cookie-button:hover {
+    transform:
+        translateY(-1px);
+}
+
+.cookie-button.primary {
+
+    color:
+        white;
+
+    background:
+        var(--red);
+
+    border-color:
+        transparent;
+}
+
+/* ============================================================
+   HIDDEN AUDIO
+   ============================================================ */
+
+#audio {
+    display:
+        none;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width:1100px) {
+
+    .content-grid {
+
+        grid-template-columns:
+            1fr;
+    }
+
+    .side-stack {
+
+        display:
+            grid;
+
+        grid-template-columns:
+            1fr 1fr;
+    }
+}
+
+@media (max-width:820px) {
+
+    :root {
+
+        --sidebar:
+            0px;
+
+        --bottom:
+            84px;
+    }
+
+    .sidebar {
+
+        width:
+            270px;
+
+        transform:
+            translateX(-100%);
+    }
+
+    .sidebar.open {
+
+        transform:
+            translateX(0);
+    }
+
+    .sidebar.closed {
+
+        transform:
+            translateX(-100%);
+    }
+
+    .main,
+    .sidebar.closed + .main {
+
+        width:
+            100%;
+
+        margin:
+            0;
+
+        padding:
+            14px 12px
+            calc(
+                var(--bottom) + 20px
+            );
+    }
+
+    .topbar {
+
+        padding-left:
+            52px;
+
+        flex-wrap:
+            wrap;
+    }
+
+    .account-chip-text {
+        display:
+            none;
+    }
+
+    .guild-bar {
+
+        grid-template-columns:
+            auto 1fr;
+    }
+
+    .guild-input-wrap {
+
+        grid-column:
+            1/-1;
+
+        width:
+            100%;
+    }
+
+    .guild-input {
+        flex:
+            1;
+
+        width:
+            auto;
+    }
+
+    .side-stack {
+
+        grid-template-columns:
+            1fr;
+    }
+
+    .bottom-player {
+
+        left:
+            0;
+
+        grid-template-columns:
+            1fr auto;
+
+        gap:
+            9px;
+
+        padding:
+            8px 10px;
+    }
+
+    .mini-right {
+        display:
+            none;
+    }
+
+    .mini-controls {
+
+        width:
+            216px !important;
+
+        min-width:
+            216px !important;
+
+        max-width:
+            216px !important;
+    }
+
+    .cookie-banner {
+
+        left:
+            11px;
+
+        right:
+            11px;
+
+        width:
+            auto;
+
+        bottom:
+            calc(
+                var(--bottom) + 9px
             );
 
-            margin-left: 245px;
+        align-items:
+            flex-start;
 
-            min-height: 100vh;
+        flex-direction:
+            column;
+    }
 
-            padding:
-                20px 24px 150px;
-        }
+    .cookie-actions {
 
-        /* ============================================================
-           TOPBAR
-           ============================================================ */
+        width:
+            100%;
+    }
 
-        .topbar {
+    .cookie-button {
+        flex:
+            1;
+    }
+}
 
-            display: flex;
+@media (max-width:500px) {
 
-            align-items: center;
+    .now-playing {
+        padding:
+            18px;
+    }
 
-            justify-content:
-                space-between;
+    .artwork-area {
 
-            gap: 18px;
-
-            margin-bottom: 22px;
-        }
-
-        .search {
-
-            width: min(
-                470px,
-                100%
+        width:
+            min(
+                285px,
+                84vw
             );
+    }
 
-            position: relative;
-        }
+    .controls {
+        gap:
+            6px;
+    }
 
-        .search-input {
+    .control-button {
 
-            width: 100%;
+        width:
+            39px !important;
 
-            height: 44px;
+        height:
+            39px !important;
 
-            padding:
-                0 16px 0 42px;
+        min-width:
+            39px !important;
 
-            outline: none;
+        min-height:
+            39px !important;
 
-            border-radius: 13px;
+        max-width:
+            39px !important;
 
-            border:
-                1px solid
-                var(--border);
+        max-height:
+            39px !important;
 
-            background:
-                rgba(255,255,255,0.045);
+        flex:
+            0 0 39px !important;
+    }
 
-            color:
-                #ffffff;
+    .control-button.main {
 
-            font-size: 12px;
+        width:
+            52px !important;
 
-            transition:
-                border 0.18s ease,
-                background 0.18s ease;
-        }
+        height:
+            52px !important;
 
-        .search-input:focus {
+        min-width:
+            52px !important;
 
-            background:
-                rgba(255,255,255,0.06);
+        min-height:
+            52px !important;
 
-            border-color:
-                rgba(239,35,60,0.5);
-        }
+        max-width:
+            52px !important;
 
-        .search-input::placeholder {
+        max-height:
+            52px !important;
 
-            color:
-                var(--muted-2);
-        }
+        flex:
+            0 0 52px !important;
+    }
 
-        .search-icon {
+    .mini-controls {
 
-            position: absolute;
+        width:
+            201px !important;
 
-            left: 15px;
+        min-width:
+            201px !important;
 
-            top: 50%;
+        max-width:
+            201px !important;
 
-            transform:
-                translateY(-50%);
+        height:
+            60px !important;
 
-            color:
-                var(--muted-2);
+        min-height:
+            60px !important;
 
-            font-size: 15px;
-        }
+        max-height:
+            60px !important;
+    }
 
-        .top-actions {
+    .mini-button {
 
-            display: flex;
+        width:
+            34px !important;
 
-            align-items: center;
+        height:
+            34px !important;
 
-            gap: 8px;
-        }
+        min-width:
+            34px !important;
 
-        .top-button {
+        min-height:
+            34px !important;
 
-            width: 42px;
+        max-width:
+            34px !important;
 
-            height: 42px;
+        max-height:
+            34px !important;
 
-            display: grid;
+        flex:
+            0 0 34px !important;
+    }
 
-            place-items: center;
+    .mini-button.main {
 
-            border-radius: 12px;
+        width:
+            45px !important;
 
-            color:
-                var(--muted);
+        height:
+            45px !important;
 
-            background:
-                rgba(255,255,255,0.045);
+        min-width:
+            45px !important;
 
-            border:
-                1px solid
-                var(--border);
+        min-height:
+            45px !important;
 
-            transition:
-                background 0.18s ease,
-                color 0.18s ease;
-        }
+        max-width:
+            45px !important;
 
-        .top-button:hover {
+        max-height:
+            45px !important;
 
-            color:
-                #ffffff;
+        flex:
+            0 0 45px !important;
+    }
 
-            background:
-                rgba(255,255,255,0.075);
-        }
+    .mini-art {
 
-        /* ============================================================
-           GUILD
-           ============================================================ */
+        width:
+            44px;
 
-        .guild-card {
+        height:
+            44px;
 
-            display: flex;
+        flex-basis:
+            44px;
+    }
+}
 
-            align-items: center;
-
-            gap: 10px;
-
-            margin-bottom: 22px;
-
-            padding:
-                12px 14px;
-
-            border-radius: 16px;
-
-            border:
-                1px solid
-                var(--border);
-
-            background:
-                rgba(255,255,255,0.035);
-        }
-
-        .guild-label {
-
-            color:
-                var(--muted-2);
-
-            font-size: 10px;
-
-            text-transform:
-                uppercase;
-
-            font-weight: 800;
-
-            letter-spacing:
-                0.07em;
-        }
-
-        .guild-input {
-
-            flex: 1;
-
-            min-width: 0;
-
-            height: 36px;
-
-            padding:
-                0 11px;
-
-            border-radius: 10px;
-
-            border:
-                1px solid
-                var(--border);
-
-            outline: none;
-
-            color:
-                white;
-
-            background:
-                rgba(255,255,255,0.04);
-
-            font-size: 11px;
-        }
-
-        .guild-input:focus {
-
-            border-color:
-                rgba(239,35,60,0.5);
-        }
-
-        .guild-input::placeholder {
-
-            color:
-                var(--muted-2);
-        }
-
-        .guild-connect {
-
-            height: 36px;
-
-            padding:
-                0 13px;
-
-            border-radius: 10px;
-
-            color:
-                #ffffff;
-
-            background:
-                var(--red);
-
-            font-size: 11px;
-
-            font-weight: 750;
-        }
-
-        .guild-connect:hover {
-
-            background:
-                var(--red-light);
-        }
-
-        .guild-status {
-
-            color:
-                var(--muted-2);
-
-            font-size: 10px;
-
-            white-space: nowrap;
-        }
-
-        /* ============================================================
-           HERO GRID
-           ============================================================ */
-
-        .dashboard {
-
-            display: grid;
-
-            grid-template-columns:
-                minmax(0, 1fr)
-                340px;
-
-            gap: 18px;
-        }
-
-        .panel {
-
-            border:
-                1px solid
-                var(--border);
-
-            border-radius: 23px;
-
-            background:
-                var(--panel);
-
-            backdrop-filter:
-                blur(20px);
-
-            -webkit-backdrop-filter:
-                blur(20px);
-
-            box-shadow:
-                0 24px 80px
-                rgba(0,0,0,0.25);
-        }
-
-        /* ============================================================
-           NOW PLAYING
-           ============================================================ */
-
-        .now-playing {
-
-            padding:
-                24px;
-        }
-
-        .panel-heading {
-
-            display: flex;
-
-            justify-content:
-                space-between;
-
-            align-items:
-                center;
-
-            margin-bottom: 20px;
-        }
-
-        .panel-heading-title {
-
-            font-size: 12px;
-
-            font-weight: 800;
-
-            color:
-                rgba(255,255,255,0.78);
-
-            text-transform:
-                uppercase;
-
-            letter-spacing:
-                0.07em;
-        }
-
-        .source-pill {
-
-            padding:
-                6px 9px;
-
-            border-radius:
-                999px;
-
-            color:
-                #ff8c9a;
-
-            background:
-                rgba(239,35,60,0.10);
-
-            border:
-                1px solid
-                rgba(239,35,60,0.18);
-
-            font-size: 9px;
-
-            font-weight: 800;
-        }
-
-        .album-wrap {
-
-            width:
-                min(
-                    330px,
-                    70%
-                );
-
-            aspect-ratio: 1;
-
-            margin:
-                4px auto 23px;
-
-            position: relative;
-        }
-
-        .album {
-
-            width: 100%;
-
-            height: 100%;
-
-            object-fit: cover;
-
-            border-radius: 22px;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #1b1b20,
-                    #101014
-                );
-
-            border:
-                1px solid
-                var(--border);
-
-            box-shadow:
-                0 25px 70px
-                rgba(0,0,0,0.45);
-        }
-
-        .album-placeholder {
-
-            position: absolute;
-
-            inset: 0;
-
-            display: grid;
-
-            place-items: center;
-
-            border-radius: 22px;
-
-            color:
-                rgba(255,255,255,0.20);
-
-            font-size: 60px;
-
-            pointer-events:
-                none;
-        }
-
-        .album.has-image +
-        .album-placeholder {
-
-            display: none;
-        }
-
-        .track {
-
-            text-align: center;
-        }
-
-        .track-title {
-
-            margin: 0;
-
-            font-size:
-                clamp(
-                    23px,
-                    3vw,
-                    30px
-                );
-
-            line-height: 1.15;
-
-            letter-spacing:
-                -0.04em;
-
-            font-weight: 850;
-        }
-
-        .track-artist {
-
-            margin:
-                7px 0 13px;
-
-            color:
-                var(--muted);
-
-            font-size: 14px;
-        }
-
-        .track-meta {
-
-            display: flex;
-
-            justify-content:
-                center;
-
-            gap: 8px;
-
-            flex-wrap: wrap;
-        }
-
-        .meta-pill {
-
-            padding:
-                6px 9px;
-
-            border-radius:
-                999px;
-
-            color:
-                var(--muted);
-
-            background:
-                rgba(255,255,255,0.04);
-
-            border:
-                1px solid
-                var(--border);
-
-            font-size: 10px;
-        }
-
-        /* ============================================================
-           PROGRESS
-           ============================================================ */
-
-        .progress-area {
-
-            margin-top:
-                25px;
-        }
-
-        .progress {
-
-            width: 100%;
-
-            height: 5px;
-
-            appearance: none;
-
-            -webkit-appearance: none;
-
-            border-radius:
-                999px;
-
-            background:
-                rgba(255,255,255,0.10);
-
-            outline: none;
-        }
-
-        .progress::-webkit-slider-thumb {
-
-            appearance: none;
-
-            -webkit-appearance: none;
-
-            width: 14px;
-
-            height: 14px;
-
-            border-radius:
-                50%;
-
-            background:
-                #ffffff;
-
-            box-shadow:
-                0 2px 10px
-                rgba(0,0,0,0.4);
-
-            cursor: pointer;
-        }
-
-        .progress::-moz-range-thumb {
-
-            width: 14px;
-
-            height: 14px;
-
-            border: 0;
-
-            border-radius:
-                50%;
-
-            background:
-                #ffffff;
-
-            cursor: pointer;
-        }
-
-        .time {
-
-            display: flex;
-
-            justify-content:
-                space-between;
-
-            margin-top: 7px;
-
-            color:
-                var(--muted-2);
-
-            font-size: 10px;
-        }
-
-        /* ============================================================
-           PLAYER CONTROLS
-           ============================================================ */
-
-        .player-controls {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content:
-                center;
-
-            gap: 9px;
-
-            margin-top: 19px;
-        }
-
-        .player-btn {
-
-            width: 42px;
-
-            height: 42px;
-
-            display: grid;
-
-            place-items: center;
-
-            border-radius:
-                13px;
-
-            color:
-                var(--muted);
-
-            background:
-                rgba(255,255,255,0.05);
-
-            border:
-                1px solid
-                var(--border);
-
-            transition:
-                transform 0.18s ease,
-                background 0.18s ease,
-                color 0.18s ease;
-        }
-
-        .player-btn:hover {
-
-            color:
-                #ffffff;
-
-            background:
-                rgba(255,255,255,0.09);
-
-            transform:
-                translateY(-1px);
-        }
-
-        .player-btn.primary {
-
-            width: 54px;
-
-            height: 54px;
-
-            color:
-                white;
-
-            background:
-                var(--red);
-
-            border-color:
-                transparent;
-
-            box-shadow:
-                0 12px 35px
-                rgba(239,35,60,0.25);
-        }
-
-        .player-btn.primary:hover {
-
-            background:
-                var(--red-light);
-        }
-
-        .player-btn:disabled {
-
-            opacity:
-                0.3;
-
-            cursor:
-                not-allowed;
-
-            transform:
-                none;
-        }
-
-        /* ============================================================
-           VOLUME
-           ============================================================ */
-
-        .volume {
-
-            width: min(
-                260px,
-                75%
-            );
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-
-            margin:
-                17px auto 0;
-
-            color:
-                var(--muted);
-        }
-
-        .volume-slider {
-
-            flex: 1;
-
-            height: 4px;
-
-            appearance: none;
-
-            -webkit-appearance: none;
-
-            border-radius:
-                999px;
-
-            background:
-                rgba(255,255,255,0.10);
-        }
-
-        .volume-slider::-webkit-slider-thumb {
-
-            appearance: none;
-
-            -webkit-appearance: none;
-
-            width: 13px;
-
-            height: 13px;
-
-            border-radius:
-                50%;
-
-            background:
-                #ffffff;
-
-            cursor: pointer;
-        }
-
-        /* ============================================================
-           SECONDARY PANELS
-           ============================================================ */
-
-        .side-column {
-
-            display: flex;
-
-            flex-direction:
-                column;
-
-            gap: 18px;
-        }
-
-        .side-panel {
-
-            padding:
-                20px;
-        }
-
-        .queue {
-
-            min-height:
-                330px;
-        }
-
-        .queue-header {
-
-            display: flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            margin-bottom: 13px;
-        }
-
-        .queue-title {
-
-            font-size: 15px;
-
-            font-weight: 800;
-
-            letter-spacing:
-                -0.02em;
-        }
-
-        .queue-action {
-
-            color:
-                var(--muted-2);
-
-            background:
-                transparent;
-
-            font-size: 10px;
-
-            text-decoration:
-                underline;
-        }
-
-        .queue-empty {
-
-            min-height:
-                260px;
-
-            display: grid;
-
-            place-items: center;
-
-            text-align: center;
-
-            color:
-                var(--muted-2);
-
-            font-size: 11px;
-
-            line-height: 1.5;
-        }
-
-        .song-row {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-
-            padding:
-                9px;
-
-            border-radius: 13px;
-
-            transition:
-                background 0.18s ease;
-        }
-
-        .song-row:hover {
-
-            background:
-                rgba(255,255,255,0.04);
-        }
-
-        .song-art {
-
-            width: 40px;
-
-            height: 40px;
-
-            flex-shrink: 0;
-
-            border-radius: 9px;
-
-            object-fit: cover;
-
-            background:
-                #1a1a1e;
-        }
-
-        .song-info {
-
-            min-width: 0;
-
-            flex: 1;
-        }
-
-        .song-name {
-
-            overflow: hidden;
-
-            text-overflow:
-                ellipsis;
-
-            white-space:
-                nowrap;
-
-            font-size: 11px;
-
-            font-weight: 750;
-        }
-
-        .song-sub {
-
-            overflow: hidden;
-
-            text-overflow:
-                ellipsis;
-
-            white-space:
-                nowrap;
-
-            margin-top: 3px;
-
-            color:
-                var(--muted-2);
-
-            font-size: 9px;
-        }
-
-        .song-more {
-
-            color:
-                var(--muted-2);
-
-            background:
-                transparent;
-
-            font-size: 15px;
-        }
-
-        /* ============================================================
-           QUICK ACCESS
-           ============================================================ */
-
-        .quick-grid {
-
-            display: grid;
-
-            grid-template-columns:
-                1fr
-                1fr;
-
-            gap: 9px;
-        }
-
-        .quick {
-
-            min-height: 74px;
-
-            padding: 13px;
-
-            display: flex;
-
-            flex-direction:
-                column;
-
-            justify-content:
-                space-between;
-
-            border-radius:
-                14px;
-
-            background:
-                rgba(255,255,255,0.035);
-
-            border:
-                1px solid
-                var(--border);
-
-            color:
-                #ffffff;
-
-            text-align: left;
-
-            transition:
-                transform 0.18s ease,
-                border 0.18s ease,
-                background 0.18s ease;
-        }
-
-        .quick:hover {
-
-            transform:
-                translateY(-2px);
-
-            background:
-                rgba(255,255,255,0.055);
-
-            border-color:
-                var(--border-strong);
-        }
-
-        .quick-icon {
-
-            font-size: 18px;
-        }
-
-        .quick-label {
-
-            color:
-                var(--muted);
-
-            font-size: 10px;
-
-            font-weight: 750;
-        }
-
-        /* ============================================================
-           INFO
-           ============================================================ */
-
-        .info-row {
-
-            display: flex;
-
-            justify-content:
-                space-between;
-
-            gap: 14px;
-
-            padding:
-                11px 0;
-
-            border-bottom:
-                1px solid
-                rgba(255,255,255,0.05);
-        }
-
-        .info-row:last-child {
-
-            border-bottom: 0;
-        }
-
-        .info-key {
-
-            color:
-                var(--muted-2);
-
-            font-size: 10px;
-        }
-
-        .info-value {
-
-            text-align: right;
-
-            color:
-                rgba(255,255,255,0.78);
-
-            font-size: 10px;
-
-            font-weight: 650;
-        }
-
-        /* ============================================================
-           BOTTOM PLAYER
-           ============================================================ */
-
-        .bottom-player {
-
-            position: fixed;
-
-            left:
-                245px;
-
-            right: 0;
-
-            bottom: 0;
-
-            z-index: 30;
-
-            min-height:
-                88px;
-
-            padding:
-                12px 18px;
-
-            display: grid;
-
-            grid-template-columns:
-                minmax(190px, 1fr)
-                auto
-                minmax(190px, 1fr);
-
-            align-items: center;
-
-            gap: 20px;
-
-            background:
-                rgba(10,10,11,0.92);
-
-            backdrop-filter:
-                blur(22px);
-
-            -webkit-backdrop-filter:
-                blur(22px);
-
-            border-top:
-                1px solid
-                var(--border);
-        }
-
-        .mini-track {
-
-            min-width: 0;
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-        }
-
-        .mini-cover {
-
-            width: 52px;
-
-            height: 52px;
-
-            flex-shrink: 0;
-
-            object-fit: cover;
-
-            border-radius: 10px;
-
-            background:
-                #17171a;
-        }
-
-        .mini-info {
-
-            min-width: 0;
-        }
-
-        .mini-title {
-
-            overflow: hidden;
-
-            text-overflow:
-                ellipsis;
-
-            white-space:
-                nowrap;
-
-            font-size: 11px;
-
-            font-weight: 800;
-        }
-
-        .mini-artist {
-
-            margin-top: 3px;
-
-            overflow: hidden;
-
-            text-overflow:
-                ellipsis;
-
-            white-space:
-                nowrap;
-
-            color:
-                var(--muted-2);
-
-            font-size: 9px;
-        }
-
-        .mini-center {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content:
-                center;
-
-            gap: 8px;
-        }
-
-        .mini-btn {
-
-            width: 35px;
-
-            height: 35px;
-
-            display: grid;
-
-            place-items: center;
-
-            border-radius:
-                10px;
-
-            color:
-                var(--muted);
-
-            background:
-                transparent;
-        }
-
-        .mini-btn:hover {
-
-            color:
-                white;
-
-            background:
-                rgba(255,255,255,0.05);
-        }
-
-        .mini-btn.main {
-
-            width: 43px;
-
-            height: 43px;
-
-            color:
-                #ffffff;
-
-            background:
-                var(--red);
-        }
-
-        .mini-right {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content:
-                flex-end;
-
-            gap: 9px;
-        }
-
-        .mini-source {
-
-            padding:
-                6px 9px;
-
-            border-radius:
-                999px;
-
-            color:
-                rgba(255,255,255,0.55);
-
-            background:
-                rgba(255,255,255,0.04);
-
-            font-size: 9px;
-        }
-
-        /* ============================================================
-           YOUTUBE
-           ============================================================ */
-
-        .youtube-box {
-
-            margin-top:
-                18px;
-
-            overflow: hidden;
-
-            display: none;
-
-            border-radius:
-                17px;
-
-            border:
-                1px solid
-                var(--border);
-
-            background:
-                #000;
-        }
-
-        .youtube-box.active {
-
-            display: block;
-        }
-
-        .youtube-box iframe {
-
-            display: block;
-
-            width: 100%;
-
-            aspect-ratio:
-                16 / 9;
-
-            border: 0;
-        }
-
-        /* ============================================================
-           MODALS
-           ============================================================ */
-
-        .modal {
-
-            position: fixed;
-
-            inset: 0;
-
-            z-index: 100;
-
-            display: none;
-
-            align-items: center;
-
-            justify-content:
-                center;
-
-            padding: 20px;
-
-            background:
-                rgba(0,0,0,0.72);
-
-            backdrop-filter:
-                blur(9px);
-        }
-
-        .modal.active {
-
-            display: flex;
-        }
-
-        .modal-card {
-
-            width: min(
-                720px,
-                100%
-            );
-
-            max-height:
-                82vh;
-
-            overflow-y: auto;
-
-            padding:
-                25px;
-
-            border-radius:
-                22px;
-
-            background:
-                #121214;
-
-            border:
-                1px solid
-                var(--border-strong);
-
-            box-shadow:
-                0 35px 110px
-                rgba(0,0,0,0.55);
-        }
-
-        .modal-header {
-
-            display: flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            margin-bottom:
-                18px;
-        }
-
-        .modal-title {
-
-            margin: 0;
-
-            font-size: 20px;
-
-            letter-spacing:
-                -0.03em;
-        }
-
-        .modal-close {
-
-            width: 35px;
-
-            height: 35px;
-
-            border-radius: 10px;
-
-            color:
-                var(--muted);
-
-            background:
-                rgba(255,255,255,0.05);
-        }
-
-        .modal-card h3 {
-
-            margin:
-                20px 0 6px;
-
-            font-size: 13px;
-        }
-
-        .modal-card p {
-
-            margin:
-                0 0 9px;
-
-            color:
-                var(--muted);
-
-            font-size: 12px;
-
-            line-height: 1.65;
-        }
-
-        /* ============================================================
-           COOKIE
-           ============================================================ */
-
-        .cookie-banner {
-
-            position: fixed;
-
-            left: 265px;
-
-            right: 20px;
-
-            bottom: 105px;
-
-            z-index: 80;
-
-            width: min(
-                760px,
-                calc(100% - 285px)
-            );
-
-            margin: 0 auto;
-
-            display: none;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            gap: 18px;
-
-            padding:
-                15px 17px;
-
-            border-radius:
-                16px;
-
-            background:
-                rgba(20,20,23,0.97);
-
-            border:
-                1px solid
-                var(--border-strong);
-
-            box-shadow:
-                0 25px 70px
-                rgba(0,0,0,0.5);
-        }
-
-        .cookie-banner.active {
-
-            display: flex;
-        }
-
-        .cookie-title {
-
-            margin-bottom: 3px;
-
-            font-size: 12px;
-
-            font-weight: 800;
-        }
-
-        .cookie-text {
-
-            color:
-                var(--muted);
-
-            font-size: 10px;
-
-            line-height: 1.5;
-        }
-
-        .cookie-actions {
-
-            display: flex;
-
-            gap: 7px;
-
-            flex-shrink: 0;
-        }
-
-        .cookie-button {
-
-            height: 36px;
-
-            padding:
-                0 12px;
-
-            border-radius: 10px;
-
-            color:
-                #ffffff;
-
-            background:
-                rgba(255,255,255,0.06);
-
-            border:
-                1px solid
-                var(--border);
-
-            font-size: 10px;
-
-            font-weight: 750;
-        }
-
-        .cookie-button.primary {
-
-            background:
-                var(--red);
-
-            border-color:
-                transparent;
-        }
-
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
-
-        @media (
-            max-width: 1050px
-        ) {
-
-            .sidebar {
-
-                width: 210px;
-            }
-
-            .main {
-
-                width:
-                    calc(100% - 210px);
-
-                margin-left: 210px;
-            }
-
-            .bottom-player {
-
-                left: 210px;
-            }
-
-            .dashboard {
-
-                grid-template-columns:
-                    1fr;
-            }
-
-            .side-column {
-
-                display: grid;
-
-                grid-template-columns:
-                    1fr 1fr;
-            }
-        }
-
-        @media (
-            max-width: 760px
-        ) {
-
-            .sidebar {
-
-                position: static;
-
-                width: 100%;
-
-                height: auto;
-
-                padding: 10px;
-
-                border-right: 0;
-
-                border-bottom:
-                    1px solid
-                    var(--border);
-            }
-
-            .app {
-
-                display: block;
-            }
-
-            .brand {
-
-                padding:
-                    6px 7px 12px;
-            }
-
-            .nav {
-
-                display: grid;
-
-                grid-template-columns:
-                    repeat(
-                        4,
-                        1fr
-                    );
-            }
-
-            .nav-section,
-            .sidebar-spacer,
-            .account-mini {
-
-                display: none;
-            }
-
-            .nav-button {
-
-                justify-content:
-                    center;
-
-                padding: 7px;
-            }
-
-            .nav-label {
-
-                display: none;
-            }
-
-            .main {
-
-                width: 100%;
-
-                margin: 0;
-
-                padding:
-                    15px 12px 125px;
-            }
-
-            .topbar {
-
-                flex-direction:
-                    column;
-
-                align-items:
-                    stretch;
-            }
-
-            .top-actions {
-
-                justify-content:
-                    flex-end;
-            }
-
-            .guild-card {
-
-                flex-wrap:
-                    wrap;
-            }
-
-            .guild-input {
-
-                flex-basis:
-                    100%;
-
-                order:
-                    3;
-            }
-
-            .guild-status {
-
-                margin-left:
-                    auto;
-            }
-
-            .side-column {
-
-                display: grid;
-
-                grid-template-columns:
-                    1fr;
-            }
-
-            .bottom-player {
-
-                left: 0;
-
-                grid-template-columns:
-                    1fr
-                    auto;
-
-                min-height:
-                    76px;
-            }
-
-            .mini-right {
-
-                display: none;
-            }
-
-            .cookie-banner {
-
-                left: 12px;
-
-                right: 12px;
-
-                width:
-                    auto;
-
-                bottom: 92px;
-
-                align-items:
-                    flex-start;
-
-                flex-direction:
-                    column;
-            }
-
-            .cookie-actions {
-
-                width: 100%;
-            }
-
-            .cookie-button {
-
-                flex: 1;
-            }
-        }
-
-        @media (
-            max-width: 480px
-        ) {
-
-            .now-playing {
-
-                padding:
-                    18px;
-            }
-
-            .album-wrap {
-
-                width:
-                    min(
-                        280px,
-                        82vw
-                    );
-            }
-
-            .top-actions {
-
-                display: none;
-            }
-
-            .track-title {
-
-                font-size:
-                    23px;
-            }
-        }
-
-    </style>
+</style>
 
 </head>
 
@@ -2203,629 +4494,773 @@
 
 <div class="app">
 
-    <!-- ============================================================
-         SIDEBAR
-         ============================================================ -->
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
 
-    <aside class="sidebar">
+<aside
+    id="sidebar"
+    class="sidebar"
+>
 
-        <div class="brand">
+    <button
+        id="sidebarToggle"
+        class="sidebar-toggle"
+        type="button"
+        aria-label="Menu"
+        title="Menu"
+    >
 
-            <div class="brand-logo">
+        <span class="hamburger">
+            <span></span>
+        </span>
+
+    </button>
+
+    <div class="brand">
+
+        <div class="brand-logo">
+            🦆
+        </div>
+
+        <div>
+
+            <div class="brand-name">
+                DuckAI Music
+            </div>
+
+            <div class="brand-sub">
+                Music on the midnight lake
+            </div>
+
+        </div>
+
+    </div>
+
+    <div
+        class="sidebar-account-top"
+        role="button"
+        tabindex="0"
+        onclick="openModal('accountModal')"
+        onkeydown="if(event.key==='Enter'){openModal('accountModal');}"
+    >
+
+        <div class="sidebar-avatar">
+            🦆
+        </div>
+
+        <div>
+
+            <div class="sidebar-account-name">
+                DuckAI User
+            </div>
+
+            <div class="sidebar-account-sub">
+                View account
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="nav-title">
+        Workspace
+    </div>
+
+    <nav class="nav">
+
+        <button
+            class="nav-button active"
+            type="button"
+            onclick="activateNav(this)"
+        >
+
+            <span class="nav-icon">
+                ⌂
+            </span>
+
+            <span class="nav-label">
+                Home
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('searchModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ⌕
+            </span>
+
+            <span class="nav-label">
+                Search
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('libraryModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ▣
+            </span>
+
+            <span class="nav-label">
+                Library
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('playlistModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ☷
+            </span>
+
+            <span class="nav-label">
+                Playlists
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openLyrics();
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ♫
+            </span>
+
+            <span class="nav-label">
+                Lyrics
+            </span>
+
+        </button>
+
+    </nav>
+
+    <div
+        class="nav-title"
+        style="margin-top:25px;"
+    >
+        Account
+    </div>
+
+    <nav class="nav">
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('accountModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ◉
+            </span>
+
+            <span class="nav-label">
+                Account
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('settingsModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ⚙
+            </span>
+
+            <span class="nav-label">
+                Settings
+            </span>
+
+        </button>
+
+        <button
+            class="nav-button"
+            type="button"
+            onclick="
+                openModal('menuModal');
+                activateNav(this)
+            "
+        >
+
+            <span class="nav-icon">
+                ☰
+            </span>
+
+            <span class="nav-label">
+                Menu
+            </span>
+
+        </button>
+
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-footer-tag">
+        <b>●</b> Midnight Lake theme
+    </div>
+
+</aside>
+
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+
+<main class="main">
+
+<header class="topbar">
+
+    <div class="search">
+
+        <span class="search-icon">
+            ⌕
+        </span>
+
+        <input
+            id="searchInput"
+            class="search-input"
+            type="search"
+            autocomplete="off"
+            placeholder="Search songs, artists or albums..."
+        >
+
+    </div>
+
+    <div class="top-actions">
+
+        <button
+            class="icon-button"
+            type="button"
+            onclick="openLyrics()"
+            title="Lyrics"
+        >
+            ♫
+        </button>
+
+        <button
+            class="icon-button"
+            type="button"
+            onclick="openModal('playlistModal')"
+            title="Playlists"
+        >
+            ☷
+        </button>
+
+        <button
+            class="icon-button"
+            type="button"
+            onclick="openModal('settingsModal')"
+            title="Settings"
+        >
+            ⚙
+        </button>
+
+        <button
+            class="account-chip"
+            type="button"
+            onclick="openModal('accountModal')"
+            title="Account"
+        >
+
+            <span class="account-chip-avatar">
                 🦆
-            </div>
+            </span>
 
-            <div>
+            <span class="account-chip-text">
 
-                <div class="brand-name">
-                    DuckAI Music
-                </div>
-
-                <div class="brand-subtitle">
-                    Smart music control
-                </div>
-
-            </div>
-
-        </div>
-
-        <div class="nav-section">
-            Workspace
-        </div>
-
-        <nav class="nav">
-
-            <button
-                class="nav-button active"
-                onclick="setSection(this, 'home')"
-            >
-                <span class="nav-icon">⌂</span>
-                <span class="nav-label">Home</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openModal('searchModal')"
-            >
-                <span class="nav-icon">⌕</span>
-                <span class="nav-label">Search</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openModal('libraryModal')"
-            >
-                <span class="nav-icon">▣</span>
-                <span class="nav-label">Library</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openModal('playlistModal')"
-            >
-                <span class="nav-icon">☷</span>
-                <span class="nav-label">Playlists</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openLyrics()"
-            >
-                <span class="nav-icon">♫</span>
-                <span class="nav-label">Lyrics</span>
-            </button>
-
-        </nav>
-
-        <div class="nav-section" style="margin-top:25px;">
-            Account
-        </div>
-
-        <nav class="nav">
-
-            <button
-                class="nav-button"
-                onclick="openModal('accountModal')"
-            >
-                <span class="nav-icon">◉</span>
-                <span class="nav-label">Account</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openModal('settingsModal')"
-            >
-                <span class="nav-icon">⚙</span>
-                <span class="nav-label">Settings</span>
-            </button>
-
-            <button
-                class="nav-button"
-                onclick="openModal('menuModal')"
-            >
-                <span class="nav-icon">☰</span>
-                <span class="nav-label">Menu</span>
-            </button>
-
-        </nav>
-
-        <div class="sidebar-spacer"></div>
-
-        <div class="account-mini">
-
-            <div class="avatar">
-                🦆
-            </div>
-
-            <div>
-
-                <div class="account-name">
+                <span class="account-chip-name">
                     DuckAI User
-                </div>
-
-                <div class="account-status">
-                    Music dashboard
-                </div>
-
-            </div>
-
-        </div>
-
-    </aside>
-
-    <!-- ============================================================
-         MAIN
-         ============================================================ -->
-
-    <main class="main">
-
-        <!-- ========================================================
-             TOPBAR
-             ======================================================== -->
-
-        <header class="topbar">
-
-            <div class="search">
-
-                <span class="search-icon">
-                    ⌕
                 </span>
 
-                <input
-                    id="searchInput"
-                    class="search-input"
-                    type="search"
-                    placeholder="Search songs, artists or albums..."
-                    autocomplete="off"
-                >
+                <span class="account-chip-sub">
+                    Account
+                </span>
 
+            </span>
+
+        </button>
+
+    </div>
+
+</header>
+
+<section class="guild-bar">
+
+    <div class="guild-icon">
+        ⚡
+    </div>
+
+    <div>
+
+        <div class="guild-label">
+            Discord Server
+        </div>
+
+        <div
+            id="guildStatus"
+            class="guild-status"
+        >
+            No server selected
+        </div>
+
+    </div>
+
+    <div class="guild-input-wrap">
+
+        <input
+            id="guildIdInput"
+            class="guild-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Discord Server ID"
+        >
+
+        <button
+            id="guildConnect"
+            class="primary-button"
+            type="button"
+        >
+            Connect
+        </button>
+
+    </div>
+
+</section>
+
+<section class="content-grid">
+
+<section class="panel now-playing">
+
+    <div class="panel-header">
+
+        <div>
+
+            <div class="panel-title">
+                Now Playing
             </div>
 
-            <div class="top-actions">
-
-                <button
-                    class="top-button"
-                    onclick="openLyrics()"
-                    title="Lyrics"
-                >
-                    ♫
-                </button>
-
-                <button
-                    class="top-button"
-                    onclick="openModal('playlistModal')"
-                    title="Playlists"
-                >
-                    ☷
-                </button>
-
-                <button
-                    class="top-button"
-                    onclick="openModal('accountModal')"
-                    title="Account"
-                >
-                    ◉
-                </button>
-
+            <div class="panel-subtitle">
+                Current Discord playback
             </div>
 
-        </header>
+        </div>
 
-        <!-- ========================================================
-             GUILD
-             ======================================================== -->
+        <div
+            id="sourceBadge"
+            class="source-pill"
+        >
+            No source
+        </div>
 
-        <section class="guild-card">
+    </div>
+
+    <div class="artwork-area">
+
+        <img
+            id="cover"
+            class="artwork"
+            alt=""
+        >
+
+        <div
+            id="coverPlaceholder"
+            class="artwork-placeholder"
+        >
+            🦆
+        </div>
+
+    </div>
+
+    <div class="track-info">
+
+        <h1
+            id="title"
+            class="track-title"
+        >
+            DuckAI Music
+        </h1>
+
+        <div
+            id="artist"
+            class="track-artist"
+        >
+            No song selected
+        </div>
+
+        <div class="track-tags">
+
+            <span
+                id="trackDuration"
+                class="track-tag"
+            >
+                0:00
+            </span>
+
+            <span
+                id="trackSource"
+                class="track-tag"
+            >
+                No source
+            </span>
+
+            <span
+                id="trackVoice"
+                class="track-tag"
+            >
+                Discord Voice
+            </span>
+
+        </div>
+
+    </div>
+
+    <div class="progress-wrap">
+
+        <input
+            id="progress"
+            class="range"
+            type="range"
+            min="0"
+            max="100"
+            value="0"
+            step="0.1"
+        >
+
+        <div class="time-row">
+
+            <span id="currentTime">
+                0:00
+            </span>
+
+            <span id="duration">
+                0:00
+            </span>
+
+        </div>
+
+    </div>
+
+    <div
+        id="controls"
+        class="controls"
+    >
+
+        <button
+            class="control-button"
+            type="button"
+            onclick="previousMusic()"
+            title="Previous"
+        >
+
+            <span class="icon-prev">
+                ‹
+            </span>
+
+        </button>
+
+        <button
+            class="control-button"
+            type="button"
+            onclick="stopMusic()"
+            title="Stop"
+        >
+
+            <span class="icon-stop"></span>
+
+        </button>
+
+        <button
+            id="mainPlayButton"
+            class="control-button main"
+            type="button"
+            onclick="playMusic()"
+            title="Play"
+        >
+
+            <span class="icon-play"></span>
+
+        </button>
+
+        <button
+            class="control-button"
+            type="button"
+            onclick="pauseMusic()"
+            title="Pause"
+        >
+
+            <span class="icon-pause"></span>
+
+        </button>
+
+        <button
+            class="control-button"
+            type="button"
+            onclick="nextMusic()"
+            title="Next"
+        >
+
+            <span class="icon-next">
+                ›
+            </span>
+
+        </button>
+
+    </div>
+
+    <div class="volume-row">
+
+        <span>
+            🔊
+        </span>
+
+        <input
+            id="volume"
+            class="range volume"
+            type="range"
+            min="0"
+            max="1"
+            value="1"
+            step="0.01"
+        >
+
+    </div>
+
+    <div class="status-line">
+
+        <span
+            id="statusDot"
+            class="status-dot"
+        ></span>
+
+        <span id="status">
+            Stopped
+        </span>
+
+    </div>
+
+    <div
+        id="message"
+        class="message"
+    ></div>
+
+</section>
+
+<div class="side-stack">
+
+    <section class="panel side-panel">
+
+        <div class="panel-header">
 
             <div>
 
-                <div class="guild-label">
-                    Discord Server
+                <div class="panel-title">
+                    Queue
                 </div>
 
-                <div
-                    id="guildStatus"
-                    class="guild-status"
-                >
-                    No server selected
+                <div class="panel-subtitle">
+                    Upcoming songs
                 </div>
 
             </div>
 
-            <input
-                id="guildIdInput"
-                class="guild-input"
-                type="text"
-                inputmode="numeric"
-                placeholder="Discord Server ID"
-                autocomplete="off"
-            >
-
             <button
-                id="guildConnect"
-                class="guild-connect"
+                class="panel-action"
                 type="button"
+                onclick="clearQueue()"
             >
-                Connect
+                Clear
             </button>
 
-        </section>
+        </div>
 
-        <!-- ========================================================
-             DASHBOARD
-             ======================================================== -->
+        <div
+            id="queueList"
+            class="queue-list"
+        >
 
-        <section class="dashboard">
+            <div class="queue-empty">
 
-            <!-- ====================================================
-                 NOW PLAYING
-                 ==================================================== -->
-
-            <section class="panel now-playing">
-
-                <div class="panel-heading">
-
-                    <div class="panel-heading-title">
-                        Now Playing
-                    </div>
+                <div>
 
                     <div
-                        id="sourceBadge"
-                        class="source-pill"
-                    >
-                        No source
-                    </div>
-
-                </div>
-
-                <div class="album-wrap">
-
-                    <img
-                        id="cover"
-                        class="album"
-                        alt="Album artwork"
-                    >
-
-                    <div
-                        id="coverPlaceholder"
-                        class="album-placeholder"
+                        style="
+                            font-size:28px;
+                            margin-bottom:9px;
+                        "
                     >
                         ♫
                     </div>
 
-                </div>
+                    No songs in the queue.
 
-                <div class="track">
+                    <br>
 
-                    <h1
-                        id="title"
-                        class="track-title"
-                    >
-                        DuckAI Music
-                    </h1>
-
-                    <div
-                        id="artist"
-                        class="track-artist"
-                    >
-                        No song selected
-                    </div>
-
-                    <div class="track-meta">
-
-                        <span
-                            id="trackDuration"
-                            class="meta-pill"
-                        >
-                            0:00
-                        </span>
-
-                        <span
-                            id="trackSource"
-                            class="meta-pill"
-                        >
-                            No source
-                        </span>
-
-                        <span
-                            id="trackVoice"
-                            class="meta-pill"
-                        >
-                            Discord Voice
-                        </span>
-
-                    </div>
+                    Search with DuckAI to add music.
 
                 </div>
-
-                <div class="progress-area">
-
-                    <input
-                        id="progress"
-                        class="progress"
-                        type="range"
-                        min="0"
-                        max="100"
-                        value="0"
-                        step="0.1"
-                    >
-
-                    <div class="time">
-
-                        <span id="currentTime">
-                            0:00
-                        </span>
-
-                        <span id="duration">
-                            0:00
-                        </span>
-
-                    </div>
-
-                </div>
-
-                <div class="player-controls">
-
-                    <button
-                        class="player-btn"
-                        onclick="previousMusic()"
-                        title="Previous"
-                    >
-                        ↶
-                    </button>
-
-                    <button
-                        class="player-btn"
-                        onclick="stopMusic()"
-                        title="Stop"
-                    >
-                        ■
-                    </button>
-
-                    <button
-                        id="mainPlayButton"
-                        class="player-btn primary"
-                        onclick="playMusic()"
-                        title="Play"
-                    >
-                        ▶
-                    </button>
-
-                    <button
-                        class="player-btn"
-                        onclick="pauseMusic()"
-                        title="Pause"
-                    >
-                        ❚❚
-                    </button>
-
-                    <button
-                        class="player-btn"
-                        onclick="nextMusic()"
-                        title="Next"
-                    >
-                        ↷
-                    </button>
-
-                </div>
-
-                <div class="volume">
-
-                    <span>
-                        🔊
-                    </span>
-
-                    <input
-                        id="volume"
-                        class="volume-slider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        value="1"
-                        step="0.01"
-                    >
-
-                </div>
-
-                <div
-                    id="status"
-                    style="
-                        margin-top:14px;
-                        text-align:center;
-                        color:rgba(255,255,255,0.38);
-                        font-size:10px;
-                    "
-                >
-                    Stopped
-                </div>
-
-                <div
-                    id="message"
-                    class="message"
-                ></div>
-
-                <div
-                    id="youtubeBox"
-                    class="youtube-box"
-                >
-
-                    <iframe
-                        id="youtubeFrame"
-                        title="YouTube Player"
-                        allow="
-                            accelerometer;
-                            autoplay;
-                            clipboard-write;
-                            encrypted-media;
-                            gyroscope;
-                            picture-in-picture;
-                            web-share
-                        "
-                        allowfullscreen
-                    ></iframe>
-
-                </div>
-
-            </section>
-
-            <!-- ====================================================
-                 SIDE
-                 ==================================================== -->
-
-            <div class="side-column">
-
-                <!-- ==================================================
-                     QUEUE
-                     ================================================== -->
-
-                <section class="panel side-panel queue">
-
-                    <div class="queue-header">
-
-                        <div class="queue-title">
-                            Queue
-                        </div>
-
-                        <button
-                            class="queue-action"
-                            onclick="clearQueue()"
-                        >
-                            Clear
-                        </button>
-
-                    </div>
-
-                    <div
-                        id="queueList"
-                    >
-
-                        <div class="queue-empty">
-                            No songs in the queue.<br>
-                            Search through DuckAI to add music.
-                        </div>
-
-                    </div>
-
-                </section>
-
-                <!-- ==================================================
-                     QUICK ACCESS
-                     ================================================== -->
-
-                <section class="panel side-panel">
-
-                    <div class="queue-title"
-                         style="margin-bottom:13px;">
-                        Quick Access
-                    </div>
-
-                    <div class="quick-grid">
-
-                        <button
-                            class="quick"
-                            onclick="openLyrics()"
-                        >
-                            <span class="quick-icon">
-                                ♫
-                            </span>
-
-                            <span class="quick-label">
-                                Lyrics
-                            </span>
-                        </button>
-
-                        <button
-                            class="quick"
-                            onclick="openModal('playlistModal')"
-                        >
-                            <span class="quick-icon">
-                                ☷
-                            </span>
-
-                            <span class="quick-label">
-                                Playlists
-                            </span>
-                        </button>
-
-                        <button
-                            class="quick"
-                            onclick="openModal('libraryModal')"
-                        >
-                            <span class="quick-icon">
-                                ▣
-                            </span>
-
-                            <span class="quick-label">
-                                Library
-                            </span>
-                        </button>
-
-                        <button
-                            class="quick"
-                            onclick="openModal('accountModal')"
-                        >
-                            <span class="quick-icon">
-                                ◉
-                            </span>
-
-                            <span class="quick-label">
-                                Account
-                            </span>
-                        </button>
-
-                    </div>
-
-                </section>
-
-                <!-- ==================================================
-                     CONNECTION
-                     ================================================== -->
-
-                <section class="panel side-panel">
-
-                    <div class="queue-title"
-                         style="margin-bottom:8px;">
-                        Connection
-                    </div>
-
-                    <div class="info-row">
-
-                        <span class="info-key">
-                            Server
-                        </span>
-
-                        <span
-                            id="infoGuild"
-                            class="info-value"
-                        >
-                            Not selected
-                        </span>
-
-                    </div>
-
-                    <div class="info-row">
-
-                        <span class="info-key">
-                            Voice
-                        </span>
-
-                        <span
-                            id="infoVoice"
-                            class="info-value"
-                        >
-                            Offline
-                        </span>
-
-                    </div>
-
-                    <div class="info-row">
-
-                        <span class="info-key">
-                            Status
-                        </span>
-
-                        <span
-                            id="infoStatus"
-                            class="info-value"
-                        >
-                            Stopped
-                        </span>
-
-                    </div>
-
-                </section>
 
             </div>
 
-        </section>
+        </div>
 
-    </main>
+    </section>
+
+    <section class="panel side-panel">
+
+        <div class="panel-header">
+
+            <div>
+
+                <div class="panel-title">
+                    Lyrics
+                </div>
+
+                <div class="panel-subtitle">
+                    Current track
+                </div>
+
+            </div>
+
+            <button
+                class="panel-action"
+                type="button"
+                onclick="openLyrics()"
+            >
+                Open
+            </button>
+
+        </div>
+
+        <div
+            id="lyricsPreview"
+            class="lyrics-preview"
+        >
+            Select a song to display its lyrics when the lyrics service is connected.
+        </div>
+
+    </section>
+
+    <section class="panel side-panel">
+
+        <div class="panel-title">
+            Connection
+        </div>
+
+        <div class="info-list">
+
+            <div class="info-row">
+
+                <span class="info-key">
+                    Server
+                </span>
+
+                <span
+                    id="infoGuild"
+                    class="info-value"
+                >
+                    Not selected
+                </span>
+
+            </div>
+
+            <div class="info-row">
+
+                <span class="info-key">
+                    Voice
+                </span>
+
+                <span
+                    id="infoVoice"
+                    class="info-value"
+                >
+                    Offline
+                </span>
+
+            </div>
+
+            <div class="info-row">
+
+                <span class="info-key">
+                    Playback
+                </span>
+
+                <span
+                    id="infoStatus"
+                    class="info-value"
+                >
+                    Stopped
+                </span>
+
+            </div>
+
+            <div class="info-row">
+
+                <span class="info-key">
+                    Source
+                </span>
+
+                <span
+                    id="infoSource"
+                    class="info-value"
+                >
+                    None
+                </span>
+
+            </div>
+
+        </div>
+
+    </section>
 
 </div>
 
-<!-- ================================================================
+</section>
+
+</main>
+
+</div>
+
+<!-- ============================================================
      BOTTOM PLAYER
-     ================================================================ -->
+     ============================================================ -->
 
 <div class="bottom-player">
 
@@ -2833,7 +5268,7 @@
 
         <img
             id="miniCover"
-            class="mini-cover"
+            class="mini-art"
             alt=""
         >
 
@@ -2857,35 +5292,55 @@
 
     </div>
 
-    <div class="mini-center">
+    <div class="mini-controls">
 
         <button
-            class="mini-btn"
+            class="mini-button"
+            type="button"
             onclick="previousMusic()"
+            title="Previous"
         >
-            ↶
+
+            <span class="icon-prev">
+                ‹
+            </span>
+
         </button>
 
         <button
             id="miniPlayButton"
-            class="mini-btn main"
+            class="mini-button main"
+            type="button"
             onclick="playMusic()"
+            title="Play"
         >
-            ▶
+
+            <span class="icon-play"></span>
+
         </button>
 
         <button
-            class="mini-btn"
+            class="mini-button"
+            type="button"
             onclick="stopMusic()"
+            title="Stop"
         >
-            ■
+
+            <span class="icon-stop"></span>
+
         </button>
 
         <button
-            class="mini-btn"
+            class="mini-button"
+            type="button"
             onclick="nextMusic()"
+            title="Next"
         >
-            ↷
+
+            <span class="icon-next">
+                ›
+            </span>
+
         </button>
 
     </div>
@@ -2900,8 +5355,10 @@
         </span>
 
         <button
-            class="mini-btn"
+            class="mini-button"
+            type="button"
             onclick="openLyrics()"
+            title="Lyrics"
         >
             ♫
         </button>
@@ -2910,9 +5367,9 @@
 
 </div>
 
-<!-- ================================================================
+<!-- ============================================================
      COOKIES
-     ================================================================ -->
+     ============================================================ -->
 
 <div
     id="cookieBanner"
@@ -2922,13 +5379,13 @@
     <div>
 
         <div class="cookie-title">
-            🍪 Cookies
+            🍪 Cookies & preferences
         </div>
 
         <div class="cookie-text">
-            Usamos apenas armazenamento necessário para
-            preferências do player. Conteúdos de terceiros,
-            como YouTube, podem ter as suas próprias políticas.
+            O DuckAI guarda apenas preferências essenciais
+            para o funcionamento da interface. Conteúdos
+            externos podem ter políticas próprias.
         </div>
 
     </div>
@@ -2937,6 +5394,7 @@
 
         <button
             class="cookie-button"
+            type="button"
             onclick="openModal('cookiesModal')"
         >
             Saber mais
@@ -2944,6 +5402,7 @@
 
         <button
             class="cookie-button primary"
+            type="button"
             onclick="acceptCookies()"
         >
             Aceitar
@@ -2953,14 +5412,72 @@
 
 </div>
 
-<!-- ================================================================
-     MODALS
-     ================================================================ -->
+<!-- ============================================================
+     SEARCH MODAL
+     ============================================================ -->
+
+<div
+    id="searchModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event,'searchModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Search
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('searchModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <div class="search">
+
+            <span class="search-icon">
+                ⌕
+            </span>
+
+            <input
+                id="modalSearchInput"
+                class="search-input"
+                type="search"
+                placeholder="Search a song or artist..."
+                autocomplete="off"
+            >
+
+        </div>
+
+        <div
+            id="searchResults"
+            class="search-results"
+        >
+
+            <div class="queue-empty">
+                Search results will appear here.
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ============================================================
+     LYRICS MODAL
+     ============================================================ -->
 
 <div
     id="lyricsModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'lyricsModal')"
+    onclick="closeModalOnBackdrop(event,'lyricsModal')"
 >
 
     <div class="modal-card">
@@ -2980,39 +5497,26 @@
 
         </div>
 
-        <p>
-            As letras podem ser integradas aqui futuramente.
-        </p>
-
-        <p>
-            A faixa atualmente selecionada é mostrada para
-            que o sistema de lyrics possa ser ligado ao backend.
-        </p>
-
         <div
             id="lyricsContent"
-            style="
-                margin-top:20px;
-                padding:20px;
-                border-radius:16px;
-                background:rgba(255,255,255,0.035);
-                color:rgba(255,255,255,0.58);
-                line-height:1.8;
-                font-size:13px;
-                text-align:center;
-            "
+            class="lyrics-modal-box"
         >
-            Lyrics not available yet.
+            Lyrics for the selected song will appear
+            here when the lyrics backend is connected.
         </div>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     PLAYLIST MODAL
+     ============================================================ -->
+
 <div
     id="playlistModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'playlistModal')"
+    onclick="closeModalOnBackdrop(event,'playlistModal')"
 >
 
     <div class="modal-card">
@@ -3033,42 +5537,22 @@
         </div>
 
         <p>
-            As tuas playlists aparecerão aqui.
+            Guarda, organiza e reproduz as tuas playlists
+            através do DuckAI.
         </p>
-
-        <div class="quick-grid"
-             style="margin-top:18px;">
-
-            <button class="quick">
-                <span class="quick-icon">
-                    ＋
-                </span>
-
-                <span class="quick-label">
-                    New playlist
-                </span>
-            </button>
-
-            <button class="quick">
-                <span class="quick-icon">
-                    ♡
-                </span>
-
-                <span class="quick-label">
-                    Liked songs
-                </span>
-            </button>
-
-        </div>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     LIBRARY MODAL
+     ============================================================ -->
+
 <div
     id="libraryModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'libraryModal')"
+    onclick="closeModalOnBackdrop(event,'libraryModal')"
 >
 
     <div class="modal-card">
@@ -3089,18 +5573,22 @@
         </div>
 
         <p>
-            A biblioteca pessoal do DuckAI ficará disponível
-            aqui quando o armazenamento de músicas for ligado.
+            A biblioteca pessoal será ligada ao backend
+            de armazenamento do DuckAI.
         </p>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     ACCOUNT MODAL
+     ============================================================ -->
+
 <div
     id="accountModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'accountModal')"
+    onclick="closeModalOnBackdrop(event,'accountModal')"
 >
 
     <div class="modal-card">
@@ -3120,30 +5608,34 @@
 
         </div>
 
-        <div class="info-row">
+        <div class="info-list">
 
-            <span class="info-key">
-                Account
-            </span>
+            <div class="info-row">
 
-            <span class="info-value">
-                DuckAI User
-            </span>
+                <span class="info-key">
+                    Profile
+                </span>
 
-        </div>
+                <span class="info-value">
+                    DuckAI User
+                </span>
 
-        <div class="info-row">
+            </div>
 
-            <span class="info-key">
-                Discord server
-            </span>
+            <div class="info-row">
 
-            <span
-                id="accountGuild"
-                class="info-value"
-            >
-                Not selected
-            </span>
+                <span class="info-key">
+                    Discord server
+                </span>
+
+                <span
+                    id="accountGuild"
+                    class="info-value"
+                >
+                    Not selected
+                </span>
+
+            </div>
 
         </div>
 
@@ -3151,10 +5643,14 @@
 
 </div>
 
+<!-- ============================================================
+     SETTINGS
+     ============================================================ -->
+
 <div
     id="settingsModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'settingsModal')"
+    onclick="closeModalOnBackdrop(event,'settingsModal')"
 >
 
     <div class="modal-card">
@@ -3174,27 +5670,46 @@
 
         </div>
 
-        <div class="info-row">
+        <div class="info-list">
 
-            <span class="info-key">
-                Theme
-            </span>
+            <div class="info-row">
 
-            <span class="info-value">
-                DuckAI Red
-            </span>
+                <span class="info-key">
+                    Theme
+                </span>
 
-        </div>
+                <span class="info-value">
+                    DuckAI Midnight Lake
+                </span>
 
-        <div class="info-row">
+            </div>
 
-            <span class="info-key">
-                Default volume
-            </span>
+            <div class="info-row">
 
-            <span class="info-value">
-                100%
-            </span>
+                <span class="info-key">
+                    Auto refresh
+                </span>
+
+                <span class="info-value">
+                    2 seconds
+                </span>
+
+            </div>
+
+            <div class="info-row">
+
+                <span class="info-key">
+                    Volume
+                </span>
+
+                <span
+                    id="settingsVolume"
+                    class="info-value"
+                >
+                    100%
+                </span>
+
+            </div>
 
         </div>
 
@@ -3202,10 +5717,14 @@
 
 </div>
 
+<!-- ============================================================
+     MENU
+     ============================================================ -->
+
 <div
     id="menuModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'menuModal')"
+    onclick="closeModalOnBackdrop(event,'menuModal')"
 >
 
     <div class="modal-card">
@@ -3225,56 +5744,72 @@
 
         </div>
 
-        <button
-            class="quick"
-            style="width:100%; margin-bottom:8px;"
-            onclick="openModal('termsModal')"
+        <div
+            style="
+                display:grid;
+                gap:8px;
+            "
         >
-            <span class="quick-icon">
-                §
-            </span>
 
-            <span class="quick-label">
-                Terms of Service
-            </span>
-        </button>
+            <button
+                type="button"
+                onclick="openModal('termsModal')"
+                style="
+                    padding:14px;
+                    text-align:left;
+                    color:var(--text);
+                    background:rgba(255,255,255,.03);
+                    border:1px solid var(--border);
+                    border-radius:13px;
+                "
+            >
+                § &nbsp; Terms of Service
+            </button>
 
-        <button
-            class="quick"
-            style="width:100%; margin-bottom:8px;"
-            onclick="openModal('privacyModal')"
-        >
-            <span class="quick-icon">
-                ◌
-            </span>
+            <button
+                type="button"
+                onclick="openModal('privacyModal')"
+                style="
+                    padding:14px;
+                    text-align:left;
+                    color:var(--text);
+                    background:rgba(255,255,255,.03);
+                    border:1px solid var(--border);
+                    border-radius:13px;
+                "
+            >
+                ◌ &nbsp; Privacy
+            </button>
 
-            <span class="quick-label">
-                Privacy
-            </span>
-        </button>
+            <button
+                type="button"
+                onclick="openModal('cookiesModal')"
+                style="
+                    padding:14px;
+                    text-align:left;
+                    color:var(--text);
+                    background:rgba(255,255,255,.03);
+                    border:1px solid var(--border);
+                    border-radius:13px;
+                "
+            >
+                🍪 &nbsp; Cookies
+            </button>
 
-        <button
-            class="quick"
-            style="width:100%;"
-            onclick="openModal('cookiesModal')"
-        >
-            <span class="quick-icon">
-                🍪
-            </span>
-
-            <span class="quick-label">
-                Cookies
-            </span>
-        </button>
+        </div>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     TERMS
+     ============================================================ -->
+
 <div
     id="termsModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'termsModal')"
+    onclick="closeModalOnBackdrop(event,'termsModal')"
 >
 
     <div class="modal-card">
@@ -3305,42 +5840,46 @@
         <h3>2. Third-party services</h3>
 
         <p>
-            O serviço pode utilizar plataformas de terceiros,
-            incluindo YouTube e Audius. Essas plataformas mantêm
-            os seus próprios termos e políticas.
+            O serviço pode utilizar plataformas externas como
+            YouTube e Audius. Essas plataformas possuem os seus
+            próprios termos e políticas.
         </p>
 
         <h3>3. User responsibility</h3>
 
         <p>
             O utilizador é responsável pela utilização do serviço
-            de acordo com a legislação aplicável e os termos das
-            plataformas utilizadas.
+            de acordo com a legislação aplicável e as regras dos
+            serviços de terceiros.
         </p>
 
         <h3>4. Availability</h3>
 
         <p>
-            A disponibilidade das funcionalidades não é garantida.
-            O serviço pode ser alterado ou interrompido.
+            As funcionalidades podem ser alteradas, suspensas
+            ou removidas sem garantia de disponibilidade contínua.
         </p>
 
         <h3>5. Abuse</h3>
 
         <p>
-            Não é permitido utilizar DuckAI para contornar
-            mecanismos de segurança ou limitações técnicas
-            de serviços de terceiros.
+            Não é permitido utilizar o DuckAI para contornar
+            mecanismos de segurança, autenticação ou limitações
+            técnicas de serviços de terceiros.
         </p>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     PRIVACY
+     ============================================================ -->
+
 <div
     id="privacyModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'privacyModal')"
+    onclick="closeModalOnBackdrop(event,'privacyModal')"
 >
 
     <div class="modal-card">
@@ -3363,33 +5902,38 @@
         <h3>Information processed</h3>
 
         <p>
-            O player pode processar o ID do servidor Discord
-            fornecido pelo utilizador e informações necessárias
-            para mostrar o estado da música.
+            O player pode processar o ID do servidor Discord,
+            informações de reprodução e dados técnicos necessários
+            para disponibilizar a interface.
         </p>
 
         <h3>Local preferences</h3>
 
         <p>
-            A preferência de cookies e algumas preferências locais
-            podem ser armazenadas no navegador.
+            Preferências da interface podem ser armazenadas
+            localmente no navegador.
         </p>
 
-        <h3>Third-party services</h3>
+        <h3>Third-party content</h3>
 
         <p>
-            Conteúdo incorporado de terceiros pode ser processado
-            de acordo com as políticas desses fornecedores.
+            Conteúdo incorporado por serviços externos pode ser
+            processado segundo as políticas dos respetivos
+            fornecedores.
         </p>
 
     </div>
 
 </div>
 
+<!-- ============================================================
+     COOKIES
+     ============================================================ -->
+
 <div
     id="cookiesModal"
     class="modal"
-    onclick="closeModalOnBackdrop(event, 'cookiesModal')"
+    onclick="closeModalOnBackdrop(event,'cookiesModal')"
 >
 
     <div class="modal-card">
@@ -3409,27 +5953,27 @@
 
         </div>
 
-        <h3>Essential preference</h3>
+        <h3>Essential preferences</h3>
 
         <p>
-            O player utiliza uma preferência local para recordar
-            que o aviso de cookies já foi apresentado.
+            O site utiliza uma preferência local para recordar
+            a resposta ao aviso de cookies.
         </p>
 
-        <h3>Third-party content</h3>
+        <h3>Third-party services</h3>
 
         <p>
-            Serviços incorporados, como YouTube, podem utilizar
-            os seus próprios mecanismos de armazenamento.
+            Serviços externos incorporados podem utilizar
+            mecanismos próprios de armazenamento e cookies.
         </p>
 
     </div>
 
 </div>
 
-<!-- ================================================================
-     HIDDEN AUDIO
-     ================================================================ -->
+<!-- ============================================================
+     AUDIO
+     ============================================================ -->
 
 <audio
     id="audio"
@@ -3440,9 +5984,9 @@
 
 'use strict';
 
-// ============================================================
-// PARAMETERS
-// ============================================================
+/* ============================================================
+   PARAMETERS
+   ============================================================ */
 
 const params =
     new URLSearchParams(
@@ -3456,9 +6000,19 @@ let guildId =
     ) ||
     null;
 
-// ============================================================
-// ELEMENTS
-// ============================================================
+/* ============================================================
+   ELEMENTS
+   ============================================================ */
+
+const sidebar =
+    document.getElementById(
+        'sidebar'
+    );
+
+const sidebarToggle =
+    document.getElementById(
+        'sidebarToggle'
+    );
 
 const audio =
     document.getElementById(
@@ -3525,6 +6079,11 @@ const status =
         'status'
     );
 
+const statusDot =
+    document.getElementById(
+        'statusDot'
+    );
+
 const progress =
     document.getElementById(
         'progress'
@@ -3565,9 +6124,19 @@ const infoStatus =
         'infoStatus'
     );
 
+const infoSource =
+    document.getElementById(
+        'infoSource'
+    );
+
 const accountGuild =
     document.getElementById(
         'accountGuild'
+    );
+
+const settingsVolume =
+    document.getElementById(
+        'settingsVolume'
     );
 
 const miniCover =
@@ -3600,14 +6169,9 @@ const miniPlayButton =
         'miniPlayButton'
     );
 
-const youtubeBox =
+const lyricsPreview =
     document.getElementById(
-        'youtubeBox'
-    );
-
-const youtubeFrame =
-    document.getElementById(
-        'youtubeFrame'
+        'lyricsPreview'
     );
 
 const lyricsContent =
@@ -3615,9 +6179,34 @@ const lyricsContent =
         'lyricsContent'
     );
 
-// ============================================================
-// STATE
-// ============================================================
+const searchInput =
+    document.getElementById(
+        'searchInput'
+    );
+
+const modalSearchInput =
+    document.getElementById(
+        'modalSearchInput'
+    );
+
+const searchResults =
+    document.getElementById(
+        'searchResults'
+    );
+
+const queueList =
+    document.getElementById(
+        'queueList'
+    );
+
+const controls =
+    document.getElementById(
+        'controls'
+    );
+
+/* ============================================================
+   STATE
+   ============================================================ */
 
 let currentSongId =
     null;
@@ -3625,15 +6214,37 @@ let currentSongId =
 let currentSongSource =
     null;
 
-let loadingSong =
-    false;
+let searchTimer =
+    null;
 
-let lastServerState =
-    'stopped';
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
 
-// ============================================================
-// GUILD
-// ============================================================
+sidebarToggle.addEventListener(
+    'click',
+    () => {
+
+        if (
+            window.innerWidth <= 820
+        ) {
+
+            sidebar.classList.toggle(
+                'open'
+            );
+
+        } else {
+
+            sidebar.classList.toggle(
+                'closed'
+            );
+        }
+    }
+);
+
+/* ============================================================
+   GUILD
+   ============================================================ */
 
 guildIdInput.value =
     guildId || '';
@@ -3642,9 +6253,7 @@ updateGuildUI();
 
 function updateGuildUI() {
 
-    if (
-        guildId
-    ) {
+    if (guildId) {
 
         guildStatus.textContent =
             `Connected • ${guildId}`;
@@ -3686,6 +6295,10 @@ function setGuildId(
         guildStatus.textContent =
             'Invalid Discord Server ID';
 
+        showMessage(
+            'Enter a valid Discord Server ID.'
+        );
+
         return false;
     }
 
@@ -3697,12 +6310,12 @@ function setGuildId(
         guildId
     );
 
-    const url =
+    const nextURL =
         new URL(
             window.location.href
         );
 
-    url.searchParams.set(
+    nextURL.searchParams.set(
         'guildId',
         guildId
     );
@@ -3710,7 +6323,7 @@ function setGuildId(
     window.history.replaceState(
         {},
         '',
-        url
+        nextURL
     );
 
     updateGuildUI();
@@ -3750,9 +6363,17 @@ guildIdInput.addEventListener(
     }
 );
 
-// ============================================================
-// HELPERS
-// ============================================================
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+function showMessage(
+    text
+) {
+
+    message.textContent =
+        text || '';
+}
 
 function formatTime(
     seconds
@@ -3794,18 +6415,11 @@ function formatTime(
             '0'
         );
 
-    if (
-        hours > 0
-    ) {
+    return hours > 0
 
-        return (
-            `${hours}:${String(minutes).padStart(2, '0')}:${secs}`
-        );
-    }
+        ? `${hours}:${String(minutes).padStart(2,'0')}:${secs}`
 
-    return (
-        `${minutes}:${secs}`
-    );
+        : `${minutes}:${secs}`;
 }
 
 function formatSource(
@@ -3832,13 +6446,120 @@ function formatSource(
         'Unknown';
 }
 
-function showMessage(
-    text
+function setPlayIcon(
+    button,
+    playing
 ) {
 
-    message.textContent =
-        text || '';
+    if (
+        !button
+    ) {
+        return;
+    }
+
+    button.innerHTML =
+        playing
+
+            ? '<span class="icon-pause"></span>'
+
+            : '<span class="icon-play"></span>';
 }
+
+/* ============================================================
+   PLAY SPLASH
+   ============================================================ */
+
+function playSplash() {
+
+    if (
+        !mainPlayButton ||
+        !controls
+    ) {
+        return;
+    }
+
+    mainPlayButton.classList.remove(
+        'ripple'
+    );
+
+    void mainPlayButton.offsetWidth;
+
+    mainPlayButton.classList.add(
+        'ripple'
+    );
+
+    const directions = [
+
+        [-45,-18],
+        [-35,22],
+        [-8,-43],
+        [28,-35],
+        [46,-5],
+        [38,27],
+        [7,43],
+        [-38,32]
+    ];
+
+    directions.forEach(
+        (
+            [
+                x,
+                y
+            ],
+            index
+        ) => {
+
+            const drop =
+                document.createElement(
+                    'span'
+                );
+
+            drop.className =
+                index % 2 === 0
+
+                    ? 'splash-drop'
+
+                    : 'splash-drop is-red';
+
+            drop.style.setProperty(
+                '--sx',
+                `${x}px`
+            );
+
+            drop.style.setProperty(
+                '--sy',
+                `${y}px`
+            );
+
+            drop.style.animationDelay =
+                `${index * 0.025}s`;
+
+            controls.appendChild(
+                drop
+            );
+
+            requestAnimationFrame(
+                () => {
+
+                    drop.classList.add(
+                        'animate'
+                    );
+                }
+            );
+
+            setTimeout(
+                () => {
+                    drop.remove();
+                },
+                950
+            );
+        }
+    );
+}
+
+/* ============================================================
+   STATUS
+   ============================================================ */
 
 function updateStatus(
     text,
@@ -3851,152 +6572,124 @@ function updateStatus(
     infoStatus.textContent =
         text;
 
-    lastServerState =
-        state ||
-        'stopped';
+    statusDot.className =
+        'status-dot';
 
     if (
         state ===
         'playing'
     ) {
 
-        mainPlayButton.textContent =
-            '❚❚';
+        statusDot.classList.add(
+            'playing'
+        );
 
-        miniPlayButton.textContent =
-            '❚❚';
+        setPlayIcon(
+            mainPlayButton,
+            true
+        );
+
+        setPlayIcon(
+            miniPlayButton,
+            true
+        );
+
+    } else if (
+        state ===
+        'paused'
+    ) {
+
+        statusDot.classList.add(
+            'paused'
+        );
+
+        setPlayIcon(
+            mainPlayButton,
+            false
+        );
+
+        setPlayIcon(
+            miniPlayButton,
+            false
+        );
 
     } else {
 
-        mainPlayButton.textContent =
-            '▶';
+        setPlayIcon(
+            mainPlayButton,
+            false
+        );
 
-        miniPlayButton.textContent =
-            '▶';
+        setPlayIcon(
+            miniPlayButton,
+            false
+        );
     }
 }
 
-// ============================================================
-// YOUTUBE VIDEO ID
-// ============================================================
+/* ============================================================
+   SONG UI
+   ============================================================ */
 
-function getYouTubeVideoId(
-    song
-) {
+function clearSongUI() {
 
-    if (
-        song?.id &&
-        /^[A-Za-z0-9_-]{11}$/.test(
-            song.id
-        )
-    ) {
+    title.textContent =
+        'DuckAI Music';
 
-        return song.id;
-    }
+    artist.textContent =
+        'No song selected';
 
-    const value =
-        song?.permalink ||
-        song?.url ||
-        '';
+    sourceBadge.textContent =
+        'No source';
 
-    try {
+    trackDuration.textContent =
+        '0:00';
 
-        const url =
-            new URL(
-                value
-            );
+    trackSource.textContent =
+        'No source';
 
-        if (
-            url.hostname.includes(
-                'youtu.be'
-            )
-        ) {
+    trackVoice.textContent =
+        'Discord Voice';
 
-            return url.pathname
-                .replace(
-                    /^\//,
-                    ''
-                )
-                .slice(
-                    0,
-                    11
-                );
-        }
+    miniTitle.textContent =
+        'DuckAI Music';
 
-        const id =
-            url.searchParams.get(
-                'v'
-            );
+    miniArtist.textContent =
+        'No song selected';
 
-        if (
-            id &&
-            /^[A-Za-z0-9_-]{11}$/.test(
-                id
-            )
-        ) {
+    miniSource.textContent =
+        'No source';
 
-            return id;
-        }
+    infoSource.textContent =
+        'None';
 
-    } catch {}
-
-    return null;
-}
-
-// ============================================================
-// YOUTUBE EMBED
-// ============================================================
-
-function updateYouTube(
-    song
-) {
-
-    if (
-        !song ||
-        song.source !==
-        'youtube'
-    ) {
-
-        youtubeFrame.src =
-            'about:blank';
-
-        youtubeBox.classList.remove(
-            'active'
-        );
-
-        return;
-    }
-
-    const videoId =
-        getYouTubeVideoId(
-            song
-        );
-
-    if (
-        !videoId
-    ) {
-
-        youtubeFrame.src =
-            'about:blank';
-
-        youtubeBox.classList.remove(
-            'active'
-        );
-
-        return;
-    }
-
-    youtubeFrame.src =
-        `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0`;
-
-    youtubeBox.classList.add(
-        'active'
+    cover.removeAttribute(
+        'src'
     );
-}
 
-// ============================================================
-// UPDATE SONG UI
-// ============================================================
+    cover.classList.remove(
+        'loaded'
+    );
+
+    cover.style.display =
+        'none';
+
+    coverPlaceholder.style.display =
+        'grid';
+
+    miniCover.removeAttribute(
+        'src'
+    );
+
+    miniCover.style.display =
+        'none';
+
+    lyricsPreview.textContent =
+        'Select a song to display its lyrics when the lyrics service is connected.';
+
+    lyricsContent.textContent =
+        'Lyrics for the selected song will appear here when the lyrics backend is connected.';
+}
 
 function updateSongUI(
     song
@@ -4006,54 +6699,14 @@ function updateSongUI(
         !song
     ) {
 
-        title.textContent =
-            'DuckAI Music';
-
-        artist.textContent =
-            'No song selected';
-
-        sourceBadge.textContent =
-            'No source';
-
-        trackSource.textContent =
-            'No source';
-
-        trackDuration.textContent =
-            '0:00';
-
-        trackVoice.textContent =
-            'Discord Voice';
-
-        miniTitle.textContent =
-            'DuckAI Music';
-
-        miniArtist.textContent =
-            'No song selected';
-
-        miniSource.textContent =
-            'No source';
-
-        cover.removeAttribute(
-            'src'
-        );
-
-        cover.classList.remove(
-            'has-image'
-        );
-
-        coverPlaceholder.style.display =
-            'grid';
-
-        miniCover.removeAttribute(
-            'src'
-        );
-
-        updateYouTube(
-            null
-        );
+        clearSongUI();
 
         return;
     }
+
+    const source =
+        song.source ||
+        'unknown';
 
     title.textContent =
         song.title ||
@@ -4063,16 +6716,7 @@ function updateSongUI(
         song.artist ||
         'Unknown artist';
 
-    const source =
-        song.source ||
-        'unknown';
-
     sourceBadge.textContent =
-        formatSource(
-            source
-        );
-
-    trackSource.textContent =
         formatSource(
             source
         );
@@ -4082,9 +6726,17 @@ function updateSongUI(
             song.duration
         );
 
+    trackSource.textContent =
+        formatSource(
+            source
+        );
+
     trackVoice.textContent =
-        source === 'youtube'
+        source ===
+        'youtube'
+
             ? 'YouTube • Discord Voice'
+
             : 'Discord Voice';
 
     miniTitle.textContent =
@@ -4100,6 +6752,11 @@ function updateSongUI(
             source
         );
 
+    infoSource.textContent =
+        formatSource(
+            source
+        );
+
     if (
         song.artwork
     ) {
@@ -4107,15 +6764,26 @@ function updateSongUI(
         cover.src =
             song.artwork;
 
-        cover.classList.add(
-            'has-image'
+        cover.style.display =
+            'block';
+
+        requestAnimationFrame(
+            () => {
+
+                cover.classList.add(
+                    'loaded'
+                );
+            }
         );
 
         coverPlaceholder.style.display =
-            'none';
+            'grid';
 
         miniCover.src =
             song.artwork;
+
+        miniCover.style.display =
+            'block';
 
     } else {
 
@@ -4124,8 +6792,11 @@ function updateSongUI(
         );
 
         cover.classList.remove(
-            'has-image'
+            'loaded'
         );
+
+        cover.style.display =
+            'none';
 
         coverPlaceholder.style.display =
             'grid';
@@ -4133,26 +6804,30 @@ function updateSongUI(
         miniCover.removeAttribute(
             'src'
         );
+
+        miniCover.style.display =
+            'none';
     }
 
-    updateYouTube(
-        song
-    );
+    const lyricsText =
+        `Lyrics for "${song.title || 'Unknown title'}" will appear here when the lyrics backend is connected.`;
+
+    lyricsPreview.textContent =
+        lyricsText;
 
     lyricsContent.textContent =
-        `Lyrics for "${song.title || 'Unknown title'}" are not available yet.`;
+        lyricsText;
 }
 
-// ============================================================
-// LOAD MUSIC
-// ============================================================
+/* ============================================================
+   LOAD MUSIC
+   ============================================================ */
 
 async function loadMusic() {
 
     if (
         !guildId
     ) {
-
         return;
     }
 
@@ -4189,10 +6864,6 @@ async function loadMusic() {
             );
         }
 
-        // ====================================================
-        // NO SONG
-        // ====================================================
-
         if (
             !data.song
         ) {
@@ -4203,9 +6874,7 @@ async function loadMusic() {
             currentSongSource =
                 null;
 
-            updateSongUI(
-                null
-            );
+            clearSongUI();
 
             updateStatus(
                 'Stopped',
@@ -4223,12 +6892,9 @@ async function loadMusic() {
         const song =
             data.song;
 
-        const source =
+        currentSongSource =
             song.source ||
             'unknown';
-
-        currentSongSource =
-            source;
 
         updateSongUI(
             song
@@ -4242,16 +6908,10 @@ async function loadMusic() {
             currentSongId =
                 song.id;
 
-            loadingSong =
-                true;
-
             audio.pause();
 
-            // Direct sources only.
-            // YouTube uses the embedded player.
-
             if (
-                source ===
+                song.source ===
                 'youtube'
             ) {
 
@@ -4272,17 +6932,21 @@ async function loadMusic() {
 
                 audio.load();
             }
-
-            loadingSong =
-                false;
         }
 
         updateStatus(
-            data.state === 'playing'
+            data.state ===
+                'playing'
+
                 ? 'Playing'
-                : data.state === 'paused'
+
+                : data.state ===
+                    'paused'
+
                     ? 'Paused'
+
                     : 'Stopped',
+
             data.state
         );
 
@@ -4302,12 +6966,15 @@ async function loadMusic() {
             'Connection error',
             'stopped'
         );
+
+        infoVoice.textContent =
+            'Offline';
     }
 }
 
-// ============================================================
-// PLAY
-// ============================================================
+/* ============================================================
+   PLAY
+   ============================================================ */
 
 async function playMusic() {
 
@@ -4322,6 +6989,8 @@ async function playMusic() {
         return;
     }
 
+    playSplash();
+
     try {
 
         const response =
@@ -4333,7 +7002,6 @@ async function playMusic() {
                         'POST',
 
                     headers: {
-
                         'Content-Type':
                             'application/json'
                     },
@@ -4366,8 +7034,10 @@ async function playMusic() {
 
         showMessage(
             data.voiceSource
-                ? `▶️ Playing in Discord Voice • ${formatSource(data.voiceSource)}`
-                : '▶️ Playing in Discord Voice.'
+
+                ? `▶ Playing in Discord Voice • ${formatSource(data.voiceSource)}`
+
+                : '▶ Playing in Discord Voice.'
         );
 
     } catch (error) {
@@ -4388,16 +7058,15 @@ async function playMusic() {
     }
 }
 
-// ============================================================
-// PAUSE
-// ============================================================
+/* ============================================================
+   PAUSE
+   ============================================================ */
 
 async function pauseMusic() {
 
     if (
         !guildId
     ) {
-
         return;
     }
 
@@ -4412,7 +7081,6 @@ async function pauseMusic() {
                         'POST',
 
                     headers: {
-
                         'Content-Type':
                             'application/json'
                     },
@@ -4438,11 +7106,13 @@ async function pauseMusic() {
             );
         }
 
-        audio.pause();
-
         updateStatus(
             'Paused',
             'paused'
+        );
+
+        showMessage(
+            '⏸ Playback paused.'
         );
 
     } catch (error) {
@@ -4451,32 +7121,26 @@ async function pauseMusic() {
             '❌ Pause error:',
             error
         );
+
+        showMessage(
+            `❌ ${error.message}`
+        );
     }
 }
 
-// ============================================================
-// STOP
-// ============================================================
+/* ============================================================
+   STOP
+   ============================================================ */
 
 async function stopMusic() {
 
     if (
         !guildId
     ) {
-
         return;
     }
 
     try {
-
-        audio.pause();
-
-        try {
-
-            audio.currentTime =
-                0;
-
-        } catch {}
 
         const response =
             await fetch(
@@ -4487,7 +7151,6 @@ async function stopMusic() {
                         'POST',
 
                     headers: {
-
                         'Content-Type':
                             'application/json'
                     },
@@ -4513,6 +7176,15 @@ async function stopMusic() {
             );
         }
 
+        audio.pause();
+
+        try {
+
+            audio.currentTime =
+                0;
+
+        } catch {}
+
         updateStatus(
             'Stopped',
             'stopped'
@@ -4528,46 +7200,44 @@ async function stopMusic() {
             '❌ Stop error:',
             error
         );
+
+        showMessage(
+            `❌ ${error.message}`
+        );
     }
 }
 
-// ============================================================
-// PREVIOUS / NEXT
-// ============================================================
-//
-// UI is prepared for a queue backend.
-// No fake server request is made yet.
-//
-// ============================================================
+/* ============================================================
+   NEXT / PREVIOUS
+   ============================================================ */
 
 function previousMusic() {
 
     showMessage(
-        'Previous track is not connected to the queue yet.'
+        'Previous track is not connected to the queue backend yet.'
     );
 }
 
 function nextMusic() {
 
     showMessage(
-        'Next track is not connected to the queue yet.'
+        'Next track is not connected to the queue backend yet.'
     );
 }
 
 function clearQueue() {
 
-    document.getElementById(
-        'queueList'
-    ).innerHTML = `
-        <div class="queue-empty">
-            Queue cleared.
-        </div>
-    `;
+    queueList.innerHTML =
+        `
+            <div class="queue-empty">
+                Queue cleared.
+            </div>
+        `;
 }
 
-// ============================================================
-// SEEK
-// ============================================================
+/* ============================================================
+   SEEK
+   ============================================================ */
 
 progress.addEventListener(
     'input',
@@ -4579,7 +7249,6 @@ progress.addEventListener(
             ) ||
             audio.duration <= 0
         ) {
-
             return;
         }
 
@@ -4593,9 +7262,9 @@ progress.addEventListener(
     }
 );
 
-// ============================================================
-// VOLUME
-// ============================================================
+/* ============================================================
+   VOLUME
+   ============================================================ */
 
 volume.addEventListener(
     'input',
@@ -4609,10 +7278,12 @@ volume.addEventListener(
         audio.volume =
             value;
 
+        settingsVolume.textContent =
+            `${Math.round(value * 100)}%`;
+
         if (
             !guildId
         ) {
-
             return;
         }
 
@@ -4626,7 +7297,6 @@ volume.addEventListener(
                         'POST',
 
                     headers: {
-
                         'Content-Type':
                             'application/json'
                     },
@@ -4634,7 +7304,6 @@ volume.addEventListener(
                     body:
                         JSON.stringify({
                             guildId,
-
                             volume:
                                 value
                         })
@@ -4651,9 +7320,9 @@ volume.addEventListener(
     }
 );
 
-// ============================================================
-// AUDIO EVENTS
-// ============================================================
+/* ============================================================
+   AUDIO
+   ============================================================ */
 
 audio.addEventListener(
     'timeupdate',
@@ -4665,7 +7334,6 @@ audio.addEventListener(
             ) ||
             audio.duration <= 0
         ) {
-
             return;
         }
 
@@ -4673,7 +7341,8 @@ audio.addEventListener(
             (
                 audio.currentTime /
                 audio.duration
-            ) * 100;
+            ) *
+            100;
 
         currentTime.textContent =
             formatTime(
@@ -4698,9 +7367,306 @@ audio.addEventListener(
     }
 );
 
-// ============================================================
-// LYRICS
-// ============================================================
+audio.addEventListener(
+    'error',
+    () => {
+
+        console.error(
+            '❌ Browser audio error:',
+            audio.error
+        );
+
+        showMessage(
+            '❌ The browser could not play this direct audio source.'
+        );
+    }
+);
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+function renderSearchMessage(
+    text
+) {
+
+    searchResults.innerHTML =
+        `
+            <div class="queue-empty">
+                ${escapeHTML(text)}
+            </div>
+        `;
+}
+
+async function performSearch(
+    query
+) {
+
+    const clean =
+        String(
+            query || ''
+        ).trim();
+
+    if (
+        !clean
+    ) {
+
+        renderSearchMessage(
+            'Search for a song, artist or album.'
+        );
+
+        return;
+    }
+
+    renderSearchMessage(
+        '🔎 Searching DuckAI...'
+    );
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/music/search?query=${encodeURIComponent(clean)}`,
+                {
+                    cache:
+                        'no-store'
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            renderSearchMessage(
+                data.message ||
+                'No results found.'
+            );
+
+            return;
+        }
+
+        const results =
+            Array.isArray(
+                data.results
+            )
+
+                ? data.results
+
+                : [data];
+
+        const validResults =
+            results.filter(
+                item =>
+                    item &&
+                    item.title
+            );
+
+        if (
+            !validResults.length
+        ) {
+
+            renderSearchMessage(
+                'No results found.'
+            );
+
+            return;
+        }
+
+        searchResults.innerHTML =
+            validResults
+                .slice(
+                    0,
+                    10
+                )
+                .map(
+                    item => {
+
+                        const artwork =
+                            item.artwork ||
+                            '';
+
+                        return `
+                            <button
+                                type="button"
+                                class="search-result"
+                            >
+
+                                ${
+                                    artwork
+
+                                        ? `
+                                            <img
+                                                class="search-result-art"
+                                                src="${escapeAttribute(artwork)}"
+                                                alt=""
+                                            >
+                                          `
+
+                                        : `
+                                            <span
+                                                class="search-result-art"
+                                                style="
+                                                    display:grid;
+                                                    place-items:center;
+                                                    font-size:19px;
+                                                "
+                                            >
+                                                🦆
+                                            </span>
+                                          `
+                                }
+
+                                <div class="search-result-info">
+
+                                    <div class="search-result-title">
+
+                                        ${escapeHTML(
+                                            item.title ||
+                                            'Unknown title'
+                                        )}
+
+                                    </div>
+
+                                    <div class="search-result-artist">
+
+                                        ${escapeHTML(
+                                            item.artist ||
+                                            'Unknown artist'
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                                <span class="search-result-source">
+
+                                    ${escapeHTML(
+                                        formatSource(
+                                            item.source
+                                        )
+                                    )}
+
+                                </span>
+
+                            </button>
+                        `;
+                    }
+                )
+                .join('');
+
+    } catch (error) {
+
+        console.error(
+            '❌ Search error:',
+            error
+        );
+
+        renderSearchMessage(
+            'Could not connect to DuckAI Music.'
+        );
+    }
+}
+
+function escapeHTML(
+    value
+) {
+
+    return String(
+        value ?? ''
+    )
+        .replace(
+            /&/g,
+            '&amp;'
+        )
+        .replace(
+            /</g,
+            '&lt;'
+        )
+        .replace(
+            />/g,
+            '&gt;'
+        )
+        .replace(
+            /"/g,
+            '&quot;'
+        )
+        .replace(
+            /'/g,
+            '&#039;'
+        );
+}
+
+function escapeAttribute(
+    value
+) {
+
+    return escapeHTML(
+        value
+    );
+}
+
+searchInput.addEventListener(
+    'keydown',
+    event => {
+
+        if (
+            event.key !==
+            'Enter'
+        ) {
+            return;
+        }
+
+        const query =
+            searchInput.value.trim();
+
+        if (
+            !query
+        ) {
+            return;
+        }
+
+        openModal(
+            'searchModal'
+        );
+
+        modalSearchInput.value =
+            query;
+
+        performSearch(
+            query
+        );
+    }
+);
+
+modalSearchInput.addEventListener(
+    'input',
+    () => {
+
+        clearTimeout(
+            searchTimer
+        );
+
+        searchTimer =
+            setTimeout(
+                () => {
+
+                    performSearch(
+                        modalSearchInput.value
+                    );
+
+                },
+                350
+            );
+    }
+);
+
+/* ============================================================
+   LYRICS
+   ============================================================ */
 
 function openLyrics() {
 
@@ -4709,13 +7675,12 @@ function openLyrics() {
     );
 }
 
-// ============================================================
-// NAVIGATION
-// ============================================================
+/* ============================================================
+   NAV
+   ============================================================ */
 
-function setSection(
-    button,
-    section
+function activateNav(
+    button
 ) {
 
     document
@@ -4731,14 +7696,19 @@ function setSection(
             }
         );
 
-    button.classList.add(
-        'active'
-    );
+    if (
+        button
+    ) {
+
+        button.classList.add(
+            'active'
+        );
+    }
 }
 
-// ============================================================
-// MODALS
-// ============================================================
+/* ============================================================
+   MODALS
+   ============================================================ */
 
 function openModal(
     id
@@ -4752,7 +7722,6 @@ function openModal(
     if (
         !modal
     ) {
-
         return;
     }
 
@@ -4762,6 +7731,21 @@ function openModal(
 
     document.body.style.overflow =
         'hidden';
+
+    if (
+        id ===
+        'searchModal'
+    ) {
+
+        setTimeout(
+            () => {
+
+                modalSearchInput.focus();
+
+            },
+            80
+        );
+    }
 }
 
 function closeModal(
@@ -4776,7 +7760,6 @@ function closeModal(
     if (
         !modal
     ) {
-
         return;
     }
 
@@ -4812,7 +7795,6 @@ document.addEventListener(
             event.key !==
             'Escape'
         ) {
-
             return;
         }
 
@@ -4834,46 +7816,9 @@ document.addEventListener(
     }
 );
 
-// ============================================================
-// SEARCH UI
-// ============================================================
-
-const searchInput =
-    document.getElementById(
-        'searchInput'
-    );
-
-searchInput.addEventListener(
-    'keydown',
-    event => {
-
-        if (
-            event.key !==
-            'Enter'
-        ) {
-
-            return;
-        }
-
-        const query =
-            searchInput.value.trim();
-
-        if (
-            !query
-        ) {
-
-            return;
-        }
-
-        showMessage(
-            `🔎 Search requested: ${query}`
-        );
-    }
-);
-
-// ============================================================
-// COOKIES
-// ============================================================
+/* ============================================================
+   COOKIES
+   ============================================================ */
 
 function getCookie(
     name
@@ -4923,9 +7868,7 @@ function setCookie(
             1,
             Math.floor(
                 days *
-                24 *
-                60 *
-                60
+                86400
             )
         );
 
@@ -4949,40 +7892,72 @@ function acceptCookies() {
         );
 }
 
-function showCookieBanner() {
+/* ============================================================
+   INITIALIZATION
+   ============================================================ */
 
-    if (
-        getCookie(
-            'duckai_cookie_consent'
-        ) !==
-        'accepted'
-    ) {
+audio.volume =
+    Number(
+        volume.value
+    );
 
-        document
-            .getElementById(
-                'cookieBanner'
-            )
-            .classList.add(
-                'active'
-            );
-    }
+settingsVolume.textContent =
+    '100%';
+
+setPlayIcon(
+    mainPlayButton,
+    false
+);
+
+setPlayIcon(
+    miniPlayButton,
+    false
+);
+
+if (
+    getCookie(
+        'duckai_cookie_consent'
+    ) !==
+    'accepted'
+) {
+
+    document
+        .getElementById(
+            'cookieBanner'
+        )
+        .classList.add(
+            'active'
+        );
 }
-
-// ============================================================
-// INITIALIZATION
-// ============================================================
-
-showCookieBanner();
 
 loadMusic();
 
-// ============================================================
-// AUTO SYNC
-// ============================================================
+/* ============================================================
+   AUTO SYNC
+   ============================================================ */
 
 setInterval(
     loadMusic,
     2000
+);
+
+/* ============================================================
+   RESPONSIVE SIDEBAR
+   ============================================================ */
+
+window.addEventListener(
+    'resize',
+    () => {
+
+        if (
+            window.innerWidth > 820
+        ) {
+
+            sidebar.classList.remove(
+                'open'
+            );
+        }
+    }
 );
 
 </script>
