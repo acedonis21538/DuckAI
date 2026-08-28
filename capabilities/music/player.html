@@ -3,325 +3,3438 @@
 
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<title>DuckAI Music</title>
+    <meta
+        name="theme-color"
+        content="#080808"
+    >
 
-<style>
+    <meta
+        name="description"
+        content="DuckAI Music — Modern music dashboard"
+    >
 
-* {
-    box-sizing: border-box;
-}
+    <title>DuckAI Music</title>
 
-body {
+    <style>
 
-    margin: 0;
+        /* ============================================================
+           RESET
+           ============================================================ */
 
-    min-height: 100vh;
+        * {
+            box-sizing: border-box;
+        }
 
-    display: flex;
+        html {
+            scroll-behavior: smooth;
+        }
 
-    align-items: center;
+        :root {
 
-    justify-content: center;
+            --bg:
+                #080808;
 
-    background:
-        linear-gradient(
-            135deg,
-            #111827,
-            #1f2937
-        );
+            --bg-soft:
+                #0d0d0f;
 
-    color: white;
+            --panel:
+                rgba(20, 20, 23, 0.78);
 
-    font-family:
-        Arial,
-        sans-serif;
-}
+            --panel-solid:
+                #141417;
 
-.player {
+            --panel-light:
+                rgba(255, 255, 255, 0.055);
 
-    width: 440px;
+            --border:
+                rgba(255, 255, 255, 0.075);
 
-    max-width: 92vw;
+            --border-strong:
+                rgba(255, 255, 255, 0.12);
 
-    padding: 30px;
+            --text:
+                #ffffff;
 
-    border-radius: 24px;
+            --muted:
+                rgba(255, 255, 255, 0.55);
 
-    background:
-        rgba(255,255,255,0.08);
+            --muted-2:
+                rgba(255, 255, 255, 0.35);
 
-    backdrop-filter:
-        blur(15px);
+            --red:
+                #ef233c;
 
-    box-shadow:
-        0 20px 60px
-        rgba(0,0,0,0.35);
+            --red-light:
+                #ff3b50;
 
-    text-align: center;
-}
+            --red-dark:
+                #b91c32;
 
-.logo {
+            --green:
+                #22c55e;
+        }
 
-    font-size: 48px;
-}
+        body {
 
-h1 {
+            margin: 0;
 
-    margin: 10px 0 5px;
+            min-height: 100vh;
 
-    font-size: 24px;
-}
+            color:
+                var(--text);
 
-.artist {
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
 
-    opacity: 0.65;
+            background:
+                radial-gradient(
+                    circle at 15% 0%,
+                    rgba(239, 35, 60, 0.16),
+                    transparent 28%
+                ),
+                radial-gradient(
+                    circle at 90% 20%,
+                    rgba(180, 20, 45, 0.09),
+                    transparent 25%
+                ),
+                linear-gradient(
+                    135deg,
+                    #050505 0%,
+                    #09090b 45%,
+                    #0c0c0f 100%
+                );
 
-    margin-bottom: 25px;
-}
+            overflow-x: hidden;
+        }
 
-.cover {
+        body::before {
 
-    width: 240px;
+            content: "";
 
-    height: 240px;
+            position: fixed;
 
-    object-fit: cover;
+            inset: 0;
 
-    border-radius: 18px;
+            pointer-events: none;
 
-    margin-bottom: 25px;
+            background:
+                linear-gradient(
+                    115deg,
+                    transparent 0%,
+                    rgba(255,255,255,0.018) 50%,
+                    transparent 100%
+                );
 
-    background: #111827;
-}
+            z-index: -1;
+        }
 
-.status {
+        button,
+        input {
 
-    margin: 15px 0;
+            font: inherit;
+        }
 
-    font-size: 14px;
+        button {
 
-    opacity: 0.7;
-}
+            border: 0;
 
-.controls {
+            cursor: pointer;
+        }
 
-    display: flex;
+        /* ============================================================
+           APP
+           ============================================================ */
 
-    justify-content: center;
+        .app {
 
-    gap: 10px;
+            min-height: 100vh;
 
-    margin-top: 15px;
-}
+            display: flex;
+        }
 
-button {
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
 
-    border: 0;
+        .sidebar {
 
-    padding: 12px 18px;
+            position: fixed;
 
-    border-radius: 12px;
+            left: 0;
 
-    cursor: pointer;
+            top: 0;
 
-    color: white;
+            bottom: 0;
 
-    background: #374151;
+            width: 245px;
 
-    font-size: 14px;
-}
+            z-index: 40;
 
-button:hover {
+            padding:
+                22px 15px;
 
-    background: #4b5563;
-}
+            display: flex;
 
-.play {
+            flex-direction: column;
 
-    background: #16a34a;
-}
+            background:
+                rgba(8, 8, 9, 0.94);
 
-.play:hover {
+            backdrop-filter:
+                blur(22px);
 
-    background: #15803d;
-}
+            -webkit-backdrop-filter:
+                blur(22px);
 
-.progress {
+            border-right:
+                1px solid
+                var(--border);
+        }
 
-    width: 100%;
+        .brand {
 
-    margin-top: 25px;
-}
+            display: flex;
 
-input[type="range"] {
+            align-items: center;
 
-    width: 100%;
+            gap: 11px;
 
-    cursor: pointer;
-}
+            padding:
+                6px 10px 26px;
+        }
 
-.time {
+        .brand-logo {
 
-    display: flex;
+            width: 42px;
 
-    justify-content: space-between;
+            height: 42px;
 
-    margin-top: 6px;
+            display: grid;
 
-    font-size: 12px;
+            place-items: center;
 
-    opacity: 0.6;
-}
+            border-radius: 13px;
 
-.volume {
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--red),
+                    var(--red-dark)
+                );
 
-    margin-top: 18px;
-}
+            box-shadow:
+                0 10px 30px
+                rgba(239,35,60,0.22);
 
-.message {
+            font-size: 22px;
+        }
 
-    margin-top: 15px;
+        .brand-name {
 
-    min-height: 20px;
+            font-size: 17px;
 
-    font-size: 13px;
+            font-weight: 850;
 
-    opacity: 0.7;
-}
+            letter-spacing:
+                -0.035em;
+        }
 
-</style>
+        .brand-subtitle {
+
+            margin-top: 2px;
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+        }
+
+        .nav-section {
+
+            margin:
+                0 8px 9px;
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+
+            font-weight: 800;
+
+            letter-spacing:
+                0.09em;
+
+            text-transform:
+                uppercase;
+        }
+
+        .nav {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 4px;
+        }
+
+        .nav-button {
+
+            width: 100%;
+
+            min-height: 44px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+            padding:
+                0 12px;
+
+            border-radius: 12px;
+
+            text-align: left;
+
+            color:
+                var(--muted);
+
+            background:
+                transparent;
+
+            transition:
+                background 0.18s ease,
+                color 0.18s ease,
+                transform 0.18s ease;
+        }
+
+        .nav-button:hover {
+
+            color:
+                #ffffff;
+
+            background:
+                rgba(255,255,255,0.05);
+
+            transform:
+                translateX(2px);
+        }
+
+        .nav-button.active {
+
+            color:
+                #ffffff;
+
+            background:
+                rgba(239,35,60,0.12);
+
+            box-shadow:
+                inset 3px 0 0
+                var(--red);
+        }
+
+        .nav-icon {
+
+            width: 20px;
+
+            text-align: center;
+
+            font-size: 17px;
+        }
+
+        .nav-label {
+
+            font-size: 13px;
+
+            font-weight: 650;
+        }
+
+        .sidebar-spacer {
+
+            flex: 1;
+        }
+
+        .account-mini {
+
+            padding:
+                11px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            border-radius: 15px;
+
+            background:
+                rgba(255,255,255,0.04);
+
+            border:
+                1px solid
+                var(--border);
+        }
+
+        .avatar {
+
+            width: 35px;
+
+            height: 35px;
+
+            display: grid;
+
+            place-items: center;
+
+            flex-shrink: 0;
+
+            border-radius: 11px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #29292d,
+                    #17171a
+                );
+
+            font-size: 17px;
+        }
+
+        .account-name {
+
+            min-width: 0;
+
+            font-size: 12px;
+
+            font-weight: 750;
+
+            overflow: hidden;
+
+            text-overflow:
+                ellipsis;
+
+            white-space:
+                nowrap;
+        }
+
+        .account-status {
+
+            margin-top: 2px;
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+        }
+
+        /* ============================================================
+           MAIN
+           ============================================================ */
+
+        .main {
+
+            width: calc(
+                100% - 245px
+            );
+
+            margin-left: 245px;
+
+            min-height: 100vh;
+
+            padding:
+                20px 24px 150px;
+        }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+
+        .topbar {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                space-between;
+
+            gap: 18px;
+
+            margin-bottom: 22px;
+        }
+
+        .search {
+
+            width: min(
+                470px,
+                100%
+            );
+
+            position: relative;
+        }
+
+        .search-input {
+
+            width: 100%;
+
+            height: 44px;
+
+            padding:
+                0 16px 0 42px;
+
+            outline: none;
+
+            border-radius: 13px;
+
+            border:
+                1px solid
+                var(--border);
+
+            background:
+                rgba(255,255,255,0.045);
+
+            color:
+                #ffffff;
+
+            font-size: 12px;
+
+            transition:
+                border 0.18s ease,
+                background 0.18s ease;
+        }
+
+        .search-input:focus {
+
+            background:
+                rgba(255,255,255,0.06);
+
+            border-color:
+                rgba(239,35,60,0.5);
+        }
+
+        .search-input::placeholder {
+
+            color:
+                var(--muted-2);
+        }
+
+        .search-icon {
+
+            position: absolute;
+
+            left: 15px;
+
+            top: 50%;
+
+            transform:
+                translateY(-50%);
+
+            color:
+                var(--muted-2);
+
+            font-size: 15px;
+        }
+
+        .top-actions {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+        }
+
+        .top-button {
+
+            width: 42px;
+
+            height: 42px;
+
+            display: grid;
+
+            place-items: center;
+
+            border-radius: 12px;
+
+            color:
+                var(--muted);
+
+            background:
+                rgba(255,255,255,0.045);
+
+            border:
+                1px solid
+                var(--border);
+
+            transition:
+                background 0.18s ease,
+                color 0.18s ease;
+        }
+
+        .top-button:hover {
+
+            color:
+                #ffffff;
+
+            background:
+                rgba(255,255,255,0.075);
+        }
+
+        /* ============================================================
+           GUILD
+           ============================================================ */
+
+        .guild-card {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            margin-bottom: 22px;
+
+            padding:
+                12px 14px;
+
+            border-radius: 16px;
+
+            border:
+                1px solid
+                var(--border);
+
+            background:
+                rgba(255,255,255,0.035);
+        }
+
+        .guild-label {
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+
+            text-transform:
+                uppercase;
+
+            font-weight: 800;
+
+            letter-spacing:
+                0.07em;
+        }
+
+        .guild-input {
+
+            flex: 1;
+
+            min-width: 0;
+
+            height: 36px;
+
+            padding:
+                0 11px;
+
+            border-radius: 10px;
+
+            border:
+                1px solid
+                var(--border);
+
+            outline: none;
+
+            color:
+                white;
+
+            background:
+                rgba(255,255,255,0.04);
+
+            font-size: 11px;
+        }
+
+        .guild-input:focus {
+
+            border-color:
+                rgba(239,35,60,0.5);
+        }
+
+        .guild-input::placeholder {
+
+            color:
+                var(--muted-2);
+        }
+
+        .guild-connect {
+
+            height: 36px;
+
+            padding:
+                0 13px;
+
+            border-radius: 10px;
+
+            color:
+                #ffffff;
+
+            background:
+                var(--red);
+
+            font-size: 11px;
+
+            font-weight: 750;
+        }
+
+        .guild-connect:hover {
+
+            background:
+                var(--red-light);
+        }
+
+        .guild-status {
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+
+            white-space: nowrap;
+        }
+
+        /* ============================================================
+           HERO GRID
+           ============================================================ */
+
+        .dashboard {
+
+            display: grid;
+
+            grid-template-columns:
+                minmax(0, 1fr)
+                340px;
+
+            gap: 18px;
+        }
+
+        .panel {
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius: 23px;
+
+            background:
+                var(--panel);
+
+            backdrop-filter:
+                blur(20px);
+
+            -webkit-backdrop-filter:
+                blur(20px);
+
+            box-shadow:
+                0 24px 80px
+                rgba(0,0,0,0.25);
+        }
+
+        /* ============================================================
+           NOW PLAYING
+           ============================================================ */
+
+        .now-playing {
+
+            padding:
+                24px;
+        }
+
+        .panel-heading {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            margin-bottom: 20px;
+        }
+
+        .panel-heading-title {
+
+            font-size: 12px;
+
+            font-weight: 800;
+
+            color:
+                rgba(255,255,255,0.78);
+
+            text-transform:
+                uppercase;
+
+            letter-spacing:
+                0.07em;
+        }
+
+        .source-pill {
+
+            padding:
+                6px 9px;
+
+            border-radius:
+                999px;
+
+            color:
+                #ff8c9a;
+
+            background:
+                rgba(239,35,60,0.10);
+
+            border:
+                1px solid
+                rgba(239,35,60,0.18);
+
+            font-size: 9px;
+
+            font-weight: 800;
+        }
+
+        .album-wrap {
+
+            width:
+                min(
+                    330px,
+                    70%
+                );
+
+            aspect-ratio: 1;
+
+            margin:
+                4px auto 23px;
+
+            position: relative;
+        }
+
+        .album {
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: cover;
+
+            border-radius: 22px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #1b1b20,
+                    #101014
+                );
+
+            border:
+                1px solid
+                var(--border);
+
+            box-shadow:
+                0 25px 70px
+                rgba(0,0,0,0.45);
+        }
+
+        .album-placeholder {
+
+            position: absolute;
+
+            inset: 0;
+
+            display: grid;
+
+            place-items: center;
+
+            border-radius: 22px;
+
+            color:
+                rgba(255,255,255,0.20);
+
+            font-size: 60px;
+
+            pointer-events:
+                none;
+        }
+
+        .album.has-image +
+        .album-placeholder {
+
+            display: none;
+        }
+
+        .track {
+
+            text-align: center;
+        }
+
+        .track-title {
+
+            margin: 0;
+
+            font-size:
+                clamp(
+                    23px,
+                    3vw,
+                    30px
+                );
+
+            line-height: 1.15;
+
+            letter-spacing:
+                -0.04em;
+
+            font-weight: 850;
+        }
+
+        .track-artist {
+
+            margin:
+                7px 0 13px;
+
+            color:
+                var(--muted);
+
+            font-size: 14px;
+        }
+
+        .track-meta {
+
+            display: flex;
+
+            justify-content:
+                center;
+
+            gap: 8px;
+
+            flex-wrap: wrap;
+        }
+
+        .meta-pill {
+
+            padding:
+                6px 9px;
+
+            border-radius:
+                999px;
+
+            color:
+                var(--muted);
+
+            background:
+                rgba(255,255,255,0.04);
+
+            border:
+                1px solid
+                var(--border);
+
+            font-size: 10px;
+        }
+
+        /* ============================================================
+           PROGRESS
+           ============================================================ */
+
+        .progress-area {
+
+            margin-top:
+                25px;
+        }
+
+        .progress {
+
+            width: 100%;
+
+            height: 5px;
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+            border-radius:
+                999px;
+
+            background:
+                rgba(255,255,255,0.10);
+
+            outline: none;
+        }
+
+        .progress::-webkit-slider-thumb {
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+            width: 14px;
+
+            height: 14px;
+
+            border-radius:
+                50%;
+
+            background:
+                #ffffff;
+
+            box-shadow:
+                0 2px 10px
+                rgba(0,0,0,0.4);
+
+            cursor: pointer;
+        }
+
+        .progress::-moz-range-thumb {
+
+            width: 14px;
+
+            height: 14px;
+
+            border: 0;
+
+            border-radius:
+                50%;
+
+            background:
+                #ffffff;
+
+            cursor: pointer;
+        }
+
+        .time {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            margin-top: 7px;
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+        }
+
+        /* ============================================================
+           PLAYER CONTROLS
+           ============================================================ */
+
+        .player-controls {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                center;
+
+            gap: 9px;
+
+            margin-top: 19px;
+        }
+
+        .player-btn {
+
+            width: 42px;
+
+            height: 42px;
+
+            display: grid;
+
+            place-items: center;
+
+            border-radius:
+                13px;
+
+            color:
+                var(--muted);
+
+            background:
+                rgba(255,255,255,0.05);
+
+            border:
+                1px solid
+                var(--border);
+
+            transition:
+                transform 0.18s ease,
+                background 0.18s ease,
+                color 0.18s ease;
+        }
+
+        .player-btn:hover {
+
+            color:
+                #ffffff;
+
+            background:
+                rgba(255,255,255,0.09);
+
+            transform:
+                translateY(-1px);
+        }
+
+        .player-btn.primary {
+
+            width: 54px;
+
+            height: 54px;
+
+            color:
+                white;
+
+            background:
+                var(--red);
+
+            border-color:
+                transparent;
+
+            box-shadow:
+                0 12px 35px
+                rgba(239,35,60,0.25);
+        }
+
+        .player-btn.primary:hover {
+
+            background:
+                var(--red-light);
+        }
+
+        .player-btn:disabled {
+
+            opacity:
+                0.3;
+
+            cursor:
+                not-allowed;
+
+            transform:
+                none;
+        }
+
+        /* ============================================================
+           VOLUME
+           ============================================================ */
+
+        .volume {
+
+            width: min(
+                260px,
+                75%
+            );
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            margin:
+                17px auto 0;
+
+            color:
+                var(--muted);
+        }
+
+        .volume-slider {
+
+            flex: 1;
+
+            height: 4px;
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+            border-radius:
+                999px;
+
+            background:
+                rgba(255,255,255,0.10);
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+            width: 13px;
+
+            height: 13px;
+
+            border-radius:
+                50%;
+
+            background:
+                #ffffff;
+
+            cursor: pointer;
+        }
+
+        /* ============================================================
+           SECONDARY PANELS
+           ============================================================ */
+
+        .side-column {
+
+            display: flex;
+
+            flex-direction:
+                column;
+
+            gap: 18px;
+        }
+
+        .side-panel {
+
+            padding:
+                20px;
+        }
+
+        .queue {
+
+            min-height:
+                330px;
+        }
+
+        .queue-header {
+
+            display: flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            margin-bottom: 13px;
+        }
+
+        .queue-title {
+
+            font-size: 15px;
+
+            font-weight: 800;
+
+            letter-spacing:
+                -0.02em;
+        }
+
+        .queue-action {
+
+            color:
+                var(--muted-2);
+
+            background:
+                transparent;
+
+            font-size: 10px;
+
+            text-decoration:
+                underline;
+        }
+
+        .queue-empty {
+
+            min-height:
+                260px;
+
+            display: grid;
+
+            place-items: center;
+
+            text-align: center;
+
+            color:
+                var(--muted-2);
+
+            font-size: 11px;
+
+            line-height: 1.5;
+        }
+
+        .song-row {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            padding:
+                9px;
+
+            border-radius: 13px;
+
+            transition:
+                background 0.18s ease;
+        }
+
+        .song-row:hover {
+
+            background:
+                rgba(255,255,255,0.04);
+        }
+
+        .song-art {
+
+            width: 40px;
+
+            height: 40px;
+
+            flex-shrink: 0;
+
+            border-radius: 9px;
+
+            object-fit: cover;
+
+            background:
+                #1a1a1e;
+        }
+
+        .song-info {
+
+            min-width: 0;
+
+            flex: 1;
+        }
+
+        .song-name {
+
+            overflow: hidden;
+
+            text-overflow:
+                ellipsis;
+
+            white-space:
+                nowrap;
+
+            font-size: 11px;
+
+            font-weight: 750;
+        }
+
+        .song-sub {
+
+            overflow: hidden;
+
+            text-overflow:
+                ellipsis;
+
+            white-space:
+                nowrap;
+
+            margin-top: 3px;
+
+            color:
+                var(--muted-2);
+
+            font-size: 9px;
+        }
+
+        .song-more {
+
+            color:
+                var(--muted-2);
+
+            background:
+                transparent;
+
+            font-size: 15px;
+        }
+
+        /* ============================================================
+           QUICK ACCESS
+           ============================================================ */
+
+        .quick-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                1fr
+                1fr;
+
+            gap: 9px;
+        }
+
+        .quick {
+
+            min-height: 74px;
+
+            padding: 13px;
+
+            display: flex;
+
+            flex-direction:
+                column;
+
+            justify-content:
+                space-between;
+
+            border-radius:
+                14px;
+
+            background:
+                rgba(255,255,255,0.035);
+
+            border:
+                1px solid
+                var(--border);
+
+            color:
+                #ffffff;
+
+            text-align: left;
+
+            transition:
+                transform 0.18s ease,
+                border 0.18s ease,
+                background 0.18s ease;
+        }
+
+        .quick:hover {
+
+            transform:
+                translateY(-2px);
+
+            background:
+                rgba(255,255,255,0.055);
+
+            border-color:
+                var(--border-strong);
+        }
+
+        .quick-icon {
+
+            font-size: 18px;
+        }
+
+        .quick-label {
+
+            color:
+                var(--muted);
+
+            font-size: 10px;
+
+            font-weight: 750;
+        }
+
+        /* ============================================================
+           INFO
+           ============================================================ */
+
+        .info-row {
+
+            display: flex;
+
+            justify-content:
+                space-between;
+
+            gap: 14px;
+
+            padding:
+                11px 0;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.05);
+        }
+
+        .info-row:last-child {
+
+            border-bottom: 0;
+        }
+
+        .info-key {
+
+            color:
+                var(--muted-2);
+
+            font-size: 10px;
+        }
+
+        .info-value {
+
+            text-align: right;
+
+            color:
+                rgba(255,255,255,0.78);
+
+            font-size: 10px;
+
+            font-weight: 650;
+        }
+
+        /* ============================================================
+           BOTTOM PLAYER
+           ============================================================ */
+
+        .bottom-player {
+
+            position: fixed;
+
+            left:
+                245px;
+
+            right: 0;
+
+            bottom: 0;
+
+            z-index: 30;
+
+            min-height:
+                88px;
+
+            padding:
+                12px 18px;
+
+            display: grid;
+
+            grid-template-columns:
+                minmax(190px, 1fr)
+                auto
+                minmax(190px, 1fr);
+
+            align-items: center;
+
+            gap: 20px;
+
+            background:
+                rgba(10,10,11,0.92);
+
+            backdrop-filter:
+                blur(22px);
+
+            -webkit-backdrop-filter:
+                blur(22px);
+
+            border-top:
+                1px solid
+                var(--border);
+        }
+
+        .mini-track {
+
+            min-width: 0;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+        }
+
+        .mini-cover {
+
+            width: 52px;
+
+            height: 52px;
+
+            flex-shrink: 0;
+
+            object-fit: cover;
+
+            border-radius: 10px;
+
+            background:
+                #17171a;
+        }
+
+        .mini-info {
+
+            min-width: 0;
+        }
+
+        .mini-title {
+
+            overflow: hidden;
+
+            text-overflow:
+                ellipsis;
+
+            white-space:
+                nowrap;
+
+            font-size: 11px;
+
+            font-weight: 800;
+        }
+
+        .mini-artist {
+
+            margin-top: 3px;
+
+            overflow: hidden;
+
+            text-overflow:
+                ellipsis;
+
+            white-space:
+                nowrap;
+
+            color:
+                var(--muted-2);
+
+            font-size: 9px;
+        }
+
+        .mini-center {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                center;
+
+            gap: 8px;
+        }
+
+        .mini-btn {
+
+            width: 35px;
+
+            height: 35px;
+
+            display: grid;
+
+            place-items: center;
+
+            border-radius:
+                10px;
+
+            color:
+                var(--muted);
+
+            background:
+                transparent;
+        }
+
+        .mini-btn:hover {
+
+            color:
+                white;
+
+            background:
+                rgba(255,255,255,0.05);
+        }
+
+        .mini-btn.main {
+
+            width: 43px;
+
+            height: 43px;
+
+            color:
+                #ffffff;
+
+            background:
+                var(--red);
+        }
+
+        .mini-right {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                flex-end;
+
+            gap: 9px;
+        }
+
+        .mini-source {
+
+            padding:
+                6px 9px;
+
+            border-radius:
+                999px;
+
+            color:
+                rgba(255,255,255,0.55);
+
+            background:
+                rgba(255,255,255,0.04);
+
+            font-size: 9px;
+        }
+
+        /* ============================================================
+           YOUTUBE
+           ============================================================ */
+
+        .youtube-box {
+
+            margin-top:
+                18px;
+
+            overflow: hidden;
+
+            display: none;
+
+            border-radius:
+                17px;
+
+            border:
+                1px solid
+                var(--border);
+
+            background:
+                #000;
+        }
+
+        .youtube-box.active {
+
+            display: block;
+        }
+
+        .youtube-box iframe {
+
+            display: block;
+
+            width: 100%;
+
+            aspect-ratio:
+                16 / 9;
+
+            border: 0;
+        }
+
+        /* ============================================================
+           MODALS
+           ============================================================ */
+
+        .modal {
+
+            position: fixed;
+
+            inset: 0;
+
+            z-index: 100;
+
+            display: none;
+
+            align-items: center;
+
+            justify-content:
+                center;
+
+            padding: 20px;
+
+            background:
+                rgba(0,0,0,0.72);
+
+            backdrop-filter:
+                blur(9px);
+        }
+
+        .modal.active {
+
+            display: flex;
+        }
+
+        .modal-card {
+
+            width: min(
+                720px,
+                100%
+            );
+
+            max-height:
+                82vh;
+
+            overflow-y: auto;
+
+            padding:
+                25px;
+
+            border-radius:
+                22px;
+
+            background:
+                #121214;
+
+            border:
+                1px solid
+                var(--border-strong);
+
+            box-shadow:
+                0 35px 110px
+                rgba(0,0,0,0.55);
+        }
+
+        .modal-header {
+
+            display: flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            margin-bottom:
+                18px;
+        }
+
+        .modal-title {
+
+            margin: 0;
+
+            font-size: 20px;
+
+            letter-spacing:
+                -0.03em;
+        }
+
+        .modal-close {
+
+            width: 35px;
+
+            height: 35px;
+
+            border-radius: 10px;
+
+            color:
+                var(--muted);
+
+            background:
+                rgba(255,255,255,0.05);
+        }
+
+        .modal-card h3 {
+
+            margin:
+                20px 0 6px;
+
+            font-size: 13px;
+        }
+
+        .modal-card p {
+
+            margin:
+                0 0 9px;
+
+            color:
+                var(--muted);
+
+            font-size: 12px;
+
+            line-height: 1.65;
+        }
+
+        /* ============================================================
+           COOKIE
+           ============================================================ */
+
+        .cookie-banner {
+
+            position: fixed;
+
+            left: 265px;
+
+            right: 20px;
+
+            bottom: 105px;
+
+            z-index: 80;
+
+            width: min(
+                760px,
+                calc(100% - 285px)
+            );
+
+            margin: 0 auto;
+
+            display: none;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            gap: 18px;
+
+            padding:
+                15px 17px;
+
+            border-radius:
+                16px;
+
+            background:
+                rgba(20,20,23,0.97);
+
+            border:
+                1px solid
+                var(--border-strong);
+
+            box-shadow:
+                0 25px 70px
+                rgba(0,0,0,0.5);
+        }
+
+        .cookie-banner.active {
+
+            display: flex;
+        }
+
+        .cookie-title {
+
+            margin-bottom: 3px;
+
+            font-size: 12px;
+
+            font-weight: 800;
+        }
+
+        .cookie-text {
+
+            color:
+                var(--muted);
+
+            font-size: 10px;
+
+            line-height: 1.5;
+        }
+
+        .cookie-actions {
+
+            display: flex;
+
+            gap: 7px;
+
+            flex-shrink: 0;
+        }
+
+        .cookie-button {
+
+            height: 36px;
+
+            padding:
+                0 12px;
+
+            border-radius: 10px;
+
+            color:
+                #ffffff;
+
+            background:
+                rgba(255,255,255,0.06);
+
+            border:
+                1px solid
+                var(--border);
+
+            font-size: 10px;
+
+            font-weight: 750;
+        }
+
+        .cookie-button.primary {
+
+            background:
+                var(--red);
+
+            border-color:
+                transparent;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        @media (
+            max-width: 1050px
+        ) {
+
+            .sidebar {
+
+                width: 210px;
+            }
+
+            .main {
+
+                width:
+                    calc(100% - 210px);
+
+                margin-left: 210px;
+            }
+
+            .bottom-player {
+
+                left: 210px;
+            }
+
+            .dashboard {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+            .side-column {
+
+                display: grid;
+
+                grid-template-columns:
+                    1fr 1fr;
+            }
+        }
+
+        @media (
+            max-width: 760px
+        ) {
+
+            .sidebar {
+
+                position: static;
+
+                width: 100%;
+
+                height: auto;
+
+                padding: 10px;
+
+                border-right: 0;
+
+                border-bottom:
+                    1px solid
+                    var(--border);
+            }
+
+            .app {
+
+                display: block;
+            }
+
+            .brand {
+
+                padding:
+                    6px 7px 12px;
+            }
+
+            .nav {
+
+                display: grid;
+
+                grid-template-columns:
+                    repeat(
+                        4,
+                        1fr
+                    );
+            }
+
+            .nav-section,
+            .sidebar-spacer,
+            .account-mini {
+
+                display: none;
+            }
+
+            .nav-button {
+
+                justify-content:
+                    center;
+
+                padding: 7px;
+            }
+
+            .nav-label {
+
+                display: none;
+            }
+
+            .main {
+
+                width: 100%;
+
+                margin: 0;
+
+                padding:
+                    15px 12px 125px;
+            }
+
+            .topbar {
+
+                flex-direction:
+                    column;
+
+                align-items:
+                    stretch;
+            }
+
+            .top-actions {
+
+                justify-content:
+                    flex-end;
+            }
+
+            .guild-card {
+
+                flex-wrap:
+                    wrap;
+            }
+
+            .guild-input {
+
+                flex-basis:
+                    100%;
+
+                order:
+                    3;
+            }
+
+            .guild-status {
+
+                margin-left:
+                    auto;
+            }
+
+            .side-column {
+
+                display: grid;
+
+                grid-template-columns:
+                    1fr;
+            }
+
+            .bottom-player {
+
+                left: 0;
+
+                grid-template-columns:
+                    1fr
+                    auto;
+
+                min-height:
+                    76px;
+            }
+
+            .mini-right {
+
+                display: none;
+            }
+
+            .cookie-banner {
+
+                left: 12px;
+
+                right: 12px;
+
+                width:
+                    auto;
+
+                bottom: 92px;
+
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+            }
+
+            .cookie-actions {
+
+                width: 100%;
+            }
+
+            .cookie-button {
+
+                flex: 1;
+            }
+        }
+
+        @media (
+            max-width: 480px
+        ) {
+
+            .now-playing {
+
+                padding:
+                    18px;
+            }
+
+            .album-wrap {
+
+                width:
+                    min(
+                        280px,
+                        82vw
+                    );
+            }
+
+            .top-actions {
+
+                display: none;
+            }
+
+            .track-title {
+
+                font-size:
+                    23px;
+            }
+        }
+
+    </style>
 
 </head>
 
 <body>
 
-<div class="player">
+<div class="app">
 
-    <div class="logo">
-        🦆
+    <!-- ============================================================
+         SIDEBAR
+         ============================================================ -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="brand-logo">
+                🦆
+            </div>
+
+            <div>
+
+                <div class="brand-name">
+                    DuckAI Music
+                </div>
+
+                <div class="brand-subtitle">
+                    Smart music control
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="nav-section">
+            Workspace
+        </div>
+
+        <nav class="nav">
+
+            <button
+                class="nav-button active"
+                onclick="setSection(this, 'home')"
+            >
+                <span class="nav-icon">⌂</span>
+                <span class="nav-label">Home</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openModal('searchModal')"
+            >
+                <span class="nav-icon">⌕</span>
+                <span class="nav-label">Search</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openModal('libraryModal')"
+            >
+                <span class="nav-icon">▣</span>
+                <span class="nav-label">Library</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openModal('playlistModal')"
+            >
+                <span class="nav-icon">☷</span>
+                <span class="nav-label">Playlists</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openLyrics()"
+            >
+                <span class="nav-icon">♫</span>
+                <span class="nav-label">Lyrics</span>
+            </button>
+
+        </nav>
+
+        <div class="nav-section" style="margin-top:25px;">
+            Account
+        </div>
+
+        <nav class="nav">
+
+            <button
+                class="nav-button"
+                onclick="openModal('accountModal')"
+            >
+                <span class="nav-icon">◉</span>
+                <span class="nav-label">Account</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openModal('settingsModal')"
+            >
+                <span class="nav-icon">⚙</span>
+                <span class="nav-label">Settings</span>
+            </button>
+
+            <button
+                class="nav-button"
+                onclick="openModal('menuModal')"
+            >
+                <span class="nav-icon">☰</span>
+                <span class="nav-label">Menu</span>
+            </button>
+
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+
+        <div class="account-mini">
+
+            <div class="avatar">
+                🦆
+            </div>
+
+            <div>
+
+                <div class="account-name">
+                    DuckAI User
+                </div>
+
+                <div class="account-status">
+                    Music dashboard
+                </div>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+    <!-- ============================================================
+         MAIN
+         ============================================================ -->
+
+    <main class="main">
+
+        <!-- ========================================================
+             TOPBAR
+             ======================================================== -->
+
+        <header class="topbar">
+
+            <div class="search">
+
+                <span class="search-icon">
+                    ⌕
+                </span>
+
+                <input
+                    id="searchInput"
+                    class="search-input"
+                    type="search"
+                    placeholder="Search songs, artists or albums..."
+                    autocomplete="off"
+                >
+
+            </div>
+
+            <div class="top-actions">
+
+                <button
+                    class="top-button"
+                    onclick="openLyrics()"
+                    title="Lyrics"
+                >
+                    ♫
+                </button>
+
+                <button
+                    class="top-button"
+                    onclick="openModal('playlistModal')"
+                    title="Playlists"
+                >
+                    ☷
+                </button>
+
+                <button
+                    class="top-button"
+                    onclick="openModal('accountModal')"
+                    title="Account"
+                >
+                    ◉
+                </button>
+
+            </div>
+
+        </header>
+
+        <!-- ========================================================
+             GUILD
+             ======================================================== -->
+
+        <section class="guild-card">
+
+            <div>
+
+                <div class="guild-label">
+                    Discord Server
+                </div>
+
+                <div
+                    id="guildStatus"
+                    class="guild-status"
+                >
+                    No server selected
+                </div>
+
+            </div>
+
+            <input
+                id="guildIdInput"
+                class="guild-input"
+                type="text"
+                inputmode="numeric"
+                placeholder="Discord Server ID"
+                autocomplete="off"
+            >
+
+            <button
+                id="guildConnect"
+                class="guild-connect"
+                type="button"
+            >
+                Connect
+            </button>
+
+        </section>
+
+        <!-- ========================================================
+             DASHBOARD
+             ======================================================== -->
+
+        <section class="dashboard">
+
+            <!-- ====================================================
+                 NOW PLAYING
+                 ==================================================== -->
+
+            <section class="panel now-playing">
+
+                <div class="panel-heading">
+
+                    <div class="panel-heading-title">
+                        Now Playing
+                    </div>
+
+                    <div
+                        id="sourceBadge"
+                        class="source-pill"
+                    >
+                        No source
+                    </div>
+
+                </div>
+
+                <div class="album-wrap">
+
+                    <img
+                        id="cover"
+                        class="album"
+                        alt="Album artwork"
+                    >
+
+                    <div
+                        id="coverPlaceholder"
+                        class="album-placeholder"
+                    >
+                        ♫
+                    </div>
+
+                </div>
+
+                <div class="track">
+
+                    <h1
+                        id="title"
+                        class="track-title"
+                    >
+                        DuckAI Music
+                    </h1>
+
+                    <div
+                        id="artist"
+                        class="track-artist"
+                    >
+                        No song selected
+                    </div>
+
+                    <div class="track-meta">
+
+                        <span
+                            id="trackDuration"
+                            class="meta-pill"
+                        >
+                            0:00
+                        </span>
+
+                        <span
+                            id="trackSource"
+                            class="meta-pill"
+                        >
+                            No source
+                        </span>
+
+                        <span
+                            id="trackVoice"
+                            class="meta-pill"
+                        >
+                            Discord Voice
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <div class="progress-area">
+
+                    <input
+                        id="progress"
+                        class="progress"
+                        type="range"
+                        min="0"
+                        max="100"
+                        value="0"
+                        step="0.1"
+                    >
+
+                    <div class="time">
+
+                        <span id="currentTime">
+                            0:00
+                        </span>
+
+                        <span id="duration">
+                            0:00
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <div class="player-controls">
+
+                    <button
+                        class="player-btn"
+                        onclick="previousMusic()"
+                        title="Previous"
+                    >
+                        ↶
+                    </button>
+
+                    <button
+                        class="player-btn"
+                        onclick="stopMusic()"
+                        title="Stop"
+                    >
+                        ■
+                    </button>
+
+                    <button
+                        id="mainPlayButton"
+                        class="player-btn primary"
+                        onclick="playMusic()"
+                        title="Play"
+                    >
+                        ▶
+                    </button>
+
+                    <button
+                        class="player-btn"
+                        onclick="pauseMusic()"
+                        title="Pause"
+                    >
+                        ❚❚
+                    </button>
+
+                    <button
+                        class="player-btn"
+                        onclick="nextMusic()"
+                        title="Next"
+                    >
+                        ↷
+                    </button>
+
+                </div>
+
+                <div class="volume">
+
+                    <span>
+                        🔊
+                    </span>
+
+                    <input
+                        id="volume"
+                        class="volume-slider"
+                        type="range"
+                        min="0"
+                        max="1"
+                        value="1"
+                        step="0.01"
+                    >
+
+                </div>
+
+                <div
+                    id="status"
+                    style="
+                        margin-top:14px;
+                        text-align:center;
+                        color:rgba(255,255,255,0.38);
+                        font-size:10px;
+                    "
+                >
+                    Stopped
+                </div>
+
+                <div
+                    id="message"
+                    class="message"
+                ></div>
+
+                <div
+                    id="youtubeBox"
+                    class="youtube-box"
+                >
+
+                    <iframe
+                        id="youtubeFrame"
+                        title="YouTube Player"
+                        allow="
+                            accelerometer;
+                            autoplay;
+                            clipboard-write;
+                            encrypted-media;
+                            gyroscope;
+                            picture-in-picture;
+                            web-share
+                        "
+                        allowfullscreen
+                    ></iframe>
+
+                </div>
+
+            </section>
+
+            <!-- ====================================================
+                 SIDE
+                 ==================================================== -->
+
+            <div class="side-column">
+
+                <!-- ==================================================
+                     QUEUE
+                     ================================================== -->
+
+                <section class="panel side-panel queue">
+
+                    <div class="queue-header">
+
+                        <div class="queue-title">
+                            Queue
+                        </div>
+
+                        <button
+                            class="queue-action"
+                            onclick="clearQueue()"
+                        >
+                            Clear
+                        </button>
+
+                    </div>
+
+                    <div
+                        id="queueList"
+                    >
+
+                        <div class="queue-empty">
+                            No songs in the queue.<br>
+                            Search through DuckAI to add music.
+                        </div>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================================
+                     QUICK ACCESS
+                     ================================================== -->
+
+                <section class="panel side-panel">
+
+                    <div class="queue-title"
+                         style="margin-bottom:13px;">
+                        Quick Access
+                    </div>
+
+                    <div class="quick-grid">
+
+                        <button
+                            class="quick"
+                            onclick="openLyrics()"
+                        >
+                            <span class="quick-icon">
+                                ♫
+                            </span>
+
+                            <span class="quick-label">
+                                Lyrics
+                            </span>
+                        </button>
+
+                        <button
+                            class="quick"
+                            onclick="openModal('playlistModal')"
+                        >
+                            <span class="quick-icon">
+                                ☷
+                            </span>
+
+                            <span class="quick-label">
+                                Playlists
+                            </span>
+                        </button>
+
+                        <button
+                            class="quick"
+                            onclick="openModal('libraryModal')"
+                        >
+                            <span class="quick-icon">
+                                ▣
+                            </span>
+
+                            <span class="quick-label">
+                                Library
+                            </span>
+                        </button>
+
+                        <button
+                            class="quick"
+                            onclick="openModal('accountModal')"
+                        >
+                            <span class="quick-icon">
+                                ◉
+                            </span>
+
+                            <span class="quick-label">
+                                Account
+                            </span>
+                        </button>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================================
+                     CONNECTION
+                     ================================================== -->
+
+                <section class="panel side-panel">
+
+                    <div class="queue-title"
+                         style="margin-bottom:8px;">
+                        Connection
+                    </div>
+
+                    <div class="info-row">
+
+                        <span class="info-key">
+                            Server
+                        </span>
+
+                        <span
+                            id="infoGuild"
+                            class="info-value"
+                        >
+                            Not selected
+                        </span>
+
+                    </div>
+
+                    <div class="info-row">
+
+                        <span class="info-key">
+                            Voice
+                        </span>
+
+                        <span
+                            id="infoVoice"
+                            class="info-value"
+                        >
+                            Offline
+                        </span>
+
+                    </div>
+
+                    <div class="info-row">
+
+                        <span class="info-key">
+                            Status
+                        </span>
+
+                        <span
+                            id="infoStatus"
+                            class="info-value"
+                        >
+                            Stopped
+                        </span>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- ================================================================
+     BOTTOM PLAYER
+     ================================================================ -->
+
+<div class="bottom-player">
+
+    <div class="mini-track">
+
+        <img
+            id="miniCover"
+            class="mini-cover"
+            alt=""
+        >
+
+        <div class="mini-info">
+
+            <div
+                id="miniTitle"
+                class="mini-title"
+            >
+                DuckAI Music
+            </div>
+
+            <div
+                id="miniArtist"
+                class="mini-artist"
+            >
+                No song selected
+            </div>
+
+        </div>
+
     </div>
 
-    <h1 id="title">
-        DuckAI Music
-    </h1>
-
-    <div
-        class="artist"
-        id="artist"
-    >
-        No song selected
-    </div>
-
-    <img
-        id="cover"
-        class="cover"
-        alt="Album artwork"
-    >
-
-    <div
-        class="status"
-        id="status"
-    >
-        Stopped
-    </div>
-
-    <!-- =====================================================
-         CONTROLS
-         ===================================================== -->
-
-    <div class="controls">
+    <div class="mini-center">
 
         <button
-            class="play"
+            class="mini-btn"
+            onclick="previousMusic()"
+        >
+            ↶
+        </button>
+
+        <button
+            id="miniPlayButton"
+            class="mini-btn main"
             onclick="playMusic()"
         >
-            ▶️ Play
+            ▶
         </button>
 
         <button
-            onclick="pauseMusic()"
-        >
-            ⏸️ Pause
-        </button>
-
-        <button
+            class="mini-btn"
             onclick="stopMusic()"
         >
-            ⏹️ Stop
+            ■
+        </button>
+
+        <button
+            class="mini-btn"
+            onclick="nextMusic()"
+        >
+            ↷
         </button>
 
     </div>
 
-    <!-- =====================================================
-         PROGRESS
-         ===================================================== -->
+    <div class="mini-right">
 
-    <div class="progress">
-
-        <input
-            id="progress"
-            type="range"
-            min="0"
-            max="100"
-            value="0"
-            step="0.1"
+        <span
+            id="miniSource"
+            class="mini-source"
         >
+            No source
+        </span>
 
-        <div class="time">
+        <button
+            class="mini-btn"
+            onclick="openLyrics()"
+        >
+            ♫
+        </button>
 
-            <span id="currentTime">
-                0:00
+    </div>
+
+</div>
+
+<!-- ================================================================
+     COOKIES
+     ================================================================ -->
+
+<div
+    id="cookieBanner"
+    class="cookie-banner"
+>
+
+    <div>
+
+        <div class="cookie-title">
+            🍪 Cookies
+        </div>
+
+        <div class="cookie-text">
+            Usamos apenas armazenamento necessário para
+            preferências do player. Conteúdos de terceiros,
+            como YouTube, podem ter as suas próprias políticas.
+        </div>
+
+    </div>
+
+    <div class="cookie-actions">
+
+        <button
+            class="cookie-button"
+            onclick="openModal('cookiesModal')"
+        >
+            Saber mais
+        </button>
+
+        <button
+            class="cookie-button primary"
+            onclick="acceptCookies()"
+        >
+            Aceitar
+        </button>
+
+    </div>
+
+</div>
+
+<!-- ================================================================
+     MODALS
+     ================================================================ -->
+
+<div
+    id="lyricsModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'lyricsModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Lyrics
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('lyricsModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <p>
+            As letras podem ser integradas aqui futuramente.
+        </p>
+
+        <p>
+            A faixa atualmente selecionada é mostrada para
+            que o sistema de lyrics possa ser ligado ao backend.
+        </p>
+
+        <div
+            id="lyricsContent"
+            style="
+                margin-top:20px;
+                padding:20px;
+                border-radius:16px;
+                background:rgba(255,255,255,0.035);
+                color:rgba(255,255,255,0.58);
+                line-height:1.8;
+                font-size:13px;
+                text-align:center;
+            "
+        >
+            Lyrics not available yet.
+        </div>
+
+    </div>
+
+</div>
+
+<div
+    id="playlistModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'playlistModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Playlists
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('playlistModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <p>
+            As tuas playlists aparecerão aqui.
+        </p>
+
+        <div class="quick-grid"
+             style="margin-top:18px;">
+
+            <button class="quick">
+                <span class="quick-icon">
+                    ＋
+                </span>
+
+                <span class="quick-label">
+                    New playlist
+                </span>
+            </button>
+
+            <button class="quick">
+                <span class="quick-icon">
+                    ♡
+                </span>
+
+                <span class="quick-label">
+                    Liked songs
+                </span>
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div
+    id="libraryModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'libraryModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Library
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('libraryModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <p>
+            A biblioteca pessoal do DuckAI ficará disponível
+            aqui quando o armazenamento de músicas for ligado.
+        </p>
+
+    </div>
+
+</div>
+
+<div
+    id="accountModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'accountModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Account
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('accountModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <div class="info-row">
+
+            <span class="info-key">
+                Account
             </span>
 
-            <span id="duration">
-                0:00
+            <span class="info-value">
+                DuckAI User
+            </span>
+
+        </div>
+
+        <div class="info-row">
+
+            <span class="info-key">
+                Discord server
+            </span>
+
+            <span
+                id="accountGuild"
+                class="info-value"
+            >
+                Not selected
             </span>
 
         </div>
 
     </div>
 
-    <!-- =====================================================
-         VOLUME
-         ===================================================== -->
+</div>
 
-    <div class="volume">
+<div
+    id="settingsModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'settingsModal')"
+>
 
-        🔊
+    <div class="modal-card">
 
-        <input
-            id="volume"
-            type="range"
-            min="0"
-            max="1"
-            value="1"
-            step="0.01"
-        >
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Settings
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('settingsModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <div class="info-row">
+
+            <span class="info-key">
+                Theme
+            </span>
+
+            <span class="info-value">
+                DuckAI Red
+            </span>
+
+        </div>
+
+        <div class="info-row">
+
+            <span class="info-key">
+                Default volume
+            </span>
+
+            <span class="info-value">
+                100%
+            </span>
+
+        </div>
 
     </div>
 
-    <!-- =====================================================
-         AUDIO
-         ===================================================== -->
+</div>
 
-    <audio
-        id="audio"
-        preload="auto"
-    ></audio>
+<div
+    id="menuModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'menuModal')"
+>
 
-    <div
-        id="message"
-        class="message"
-    ></div>
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Menu
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('menuModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <button
+            class="quick"
+            style="width:100%; margin-bottom:8px;"
+            onclick="openModal('termsModal')"
+        >
+            <span class="quick-icon">
+                §
+            </span>
+
+            <span class="quick-label">
+                Terms of Service
+            </span>
+        </button>
+
+        <button
+            class="quick"
+            style="width:100%; margin-bottom:8px;"
+            onclick="openModal('privacyModal')"
+        >
+            <span class="quick-icon">
+                ◌
+            </span>
+
+            <span class="quick-label">
+                Privacy
+            </span>
+        </button>
+
+        <button
+            class="quick"
+            style="width:100%;"
+            onclick="openModal('cookiesModal')"
+        >
+            <span class="quick-icon">
+                🍪
+            </span>
+
+            <span class="quick-label">
+                Cookies
+            </span>
+        </button>
+
+    </div>
 
 </div>
+
+<div
+    id="termsModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'termsModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Terms of Service
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('termsModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <h3>1. Service</h3>
+
+        <p>
+            O DuckAI Music fornece uma interface para pesquisar,
+            selecionar e controlar conteúdos através das fontes
+            suportadas pelo sistema.
+        </p>
+
+        <h3>2. Third-party services</h3>
+
+        <p>
+            O serviço pode utilizar plataformas de terceiros,
+            incluindo YouTube e Audius. Essas plataformas mantêm
+            os seus próprios termos e políticas.
+        </p>
+
+        <h3>3. User responsibility</h3>
+
+        <p>
+            O utilizador é responsável pela utilização do serviço
+            de acordo com a legislação aplicável e os termos das
+            plataformas utilizadas.
+        </p>
+
+        <h3>4. Availability</h3>
+
+        <p>
+            A disponibilidade das funcionalidades não é garantida.
+            O serviço pode ser alterado ou interrompido.
+        </p>
+
+        <h3>5. Abuse</h3>
+
+        <p>
+            Não é permitido utilizar DuckAI para contornar
+            mecanismos de segurança ou limitações técnicas
+            de serviços de terceiros.
+        </p>
+
+    </div>
+
+</div>
+
+<div
+    id="privacyModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'privacyModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Privacy
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('privacyModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <h3>Information processed</h3>
+
+        <p>
+            O player pode processar o ID do servidor Discord
+            fornecido pelo utilizador e informações necessárias
+            para mostrar o estado da música.
+        </p>
+
+        <h3>Local preferences</h3>
+
+        <p>
+            A preferência de cookies e algumas preferências locais
+            podem ser armazenadas no navegador.
+        </p>
+
+        <h3>Third-party services</h3>
+
+        <p>
+            Conteúdo incorporado de terceiros pode ser processado
+            de acordo com as políticas desses fornecedores.
+        </p>
+
+    </div>
+
+</div>
+
+<div
+    id="cookiesModal"
+    class="modal"
+    onclick="closeModalOnBackdrop(event, 'cookiesModal')"
+>
+
+    <div class="modal-card">
+
+        <div class="modal-header">
+
+            <h2 class="modal-title">
+                Cookies
+            </h2>
+
+            <button
+                class="modal-close"
+                onclick="closeModal('cookiesModal')"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <h3>Essential preference</h3>
+
+        <p>
+            O player utiliza uma preferência local para recordar
+            que o aviso de cookies já foi apresentado.
+        </p>
+
+        <h3>Third-party content</h3>
+
+        <p>
+            Serviços incorporados, como YouTube, podem utilizar
+            os seus próprios mecanismos de armazenamento.
+        </p>
+
+    </div>
+
+</div>
+
+<!-- ================================================================
+     HIDDEN AUDIO
+     ================================================================ -->
+
+<audio
+    id="audio"
+    preload="auto"
+></audio>
 
 <script>
 
@@ -336,8 +3449,12 @@ const params =
         window.location.search
     );
 
-const guildId =
-    params.get('guildId');
+let guildId =
+    params.get('guildId') ||
+    localStorage.getItem(
+        'duckai_guild_id'
+    ) ||
+    null;
 
 // ============================================================
 // ELEMENTS
@@ -346,6 +3463,21 @@ const guildId =
 const audio =
     document.getElementById(
         'audio'
+    );
+
+const guildIdInput =
+    document.getElementById(
+        'guildIdInput'
+    );
+
+const guildConnect =
+    document.getElementById(
+        'guildConnect'
+    );
+
+const guildStatus =
+    document.getElementById(
+        'guildStatus'
     );
 
 const title =
@@ -361,6 +3493,31 @@ const artist =
 const cover =
     document.getElementById(
         'cover'
+    );
+
+const coverPlaceholder =
+    document.getElementById(
+        'coverPlaceholder'
+    );
+
+const sourceBadge =
+    document.getElementById(
+        'sourceBadge'
+    );
+
+const trackDuration =
+    document.getElementById(
+        'trackDuration'
+    );
+
+const trackSource =
+    document.getElementById(
+        'trackSource'
+    );
+
+const trackVoice =
+    document.getElementById(
+        'trackVoice'
     );
 
 const status =
@@ -393,66 +3550,287 @@ const message =
         'message'
     );
 
+const infoGuild =
+    document.getElementById(
+        'infoGuild'
+    );
+
+const infoVoice =
+    document.getElementById(
+        'infoVoice'
+    );
+
+const infoStatus =
+    document.getElementById(
+        'infoStatus'
+    );
+
+const accountGuild =
+    document.getElementById(
+        'accountGuild'
+    );
+
+const miniCover =
+    document.getElementById(
+        'miniCover'
+    );
+
+const miniTitle =
+    document.getElementById(
+        'miniTitle'
+    );
+
+const miniArtist =
+    document.getElementById(
+        'miniArtist'
+    );
+
+const miniSource =
+    document.getElementById(
+        'miniSource'
+    );
+
+const mainPlayButton =
+    document.getElementById(
+        'mainPlayButton'
+    );
+
+const miniPlayButton =
+    document.getElementById(
+        'miniPlayButton'
+    );
+
+const youtubeBox =
+    document.getElementById(
+        'youtubeBox'
+    );
+
+const youtubeFrame =
+    document.getElementById(
+        'youtubeFrame'
+    );
+
+const lyricsContent =
+    document.getElementById(
+        'lyricsContent'
+    );
+
 // ============================================================
 // STATE
 // ============================================================
 
-let currentSongId = null;
+let currentSongId =
+    null;
 
-let loadingSong = false;
+let currentSongSource =
+    null;
+
+let loadingSong =
+    false;
+
+let lastServerState =
+    'stopped';
 
 // ============================================================
-// VALIDATION
+// GUILD
 // ============================================================
 
-if (!guildId) {
+guildIdInput.value =
+    guildId || '';
 
-    status.textContent =
-        'Missing guildId';
+updateGuildUI();
 
-    showMessage(
-        'Open the player with ?guildId=YOUR_SERVER_ID'
-    );
+function updateGuildUI() {
+
+    if (
+        guildId
+    ) {
+
+        guildStatus.textContent =
+            `Connected • ${guildId}`;
+
+        infoGuild.textContent =
+            guildId;
+
+        accountGuild.textContent =
+            guildId;
+
+    } else {
+
+        guildStatus.textContent =
+            'No server selected';
+
+        infoGuild.textContent =
+            'Not selected';
+
+        accountGuild.textContent =
+            'Not selected';
+    }
 }
 
+function setGuildId(
+    value
+) {
+
+    const clean =
+        String(
+            value || ''
+        ).trim();
+
+    if (
+        !/^\d{17,20}$/.test(
+            clean
+        )
+    ) {
+
+        guildStatus.textContent =
+            'Invalid Discord Server ID';
+
+        return false;
+    }
+
+    guildId =
+        clean;
+
+    localStorage.setItem(
+        'duckai_guild_id',
+        guildId
+    );
+
+    const url =
+        new URL(
+            window.location.href
+        );
+
+    url.searchParams.set(
+        'guildId',
+        guildId
+    );
+
+    window.history.replaceState(
+        {},
+        '',
+        url
+    );
+
+    updateGuildUI();
+
+    showMessage(
+        '✅ Discord server connected.'
+    );
+
+    loadMusic();
+
+    return true;
+}
+
+guildConnect.addEventListener(
+    'click',
+    () => {
+
+        setGuildId(
+            guildIdInput.value
+        );
+    }
+);
+
+guildIdInput.addEventListener(
+    'keydown',
+    event => {
+
+        if (
+            event.key ===
+            'Enter'
+        ) {
+
+            setGuildId(
+                guildIdInput.value
+            );
+        }
+    }
+);
+
 // ============================================================
-// FORMAT TIME
+// HELPERS
 // ============================================================
 
 function formatTime(
     seconds
 ) {
 
-    if (
-        !Number.isFinite(
+    const value =
+        Number(
             seconds
-        )
+        );
+
+    if (
+        !Number.isFinite(value) ||
+        value < 0
     ) {
 
         return '0:00';
     }
 
+    const total =
+        Math.floor(
+            value
+        );
+
+    const hours =
+        Math.floor(
+            total / 3600
+        );
+
     const minutes =
         Math.floor(
-            seconds / 60
+            (total % 3600) / 60
         );
 
     const secs =
-        Math.floor(
-            seconds % 60
-        )
-            .toString()
-            .padStart(
-                2,
-                '0'
-            );
+        String(
+            total % 60
+        ).padStart(
+            2,
+            '0'
+        );
 
-    return `${minutes}:${secs}`;
+    if (
+        hours > 0
+    ) {
+
+        return (
+            `${hours}:${String(minutes).padStart(2, '0')}:${secs}`
+        );
+    }
+
+    return (
+        `${minutes}:${secs}`
+    );
 }
 
-// ============================================================
-// MESSAGE
-// ============================================================
+function formatSource(
+    source
+) {
+
+    if (
+        source ===
+        'youtube'
+    ) {
+
+        return 'YouTube';
+    }
+
+    if (
+        source ===
+        'audius'
+    ) {
+
+        return 'Audius';
+    }
+
+    return source ||
+        'Unknown';
+}
 
 function showMessage(
     text
@@ -462,13 +3840,318 @@ function showMessage(
         text || '';
 }
 
+function updateStatus(
+    text,
+    state
+) {
+
+    status.textContent =
+        text;
+
+    infoStatus.textContent =
+        text;
+
+    lastServerState =
+        state ||
+        'stopped';
+
+    if (
+        state ===
+        'playing'
+    ) {
+
+        mainPlayButton.textContent =
+            '❚❚';
+
+        miniPlayButton.textContent =
+            '❚❚';
+
+    } else {
+
+        mainPlayButton.textContent =
+            '▶';
+
+        miniPlayButton.textContent =
+            '▶';
+    }
+}
+
 // ============================================================
-// LOAD CURRENT MUSIC
+// YOUTUBE VIDEO ID
+// ============================================================
+
+function getYouTubeVideoId(
+    song
+) {
+
+    if (
+        song?.id &&
+        /^[A-Za-z0-9_-]{11}$/.test(
+            song.id
+        )
+    ) {
+
+        return song.id;
+    }
+
+    const value =
+        song?.permalink ||
+        song?.url ||
+        '';
+
+    try {
+
+        const url =
+            new URL(
+                value
+            );
+
+        if (
+            url.hostname.includes(
+                'youtu.be'
+            )
+        ) {
+
+            return url.pathname
+                .replace(
+                    /^\//,
+                    ''
+                )
+                .slice(
+                    0,
+                    11
+                );
+        }
+
+        const id =
+            url.searchParams.get(
+                'v'
+            );
+
+        if (
+            id &&
+            /^[A-Za-z0-9_-]{11}$/.test(
+                id
+            )
+        ) {
+
+            return id;
+        }
+
+    } catch {}
+
+    return null;
+}
+
+// ============================================================
+// YOUTUBE EMBED
+// ============================================================
+
+function updateYouTube(
+    song
+) {
+
+    if (
+        !song ||
+        song.source !==
+        'youtube'
+    ) {
+
+        youtubeFrame.src =
+            'about:blank';
+
+        youtubeBox.classList.remove(
+            'active'
+        );
+
+        return;
+    }
+
+    const videoId =
+        getYouTubeVideoId(
+            song
+        );
+
+    if (
+        !videoId
+    ) {
+
+        youtubeFrame.src =
+            'about:blank';
+
+        youtubeBox.classList.remove(
+            'active'
+        );
+
+        return;
+    }
+
+    youtubeFrame.src =
+        `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?playsinline=1&rel=0`;
+
+    youtubeBox.classList.add(
+        'active'
+    );
+}
+
+// ============================================================
+// UPDATE SONG UI
+// ============================================================
+
+function updateSongUI(
+    song
+) {
+
+    if (
+        !song
+    ) {
+
+        title.textContent =
+            'DuckAI Music';
+
+        artist.textContent =
+            'No song selected';
+
+        sourceBadge.textContent =
+            'No source';
+
+        trackSource.textContent =
+            'No source';
+
+        trackDuration.textContent =
+            '0:00';
+
+        trackVoice.textContent =
+            'Discord Voice';
+
+        miniTitle.textContent =
+            'DuckAI Music';
+
+        miniArtist.textContent =
+            'No song selected';
+
+        miniSource.textContent =
+            'No source';
+
+        cover.removeAttribute(
+            'src'
+        );
+
+        cover.classList.remove(
+            'has-image'
+        );
+
+        coverPlaceholder.style.display =
+            'grid';
+
+        miniCover.removeAttribute(
+            'src'
+        );
+
+        updateYouTube(
+            null
+        );
+
+        return;
+    }
+
+    title.textContent =
+        song.title ||
+        'Unknown title';
+
+    artist.textContent =
+        song.artist ||
+        'Unknown artist';
+
+    const source =
+        song.source ||
+        'unknown';
+
+    sourceBadge.textContent =
+        formatSource(
+            source
+        );
+
+    trackSource.textContent =
+        formatSource(
+            source
+        );
+
+    trackDuration.textContent =
+        formatTime(
+            song.duration
+        );
+
+    trackVoice.textContent =
+        source === 'youtube'
+            ? 'YouTube • Discord Voice'
+            : 'Discord Voice';
+
+    miniTitle.textContent =
+        song.title ||
+        'Unknown title';
+
+    miniArtist.textContent =
+        song.artist ||
+        'Unknown artist';
+
+    miniSource.textContent =
+        formatSource(
+            source
+        );
+
+    if (
+        song.artwork
+    ) {
+
+        cover.src =
+            song.artwork;
+
+        cover.classList.add(
+            'has-image'
+        );
+
+        coverPlaceholder.style.display =
+            'none';
+
+        miniCover.src =
+            song.artwork;
+
+    } else {
+
+        cover.removeAttribute(
+            'src'
+        );
+
+        cover.classList.remove(
+            'has-image'
+        );
+
+        coverPlaceholder.style.display =
+            'grid';
+
+        miniCover.removeAttribute(
+            'src'
+        );
+    }
+
+    updateYouTube(
+        song
+    );
+
+    lyricsContent.textContent =
+        `Lyrics for "${song.title || 'Unknown title'}" are not available yet.`;
+}
+
+// ============================================================
+// LOAD MUSIC
 // ============================================================
 
 async function loadMusic() {
 
-    if (!guildId) {
+    if (
+        !guildId
+    ) {
 
         return;
     }
@@ -479,7 +4162,8 @@ async function loadMusic() {
             await fetch(
                 `/api/music/current?guildId=${encodeURIComponent(guildId)}`,
                 {
-                    cache: 'no-store'
+                    cache:
+                        'no-store'
                 }
             );
 
@@ -500,7 +4184,7 @@ async function loadMusic() {
         ) {
 
             throw new Error(
-                data.error ||
+                data.message ||
                 'Music API error'
             );
         }
@@ -516,18 +4200,22 @@ async function loadMusic() {
             currentSongId =
                 null;
 
-            title.textContent =
-                'DuckAI Music';
+            currentSongSource =
+                null;
 
-            artist.textContent =
-                'No song selected';
-
-            cover.removeAttribute(
-                'src'
+            updateSongUI(
+                null
             );
 
-            status.textContent =
-                'Stopped';
+            updateStatus(
+                'Stopped',
+                'stopped'
+            );
+
+            infoVoice.textContent =
+                data.connected
+                    ? 'Connected'
+                    : 'Offline';
 
             return;
         }
@@ -535,35 +4223,16 @@ async function loadMusic() {
         const song =
             data.song;
 
-        // ====================================================
-        // UPDATE INFO
-        // ====================================================
+        const source =
+            song.source ||
+            'unknown';
 
-        title.textContent =
-            song.title ||
-            'Unknown title';
+        currentSongSource =
+            source;
 
-        artist.textContent =
-            song.artist ||
-            'Unknown artist';
-
-        if (
-            song.artwork
-        ) {
-
-            cover.src =
-                song.artwork;
-
-        } else {
-
-            cover.removeAttribute(
-                'src'
-            );
-        }
-
-        // ====================================================
-        // LOAD AUDIO ONLY WHEN SONG CHANGED
-        // ====================================================
+        updateSongUI(
+            song
+        );
 
         if (
             currentSongId !==
@@ -578,44 +4247,49 @@ async function loadMusic() {
 
             audio.pause();
 
-            audio.src =
-                song.url;
+            // Direct sources only.
+            // YouTube uses the embedded player.
 
-            audio.load();
+            if (
+                source ===
+                'youtube'
+            ) {
+
+                audio.removeAttribute(
+                    'src'
+                );
+
+                audio.load();
+
+            } else if (
+                typeof song.url ===
+                    'string' &&
+                song.url.trim()
+            ) {
+
+                audio.src =
+                    song.url;
+
+                audio.load();
+            }
 
             loadingSong =
                 false;
-
-            showMessage(
-                '🎵 Music loaded. Press Play.'
-            );
         }
 
-        // ====================================================
-        // SERVER STATE
-        // ====================================================
+        updateStatus(
+            data.state === 'playing'
+                ? 'Playing'
+                : data.state === 'paused'
+                    ? 'Paused'
+                    : 'Stopped',
+            data.state
+        );
 
-        if (
-            data.state ===
-            'playing'
-        ) {
-
-            status.textContent =
-                'Playing';
-
-        } else if (
-            data.state ===
-            'paused'
-        ) {
-
-            status.textContent =
-                'Paused';
-
-        } else {
-
-            status.textContent =
-                'Stopped';
-        }
+        infoVoice.textContent =
+            data.connected
+                ? 'Connected'
+                : 'Offline';
 
     } catch (error) {
 
@@ -624,11 +4298,9 @@ async function loadMusic() {
             error
         );
 
-        status.textContent =
-            'Connection error';
-
-        showMessage(
-            'Could not connect to DuckAI Music.'
+        updateStatus(
+            'Connection error',
+            'stopped'
         );
     }
 }
@@ -639,76 +4311,79 @@ async function loadMusic() {
 
 async function playMusic() {
 
-    if (!guildId) {
+    if (
+        !guildId
+    ) {
+
+        showMessage(
+            'Connect a Discord server first.'
+        );
 
         return;
     }
 
     try {
 
-        // ----------------------------------------------------
-        // Make sure we have the current song
-        // ----------------------------------------------------
+        const response =
+            await fetch(
+                '/api/music/play',
+                {
 
-        await loadMusic();
+                    method:
+                        'POST',
 
-        if (!audio.src) {
+                    headers: {
 
-            showMessage(
-                '🎵 No song selected.'
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+                            guildId
+                        })
+                }
             );
 
-            return;
+        const data =
+            await response.json();
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.message ||
+                `HTTP ${response.status}`
+            );
         }
 
-        // ----------------------------------------------------
-        // Browser playback
-        // ----------------------------------------------------
-
-        await audio.play();
-
-        status.textContent =
-            'Playing';
-
-        showMessage(
-            '▶️ Playing in your browser.'
+        updateStatus(
+            'Playing',
+            'playing'
         );
 
-        // ----------------------------------------------------
-        // Update server state
-        // ----------------------------------------------------
-
-        await fetch(
-            '/api/music/play',
-            {
-
-                method:
-                    'POST',
-
-                headers: {
-                    'Content-Type':
-                        'application/json'
-                },
-
-                body:
-                    JSON.stringify({
-                        guildId
-                    })
-            }
+        showMessage(
+            data.voiceSource
+                ? `▶️ Playing in Discord Voice • ${formatSource(data.voiceSource)}`
+                : '▶️ Playing in Discord Voice.'
         );
 
     } catch (error) {
 
         console.error(
-            '❌ Audio playback error:',
+            '❌ Play error:',
             error
         );
 
-        status.textContent =
-            'Playback error';
+        updateStatus(
+            'Playback error',
+            'stopped'
+        );
 
         showMessage(
-            '❌ The browser could not play this audio stream.'
+            `❌ ${error.message}`
         );
     }
 }
@@ -719,30 +4394,55 @@ async function playMusic() {
 
 async function pauseMusic() {
 
+    if (
+        !guildId
+    ) {
+
+        return;
+    }
+
     try {
+
+        const response =
+            await fetch(
+                '/api/music/pause',
+                {
+
+                    method:
+                        'POST',
+
+                    headers: {
+
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+                            guildId
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.message ||
+                'Pause failed.'
+            );
+        }
 
         audio.pause();
 
-        status.textContent =
-            'Paused';
-
-        await fetch(
-            '/api/music/pause',
-            {
-
-                method:
-                    'POST',
-
-                headers: {
-                    'Content-Type':
-                        'application/json'
-                },
-
-                body:
-                    JSON.stringify({
-                        guildId
-                    })
-            }
+        updateStatus(
+            'Paused',
+            'paused'
         );
 
     } catch (error) {
@@ -760,33 +4460,66 @@ async function pauseMusic() {
 
 async function stopMusic() {
 
+    if (
+        !guildId
+    ) {
+
+        return;
+    }
+
     try {
 
         audio.pause();
 
-        audio.currentTime =
-            0;
+        try {
 
-        status.textContent =
-            'Stopped';
+            audio.currentTime =
+                0;
 
-        await fetch(
-            '/api/music/stop',
-            {
+        } catch {}
 
-                method:
-                    'POST',
+        const response =
+            await fetch(
+                '/api/music/stop',
+                {
 
-                headers: {
-                    'Content-Type':
-                        'application/json'
-                },
+                    method:
+                        'POST',
 
-                body:
-                    JSON.stringify({
-                        guildId
-                    })
-            }
+                    headers: {
+
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+                            guildId
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.message ||
+                'Stop failed.'
+            );
+        }
+
+        updateStatus(
+            'Stopped',
+            'stopped'
+        );
+
+        showMessage(
+            '⏹ Playback stopped.'
         );
 
     } catch (error) {
@@ -799,7 +4532,127 @@ async function stopMusic() {
 }
 
 // ============================================================
-// PROGRESS UPDATE
+// PREVIOUS / NEXT
+// ============================================================
+//
+// UI is prepared for a queue backend.
+// No fake server request is made yet.
+//
+// ============================================================
+
+function previousMusic() {
+
+    showMessage(
+        'Previous track is not connected to the queue yet.'
+    );
+}
+
+function nextMusic() {
+
+    showMessage(
+        'Next track is not connected to the queue yet.'
+    );
+}
+
+function clearQueue() {
+
+    document.getElementById(
+        'queueList'
+    ).innerHTML = `
+        <div class="queue-empty">
+            Queue cleared.
+        </div>
+    `;
+}
+
+// ============================================================
+// SEEK
+// ============================================================
+
+progress.addEventListener(
+    'input',
+    () => {
+
+        if (
+            !Number.isFinite(
+                audio.duration
+            ) ||
+            audio.duration <= 0
+        ) {
+
+            return;
+        }
+
+        audio.currentTime =
+            (
+                Number(
+                    progress.value
+                ) / 100
+            ) *
+            audio.duration;
+    }
+);
+
+// ============================================================
+// VOLUME
+// ============================================================
+
+volume.addEventListener(
+    'input',
+    async () => {
+
+        const value =
+            Number(
+                volume.value
+            );
+
+        audio.volume =
+            value;
+
+        if (
+            !guildId
+        ) {
+
+            return;
+        }
+
+        try {
+
+            await fetch(
+                '/api/music/volume',
+                {
+
+                    method:
+                        'POST',
+
+                    headers: {
+
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+                            guildId,
+
+                            volume:
+                                value
+                        })
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                '❌ Volume sync error:',
+                error
+            );
+        }
+    }
+);
+
+// ============================================================
+// AUDIO EVENTS
 // ============================================================
 
 audio.addEventListener(
@@ -834,147 +4687,302 @@ audio.addEventListener(
     }
 );
 
-// ============================================================
-// SEEK
-// ============================================================
-
-progress.addEventListener(
-    'input',
+audio.addEventListener(
+    'ended',
     () => {
 
+        updateStatus(
+            'Stopped',
+            'stopped'
+        );
+    }
+);
+
+// ============================================================
+// LYRICS
+// ============================================================
+
+function openLyrics() {
+
+    openModal(
+        'lyricsModal'
+    );
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+
+function setSection(
+    button,
+    section
+) {
+
+    document
+        .querySelectorAll(
+            '.nav-button'
+        )
+        .forEach(
+            item => {
+
+                item.classList.remove(
+                    'active'
+                );
+            }
+        );
+
+    button.classList.add(
+        'active'
+    );
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+
+function openModal(
+    id
+) {
+
+    const modal =
+        document.getElementById(
+            id
+        );
+
+    if (
+        !modal
+    ) {
+
+        return;
+    }
+
+    modal.classList.add(
+        'active'
+    );
+
+    document.body.style.overflow =
+        'hidden';
+}
+
+function closeModal(
+    id
+) {
+
+    const modal =
+        document.getElementById(
+            id
+        );
+
+    if (
+        !modal
+    ) {
+
+        return;
+    }
+
+    modal.classList.remove(
+        'active'
+    );
+
+    document.body.style.overflow =
+        '';
+}
+
+function closeModalOnBackdrop(
+    event,
+    id
+) {
+
+    if (
+        event.target ===
+        event.currentTarget
+    ) {
+
+        closeModal(
+            id
+        );
+    }
+}
+
+document.addEventListener(
+    'keydown',
+    event => {
+
         if (
-            !Number.isFinite(
-                audio.duration
-            )
+            event.key !==
+            'Escape'
         ) {
 
             return;
         }
 
-        audio.currentTime =
-            (
-                Number(
-                    progress.value
-                ) / 100
-            ) *
-            audio.duration;
-    }
-);
+        document
+            .querySelectorAll(
+                '.modal.active'
+            )
+            .forEach(
+                modal => {
 
-// ============================================================
-// VOLUME
-// ============================================================
-
-volume.addEventListener(
-    'input',
-    () => {
-
-        audio.volume =
-            Number(
-                volume.value
-            );
-    }
-);
-
-// ============================================================
-// AUDIO EVENTS
-// ============================================================
-
-audio.addEventListener(
-    'play',
-    () => {
-
-        status.textContent =
-            'Playing';
-    }
-);
-
-audio.addEventListener(
-    'pause',
-    () => {
-
-        if (
-            audio.currentTime > 0 &&
-            !audio.ended
-        ) {
-
-            status.textContent =
-                'Paused';
-        }
-    }
-);
-
-audio.addEventListener(
-    'ended',
-    async () => {
-
-        status.textContent =
-            'Stopped';
-
-        progress.value =
-            0;
-
-        try {
-
-            await fetch(
-                '/api/music/stop',
-                {
-
-                    method:
-                        'POST',
-
-                    headers: {
-                        'Content-Type':
-                            'application/json'
-                    },
-
-                    body:
-                        JSON.stringify({
-                            guildId
-                        })
+                    modal.classList.remove(
+                        'active'
+                    );
                 }
             );
 
-        } catch (error) {
+        document.body.style.overflow =
+            '';
+    }
+);
 
-            console.error(
-                error
+// ============================================================
+// SEARCH UI
+// ============================================================
+
+const searchInput =
+    document.getElementById(
+        'searchInput'
+    );
+
+searchInput.addEventListener(
+    'keydown',
+    event => {
+
+        if (
+            event.key !==
+            'Enter'
+        ) {
+
+            return;
+        }
+
+        const query =
+            searchInput.value.trim();
+
+        if (
+            !query
+        ) {
+
+            return;
+        }
+
+        showMessage(
+            `🔎 Search requested: ${query}`
+        );
+    }
+);
+
+// ============================================================
+// COOKIES
+// ============================================================
+
+function getCookie(
+    name
+) {
+
+    const prefix =
+        `${name}=`;
+
+    const cookies =
+        document.cookie
+            .split(';')
+            .map(
+                cookie =>
+                    cookie.trim()
+            );
+
+    for (
+        const cookie
+        of cookies
+    ) {
+
+        if (
+            cookie.startsWith(
+                prefix
+            )
+        ) {
+
+            return decodeURIComponent(
+                cookie.slice(
+                    prefix.length
+                )
             );
         }
     }
-);
 
-audio.addEventListener(
-    'error',
-    () => {
+    return null;
+}
 
-        console.error(
-            '❌ HTML audio error:',
-            audio.error
+function setCookie(
+    name,
+    value,
+    days = 365
+) {
+
+    const maxAge =
+        Math.max(
+            1,
+            Math.floor(
+                days *
+                24 *
+                60 *
+                60
+            )
         );
 
-        status.textContent =
-            'Audio error';
+    document.cookie =
+        `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+}
 
-        showMessage(
-            '❌ The audio stream could not be played by this browser.'
+function acceptCookies() {
+
+    setCookie(
+        'duckai_cookie_consent',
+        'accepted'
+    );
+
+    document
+        .getElementById(
+            'cookieBanner'
+        )
+        .classList.remove(
+            'active'
         );
+}
+
+function showCookieBanner() {
+
+    if (
+        getCookie(
+            'duckai_cookie_consent'
+        ) !==
+        'accepted'
+    ) {
+
+        document
+            .getElementById(
+                'cookieBanner'
+            )
+            .classList.add(
+                'active'
+            );
     }
-);
+}
 
 // ============================================================
-// INITIAL LOAD
+// INITIALIZATION
 // ============================================================
+
+showCookieBanner();
 
 loadMusic();
 
 // ============================================================
-// REFRESH
+// AUTO SYNC
 // ============================================================
 
 setInterval(
     loadMusic,
-    5000
+    2000
 );
 
 </script>

@@ -19,6 +19,12 @@
 // • Evaluate YouTube channel quality.
 // • Select the most accurate result.
 //
+// IMPORTANT:
+//
+// • A YouTube video URL is NOT a direct audio stream.
+// • YouTube results are intended for Web Player playback.
+// • Audius can provide a direct playable audio URL.
+//
 // ============================================================
 
 // ============================================================
@@ -58,7 +64,9 @@ function loadProvider(
                 provider.search,
 
             priority:
-                Number.isFinite(priority)
+                Number.isFinite(
+                    priority
+                )
                     ? priority
                     : 0
         });
@@ -427,7 +435,9 @@ function symmetricTokenSimilarity(
     ) {
 
         if (
-            bSet.has(token)
+            bSet.has(
+                token
+            )
         ) {
 
             intersection++;
@@ -524,7 +534,9 @@ function tokenOverlap(
     ) {
 
         if (
-            bSet.has(token)
+            bSet.has(
+                token
+            )
         ) {
 
             matches++;
@@ -592,8 +604,8 @@ function getVariationPenalty(
                 normalizedQuery
             );
 
-        // If the user explicitly requested that variation,
-        // do not punish it.
+        // The user explicitly requested the variation.
+        // Therefore do not penalize it.
 
         if (
             resultHas &&
@@ -622,7 +634,8 @@ function getYouTubeChannelBonus(
 ) {
 
     if (
-        result.source !== 'youtube'
+        result.source !==
+        'youtube'
     ) {
 
         return 0;
@@ -682,11 +695,13 @@ function getYouTubeChannelBonus(
     }
 
     // --------------------------------------------------------
-    // Official / Topic / VEVO signals
+    // Official signals
     // --------------------------------------------------------
 
     if (
-        /\btopic\b/i.test(channel)
+        /\btopic\b/i.test(
+            channel
+        )
     ) {
 
         bonus +=
@@ -694,7 +709,9 @@ function getYouTubeChannelBonus(
     }
 
     if (
-        /\bofficial\b/i.test(channel)
+        /\bofficial\b/i.test(
+            channel
+        )
     ) {
 
         bonus +=
@@ -702,7 +719,9 @@ function getYouTubeChannelBonus(
     }
 
     if (
-        /\bvevo\b/i.test(channel)
+        /\bvevo\b/i.test(
+            channel
+        )
     ) {
 
         bonus +=
@@ -714,9 +733,15 @@ function getYouTubeChannelBonus(
     // --------------------------------------------------------
 
     if (
-        /\bfan\b/i.test(channel) ||
-        /\barchive\b/i.test(channel) ||
-        /\buploads?\b/i.test(channel)
+        /\bfan\b/i.test(
+            channel
+        ) ||
+        /\barchive\b/i.test(
+            channel
+        ) ||
+        /\buploads?\b/i.test(
+            channel
+        )
     ) {
 
         bonus -=
@@ -767,14 +792,16 @@ function normalizeResult(
             ? result.url.trim()
             : null;
 
+    const source =
+        result.source ||
+        provider.name;
+
     return {
 
         success:
             result.success !== false,
 
-        source:
-            result.source ||
-            provider.name,
+        source,
 
         title,
 
@@ -817,11 +844,20 @@ function normalizeResult(
             result.permalink ||
             null,
 
+        // IMPORTANT:
+        //
+        // A URL alone does NOT mean that the result is playable.
+        //
+        // YouTube:
+        //   url = webpage
+        //   playable = false
+        //
+        // Audius:
+        //   url = direct audio stream
+        //   playable = true
+        //
         playable:
-            Boolean(
-                result.playable ||
-                url
-            ),
+            result.playable === true,
 
         _provider:
             provider.name,
@@ -986,7 +1022,9 @@ function scoreResult(
     // PLAYABILITY
     // ========================================================
     //
-    // Playability matters, but does NOT dominate matching.
+    // Small bonus only.
+    //
+    // It must NOT overpower a clearly superior YouTube match.
     //
     // ========================================================
 
@@ -1199,7 +1237,8 @@ async function search(
     );
 
     if (
-        best.source === 'youtube'
+        best.source ===
+        'youtube'
     ) {
 
         console.log(
@@ -1260,6 +1299,13 @@ async function search(
 // ============================================================
 // PLAYABLE SEARCH
 // ============================================================
+//
+// This function is intentionally limited to results that
+// actually expose a direct playable stream.
+//
+// For normal music selection use search().
+//
+// ============================================================
 
 async function searchPlayable(
     query
@@ -1288,7 +1334,7 @@ async function searchPlayable(
                 false,
 
             message:
-                `🦆 I found **${result.title}**, but no playable source is available.`
+                `🦆 I found **${result.title}**, but no direct playable audio source is available.`
         };
     }
 

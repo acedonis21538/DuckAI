@@ -6,9 +6,9 @@
 //
 // • Elegant music control panel
 // • Safe interaction handling
-// • Supports already-acknowledged interactions
-// • Does not depend on editReply() to update the panel
-// • Keeps the existing music engine untouched
+// • Prevents duplicate interaction processing
+// • Updates the existing panel message directly
+// • Keeps the music engine untouched
 //
 // ============================================================
 
@@ -16,8 +16,7 @@ const {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle,
-    ActivityType
+    ButtonStyle
 } =
     require('discord.js');
 
@@ -54,10 +53,68 @@ const BUTTON = {
 // ============================================================
 
 const PANEL_COLOR =
-    0x5865F2;
+    0xEF233C;
 
 const PANEL_TITLE =
     '🦆 DuckAI Music';
+
+// ============================================================
+// INTERACTION LOCK
+// ============================================================
+//
+// Discord interaction IDs are unique.
+//
+// This prevents the same interaction from being processed
+// twice by the application.
+//
+// ============================================================
+
+const handledInteractions =
+    new Set();
+
+const HANDLED_TTL =
+    60 * 1000;
+
+function claimInteraction(
+    interaction
+) {
+
+    const id =
+        interaction?.id;
+
+    if (
+        !id
+    ) {
+
+        return true;
+    }
+
+    if (
+        handledInteractions.has(
+            id
+        )
+    ) {
+
+        return false;
+    }
+
+    handledInteractions.add(
+        id
+    );
+
+    setTimeout(
+        () => {
+
+            handledInteractions.delete(
+                id
+            );
+
+        },
+        HANDLED_TTL
+    ).unref();
+
+    return true;
+}
 
 // ============================================================
 // STATE
@@ -202,10 +259,14 @@ function formatTime(
         hours > 0
     ) {
 
-        return `${hours}:${String(minutes).padStart(2, '0')}:${secondsPart}`;
+        return (
+            `${hours}:${String(minutes).padStart(2, '0')}:${secondsPart}`
+        );
     }
 
-    return `${minutes}:${secondsPart}`;
+    return (
+        `${minutes}:${secondsPart}`
+    );
 }
 
 // ============================================================
@@ -236,8 +297,7 @@ function buildPanel(
             )
             .setTitle(
                 PANEL_TITLE
-            )
-            .setTimestamp();
+            );
 
     // ========================================================
     // SONG
@@ -248,7 +308,8 @@ function buildPanel(
     ) {
 
         const source =
-            typeof song.source === 'string' &&
+            typeof song.source ===
+                'string' &&
             song.source.trim()
                 ? song.source.trim()
                 : 'unknown';
@@ -260,19 +321,12 @@ function buildPanel(
                     ? 'Audius'
                     : source;
 
-        const description = [
-
-            `🎵 **${song.title || 'Unknown title'}**`,
-
-            `👤 ${song.artist || 'Unknown artist'}`,
-
-            `📡 ${sourceLabel}`
-        ];
-
         embed.setDescription(
-            description.join(
-                '\n'
-            )
+            [
+                `🎵 **${song.title || 'Unknown title'}**`,
+                `👤 ${song.artist || 'Unknown artist'}`,
+                `📡 ${sourceLabel}`
+            ].join('\n')
         );
 
         if (
@@ -283,10 +337,6 @@ function buildPanel(
                 song.artwork
             );
         }
-
-        // ----------------------------------------------------
-        // TRACK INFO
-        // ----------------------------------------------------
 
         const trackFields = [];
 
@@ -368,9 +418,7 @@ function buildPanel(
                 '🎵 **Nothing is playing**',
                 '',
                 'Use the music command to search for a song.'
-            ].join(
-                '\n'
-            )
+            ].join('\n')
         );
     }
 
@@ -396,7 +444,7 @@ function buildPanel(
     });
 
     // ========================================================
-    // CONTROLS
+    // PLAYBACK
     // ========================================================
 
     const playback =
@@ -513,10 +561,6 @@ function buildPanel(
                     )
             );
 
-    // ========================================================
-    // FOOTER
-    // ========================================================
-
     embed.setFooter({
 
         text:
@@ -526,34 +570,88 @@ function buildPanel(
     return {
 
         embeds: [
-
             embed
         ],
 
         components: [
-
             playback,
-
             utility
         ]
     };
 }
 
 // ============================================================
-// HANDLE INTERACTION
+// SAFE ERROR RESPONSE
 // ============================================================
-//
-// IMPORTANT:
-//
-// The interaction may already have been acknowledged by another
-// handler/capability.
-//
-// In that case:
-//
-// • DO NOT call deferUpdate() again.
-// • Continue normally.
-// • Update interaction.message directly.
-//
+
+async function sendError(
+    interaction,
+    message
+) {
+
+    try {
+
+        if (
+            interaction.deferred ||
+            interaction.replied
+        ) {
+
+            await interaction.followUp({
+
+                content:
+                    message,
+
+                ephemeral:
+                    true
+            });
+
+            return;
+        }
+
+        await interaction.reply({
+
+            content:
+                message,
+
+            ephemeral:
+                true
+        });
+
+    } catch (error) {
+
+        if (
+            error?.code ===
+            40060
+        ) {
+
+            console.log(
+                `ℹ️ Interaction already acknowledged: ${interaction?.customId || interaction?.id}`
+            );
+
+            return;
+        }
+
+        if (
+            error?.code ===
+            10062
+        ) {
+
+            console.warn(
+                `⚠️ Interaction expired: ${interaction?.customId || interaction?.id}`
+            );
+
+            return;
+        }
+
+        console.error(
+            '❌ Could not send music interaction error:',
+            error
+        );
+    }
+}
+
+// ============================================================
+// HANDLE INTERACTION
 // ============================================================
 
 async function handleInteraction(
@@ -592,41 +690,47 @@ async function handleInteraction(
         !guildId
     ) {
 
-        try {
-
-            if (
-                !interaction.replied &&
-                !interaction.deferred
-            ) {
-
-                await interaction.reply({
-
-                    content:
-                        '🦆 This music panel can only be used inside a server.',
-
-                    ephemeral:
-                        true
-                });
-            }
-
-        } catch (error) {
-
-            console.error(
-                '❌ Failed to answer invalid music interaction:',
-                error
-            );
-        }
+        await sendError(
+            interaction,
+            '🦆 This music panel can only be used inside a server.'
+        );
 
         return true;
     }
 
     // ========================================================
-    // ACKNOWLEDGE SAFELY
+    // DUPLICATE PROTECTION
+    // ========================================================
+    //
+    // This happens BEFORE ACKNOWLEDGING or executing anything.
+    //
     // ========================================================
 
-    try {
+    if (
+        !claimInteraction(
+            interaction
+        )
+    ) {
 
-        // Only acknowledge if nobody already did.
+        console.log(
+            `ℹ️ Ignoring duplicate music interaction: ${customId}`
+        );
+
+        return true;
+    }
+
+    console.log(
+        `🎛️ MUSIC PANEL CLICK: ${customId}`
+    );
+
+    // ========================================================
+    // ACKNOWLEDGE ONCE
+    // ========================================================
+
+    let acknowledged =
+        false;
+
+    try {
 
         if (
             !interaction.replied &&
@@ -635,25 +739,33 @@ async function handleInteraction(
 
             await interaction.deferUpdate();
 
+            acknowledged =
+                true;
+
         } else {
 
+            // Another valid handler already acknowledged it.
+            acknowledged =
+                true;
+
             console.log(
-                `ℹ️ Music interaction already acknowledged: ${customId}`
+                `ℹ️ Interaction already acknowledged: ${customId}`
             );
         }
 
     } catch (error) {
 
-        // 40060 means another handler already acknowledged it.
-        //
-        // We DO NOT stop the action in that case.
-
         if (
-            error?.code === 40060
+            error?.code ===
+            40060
         ) {
 
+            // Someone else won the race.
+            acknowledged =
+                true;
+
             console.log(
-                `ℹ️ Music interaction was already acknowledged: ${customId}`
+                `ℹ️ Interaction was acknowledged elsewhere: ${customId}`
             );
 
         } else {
@@ -666,10 +778,6 @@ async function handleInteraction(
             return true;
         }
     }
-
-    console.log(
-        `🎛️ MUSIC PANEL CLICK: ${customId}`
-    );
 
     // ========================================================
     // EXECUTE ACTION
@@ -687,10 +795,6 @@ async function handleInteraction(
             customId
         ) {
 
-            // ------------------------------------------------
-            // PLAY
-            // ------------------------------------------------
-
             case BUTTON.PLAY:
 
                 result =
@@ -701,10 +805,6 @@ async function handleInteraction(
 
                 break;
 
-            // ------------------------------------------------
-            // PAUSE
-            // ------------------------------------------------
-
             case BUTTON.PAUSE:
 
                 result =
@@ -713,10 +813,6 @@ async function handleInteraction(
                     );
 
                 break;
-
-            // ------------------------------------------------
-            // RESUME
-            // ------------------------------------------------
 
             case BUTTON.RESUME:
 
@@ -727,10 +823,6 @@ async function handleInteraction(
 
                 break;
 
-            // ------------------------------------------------
-            // STOP
-            // ------------------------------------------------
-
             case BUTTON.STOP:
 
                 result =
@@ -739,10 +831,6 @@ async function handleInteraction(
                     );
 
                 break;
-
-            // ------------------------------------------------
-            // LEAVE
-            // ------------------------------------------------
 
             case BUTTON.LEAVE:
 
@@ -764,10 +852,6 @@ async function handleInteraction(
                         };
 
                 break;
-
-            // ------------------------------------------------
-            // REFRESH
-            // ------------------------------------------------
 
             case BUTTON.REFRESH:
 
@@ -802,17 +886,7 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // UPDATE PANEL MESSAGE
-    // ========================================================
-    //
-    // IMPORTANT:
-    //
-    // We edit the original panel message directly instead of
-    // interaction.editReply().
-    //
-    // This prevents conflicts when another handler has already
-    // acknowledged the interaction.
-    //
+    // UPDATE EXISTING PANEL MESSAGE
     // ========================================================
 
     try {
@@ -824,17 +898,6 @@ async function handleInteraction(
         ) {
 
             await interaction.message.edit(
-                buildPanel(
-                    guildId
-                )
-            );
-
-        } else if (
-            !interaction.replied &&
-            !interaction.deferred
-        ) {
-
-            await interaction.reply(
                 buildPanel(
                     guildId
                 )
@@ -854,28 +917,15 @@ async function handleInteraction(
     // ========================================================
 
     if (
+        acknowledged &&
         result?.success === false &&
         result.message
     ) {
 
-        try {
-
-            await interaction.followUp({
-
-                content:
-                    result.message,
-
-                ephemeral:
-                    true
-            });
-
-        } catch (error) {
-
-            console.error(
-                '❌ Could not send music error:',
-                error
-            );
-        }
+        await sendError(
+            interaction,
+            result.message
+        );
     }
 
     return true;
@@ -901,14 +951,11 @@ async function sendPanel(
         );
     }
 
-    const message =
-        await channel.send(
-            buildPanel(
-                guildId
-            )
-        );
-
-    return message;
+    return channel.send(
+        buildPanel(
+            guildId
+        )
+    );
 }
 
 // ============================================================
@@ -924,7 +971,8 @@ async function updatePanel(
         message?.guild?.id;
 
     if (
-        !guildId
+        !guildId ||
+        !message
     ) {
 
         return false;

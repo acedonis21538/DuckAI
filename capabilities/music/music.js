@@ -18,19 +18,19 @@
 //
 // Sources:
 //
+// • YouTube
+//     → search / metadata / matching
+//     → Web Player / selection
+//
 // • Audius
 //     → direct audio stream
 //     → FFmpeg
 //     → Discord Voice
 //
-// • YouTube
-//     → search / metadata / matching
-//     → Web Player playback
-//
 // IMPORTANT:
 //
-// YouTube video URLs are NOT treated as direct audio URLs.
-// We do not use yt-dlp in this engine.
+// YouTube webpage URLs are never passed to FFmpeg.
+// yt-dlp is not used by this engine.
 //
 // ============================================================
 
@@ -57,6 +57,18 @@ const ffmpegPath =
 
 const resolver =
     require('./sources/resolver');
+
+// ============================================================
+// AUDIUS PROVIDER
+// ============================================================
+//
+// Used as the direct playable fallback when the selected
+// result is a YouTube track.
+//
+// ============================================================
+
+const audius =
+    require('./sources/audius');
 
 // ============================================================
 // DISCORD VOICE
@@ -248,11 +260,6 @@ function validGuildId(
 // ============================================================
 // MUSIC SEARCH
 // ============================================================
-//
-// Resolver searches YouTube + Audius and chooses the best
-// matching result.
-//
-// ============================================================
 
 async function search(
     query
@@ -416,10 +423,6 @@ async function search(
 // ============================================================
 // HTTP JSON REQUEST
 // ============================================================
-//
-// Kept for compatibility with older modules.
-//
-// ============================================================
 
 function requestJSON(
     url
@@ -450,10 +453,6 @@ function requestJSON(
 
                     response => {
 
-                        // ------------------------------------------------
-                        // Redirect
-                        // ------------------------------------------------
-
                         if (
                             response.statusCode >= 300 &&
                             response.statusCode < 400 &&
@@ -470,10 +469,6 @@ function requestJSON(
 
                             return;
                         }
-
-                        // ------------------------------------------------
-                        // HTTP error
-                        // ------------------------------------------------
 
                         if (
                             response.statusCode < 200 ||
@@ -614,7 +609,22 @@ function setSong({
         permalink,
 
         playable:
-            playable === true
+            playable === true,
+
+        // ----------------------------------------------------
+        // Optional direct Voice fallback.
+        //
+        // Used when the selected source is YouTube.
+        // ----------------------------------------------------
+
+        voiceSource:
+            null,
+
+        voiceUrl:
+            null,
+
+        voiceId:
+            null
     };
 
     guild.state =
@@ -784,8 +794,9 @@ function getState(
 // CREATE DIRECT AUDIO STREAM
 // ============================================================
 //
-// Used only with direct audio URLs such as Audius.
-// A YouTube webpage URL must never reach this function.
+// Only direct media URLs should reach this function.
+//
+// YouTube webpage URLs must never be sent here.
 //
 // ============================================================
 
@@ -1305,20 +1316,382 @@ function stopPlayback(
 }
 
 // ============================================================
-// PLAY
+// FIND AUDIUS FALLBACK
 // ============================================================
 //
-// Audius:
-//     direct stream → FFmpeg → Discord
+// Used when YouTube wins the resolver.
 //
-// YouTube:
-//     selected as a search result,
-//     but playback is intended for the Web Player.
+// The selected YouTube metadata remains the song shown in the
+// Web Player and Discord panel.
+//
+// Audius only supplies the direct playable audio stream.
 //
 // ============================================================
 
-async function play(
-    interaction,
+async function findAudiusFallback(
+    song
+) {
+
+    if (
+        !song
+    ) {
+
+        return null;
+    }
+
+    const query =
+        `${song.title} ${song.artist}`;
+
+    console.log(
+        `🔁 Audius fallback search: ${query}`
+    );
+
+    try {
+
+        const raw =
+            await audius.search(
+                query
+            );
+
+        const items =
+            Array.isArray(raw)
+                ? raw
+                : raw
+                    ? [raw]
+                    : [];
+
+        const titleTarget =
+            String(
+                song.title ||
+                ''
+            )
+                .toLowerCase()
+                .trim();
+
+        const artistTarget =
+            String(
+                song.artist ||
+                ''
+            )
+                .toLowerCase()
+                .trim();
+
+        const candidates =
+            items
+                .filter(
+                    item =>
+                        item &&
+                        item.success !== false &&
+                        typeof item.url === 'string' &&
+                        item.url.trim()
+                )
+                .map(
+                    item => {
+
+                        const title =
+                            String(
+                                item.title ||
+                                ''
+                            )
+                                .toLowerCase()
+                                .trim();
+
+                        const artist =
+                            String(
+                                item.artist ||
+                                ''
+                            )
+                                .toLowerCase()
+                                .trim();
+
+                        let score =
+                            0;
+
+                        // Exact title.
+
+                        if (
+                            title &&
+                            title ===
+                                titleTarget
+                        ) {
+
+                            score +=
+                                100;
+                        }
+
+                        // Exact artist.
+
+                        if (
+                            artist &&
+                            artist ===
+                                artistTarget
+                        ) {
+
+                            score +=
+                                100;
+                        }
+
+                        // Partial title.
+
+                        if (
+                            title &&
+                            titleTarget &&
+                            (
+                                title.includes(
+                                    titleTarget
+                                ) ||
+                                titleTarget.includes(
+                                    title
+                                )
+                            )
+                        ) {
+
+                            score +=
+                                50;
+                        }
+
+                        // Partial artist.
+
+                        if (
+                            artist &&
+                            artistTarget &&
+                            (
+                                artist.includes(
+                                    artistTarget
+                                ) ||
+                                artistTarget.includes(
+                                    artist
+                                )
+                            )
+                        ) {
+
+                            score +=
+                                50;
+                        }
+
+                        if (
+                            item.artwork
+                        ) {
+
+                            score +=
+                                5;
+                        }
+
+                        if (
+                            item.id
+                        ) {
+
+                            score +=
+                                3;
+                        }
+
+                        return {
+
+                            item,
+
+                            score
+                        };
+                    }
+                )
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        b.score -
+                        a.score
+                );
+
+        const best =
+            candidates[0]?.item;
+
+        if (
+            !best
+        ) {
+
+            console.warn(
+                `⚠️ No Audius fallback found for "${song.title}"`
+            );
+
+            return null;
+        }
+
+        console.log(
+            `✅ Audius fallback found: ${best.title} — ${best.artist}`
+        );
+
+        return best;
+
+    } catch (error) {
+
+        console.error(
+            '❌ Audius fallback search failed:',
+            error
+        );
+
+        return null;
+    }
+}
+
+// ============================================================
+// PREPARE VOICE SOURCE
+// ============================================================
+//
+// Returns a direct playable source for Discord.
+//
+// Audius:
+//   use selected URL directly.
+//
+// YouTube:
+//   search Audius for an equivalent playable track.
+//
+// ============================================================
+
+async function prepareVoiceSource(
+    guild
+) {
+
+    if (
+        !guild?.song
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 No song selected.'
+        };
+    }
+
+    // ========================================================
+    // AUDIUS
+    // ========================================================
+
+    if (
+        guild.song.source ===
+        'audius'
+    ) {
+
+        if (
+            typeof guild.song.url !== 'string' ||
+            !guild.song.url.trim()
+        ) {
+
+            return {
+
+                success:
+                    false,
+
+                message:
+                    '🎵 The selected Audius track has no playable stream.'
+            };
+        }
+
+        guild.song.voiceSource =
+            'audius';
+
+        guild.song.voiceUrl =
+            guild.song.url;
+
+        guild.song.voiceId =
+            guild.song.id ||
+            null;
+
+        return {
+
+            success:
+                true,
+
+            url:
+                guild.song.url,
+
+            source:
+                'audius'
+        };
+    }
+
+    // ========================================================
+    // YOUTUBE
+    // ========================================================
+
+    if (
+        guild.song.source ===
+        'youtube'
+    ) {
+
+        const fallback =
+            await findAudiusFallback(
+                guild.song
+            );
+
+        if (
+            !fallback
+        ) {
+
+            return {
+
+                success:
+                    false,
+
+                message:
+                    `🎵 I found **${guild.song.title}** on YouTube, but I couldn't find a playable audio source for Discord.`
+            };
+        }
+
+        guild.song.voiceSource =
+            'audius';
+
+        guild.song.voiceUrl =
+            fallback.url;
+
+        guild.song.voiceId =
+            fallback.id ||
+            null;
+
+        return {
+
+            success:
+                true,
+
+            url:
+                fallback.url,
+
+            source:
+                'audius'
+        };
+    }
+
+    // ========================================================
+    // UNKNOWN SOURCE
+    // ========================================================
+
+    return {
+
+        success:
+            false,
+
+        message:
+            '🎵 This source does not provide a direct playable audio stream.'
+    };
+}
+
+// ============================================================
+// PLAY FROM WEB PLAYER
+// ============================================================
+//
+// Called by:
+//
+// POST /api/music/play
+//
+// This function does NOT receive a Discord Interaction.
+//
+// The bot must already have a Voice connection for the guild.
+//
+// ============================================================
+
+async function playFromWeb(
     guildId
 ) {
 
@@ -1365,10 +1738,6 @@ async function play(
                 guildId
             );
 
-        // ====================================================
-        // SONG
-        // ====================================================
-
         if (
             !guild.song
         ) {
@@ -1383,38 +1752,8 @@ async function play(
             };
         }
 
-        // ====================================================
-        // YOUTUBE
-        // ====================================================
-
         if (
-            guild.song.source ===
-            'youtube'
-        ) {
-
-            console.log(
-                `📺 YouTube track selected: ${guild.song.title}`
-            );
-
-            return {
-
-                success:
-                    false,
-
-                webOnly:
-                    true,
-
-                message:
-                    '📺 This YouTube result is available in the Web Player.'
-            };
-        }
-
-        // ====================================================
-        // DIRECT SOURCE
-        // ====================================================
-
-        if (
-            !guild.song.url
+            !guild.connection
         ) {
 
             return {
@@ -1423,13 +1762,9 @@ async function play(
                     false,
 
                 message:
-                    '🎵 No playable audio source is available.'
+                    '🔊 The bot is not connected to a Voice Channel.'
             };
         }
-
-        // ====================================================
-        // FFMPEG
-        // ====================================================
 
         if (
             !ffmpegPath
@@ -1446,24 +1781,23 @@ async function play(
         }
 
         // ====================================================
-        // CONNECT
+        // PREPARE SOURCE
         // ====================================================
 
-        const connectionResult =
-            await connectVoice(
-                interaction,
-                guildId
+        const voiceSource =
+            await prepareVoiceSource(
+                guild
             );
 
         if (
-            !connectionResult.success
+            !voiceSource.success
         ) {
 
-            return connectionResult;
+            return voiceSource;
         }
 
         // ====================================================
-        // STOP OLD STREAM
+        // STOP OLD PLAYBACK
         // ====================================================
 
         stopPlayback(
@@ -1471,37 +1805,32 @@ async function play(
         );
 
         // ====================================================
-        // RESUBSCRIBE
+        // SUBSCRIBE
         // ====================================================
 
-        if (
-            guild.connection
-        ) {
+        try {
 
-            try {
+            guild.connection.subscribe(
+                guild.player
+            );
 
-                guild.connection.subscribe(
-                    guild.player
-                );
-
-            } catch {}
-        }
+        } catch {}
 
         // ====================================================
-        // OPEN DIRECT SOURCE
+        // OPEN DIRECT STREAM
         // ====================================================
 
         try {
 
             guild.inputStream =
                 await createAudioStream(
-                    guild.song.url
+                    voiceSource.url
                 );
 
         } catch (error) {
 
             console.error(
-                '❌ Could not open music source:',
+                '❌ Could not open Voice source:',
                 error
             );
 
@@ -1511,7 +1840,7 @@ async function play(
                     false,
 
                 message:
-                    '🎵 I could not open the music stream.'
+                    '🎵 I could not open the audio source for Discord.'
             };
         }
 
@@ -1524,7 +1853,7 @@ async function play(
             error => {
 
                 console.error(
-                    '❌ Music source stream error:',
+                    '❌ Voice source stream error:',
                     error
                 );
             }
@@ -1700,16 +2029,6 @@ async function play(
                 error
             );
 
-            if (
-                ffmpegError
-            ) {
-
-                console.error(
-                    '❌ FFmpeg output:',
-                    ffmpegError
-                );
-            }
-
             cleanupStream(
                 guild
             );
@@ -1750,7 +2069,7 @@ async function play(
         } catch (error) {
 
             console.error(
-                '❌ Could not pipe music source to FFmpeg:',
+                '❌ Could not pipe source to FFmpeg:',
                 error
             );
 
@@ -1764,7 +2083,7 @@ async function play(
                     false,
 
                 message:
-                    '🎵 I could not process the music stream.'
+                    '🎵 I could not process the audio source.'
             };
         }
 
@@ -1830,6 +2149,14 @@ async function play(
         guild.updatedAt =
             Date.now();
 
+        console.log(
+            `🔊 Discord playback started: ${guild.song.title} — ${guild.song.artist}`
+        );
+
+        console.log(
+            `📡 Voice source: ${voiceSource.source}`
+        );
+
         return {
 
             success:
@@ -1840,6 +2167,9 @@ async function play(
 
             song:
                 guild.song,
+
+            voiceSource:
+                voiceSource.source,
 
             channelId:
                 guild.connection
@@ -1854,6 +2184,108 @@ async function play(
             guildId
         );
     }
+}
+
+// ============================================================
+// PLAY
+// ============================================================
+//
+// Discord Interaction version.
+//
+// Audius:
+//     direct stream → Discord.
+//
+// YouTube:
+//     use the Audius fallback for Discord.
+//
+// ============================================================
+
+async function play(
+    interaction,
+    guildId
+) {
+
+    if (
+        !validGuildId(
+            guildId
+        )
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 Invalid server.'
+        };
+    }
+
+    // ========================================================
+    // CONNECT
+    // ========================================================
+    //
+    // The normal Discord command can establish the Voice
+    // connection first.
+    //
+    // ========================================================
+
+    const guild =
+        getGuild(
+            guildId
+        );
+
+    if (
+        !guild.song
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            message:
+                '🎵 No song selected.'
+        };
+    }
+
+    if (
+        guild.song.source ===
+        'youtube'
+    ) {
+
+        console.log(
+            `📺 YouTube selected: ${guild.song.title}`
+        );
+
+    } else {
+
+        console.log(
+            `🎵 ${guild.song.source || 'Music'} selected: ${guild.song.title}`
+        );
+    }
+
+    if (
+        !guild.connection
+    ) {
+
+        const connectionResult =
+            await connectVoice(
+                interaction,
+                guildId
+            );
+
+        if (
+            !connectionResult.success
+        ) {
+
+            return connectionResult;
+        }
+    }
+
+    return playFromWeb(
+        guildId
+    );
 }
 
 // ============================================================
@@ -2371,6 +2803,7 @@ module.exports = {
 
     // Playback
     play,
+    playFromWeb,
     pause,
     resume,
     stop,
