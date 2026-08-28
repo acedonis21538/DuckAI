@@ -6,25 +6,18 @@
 //
 // Sources:
 //
-// • Audio.com
-// • Audius
 // • YouTube
+// • Audius
 //
 // Responsibilities:
 //
-// • Search all available sources.
+// • Search all active providers.
 // • Normalize results.
+// • Parse title + artist.
 // • Compare title + artist.
-// • Penalize alternate versions.
-// • Prefer playable results.
-// • Return the most faithful usable result.
-//
-// This file does NOT:
-//
-// • Join Voice
-// • Create an AudioPlayer
-// • Start FFmpeg
-// • Send Discord messages
+// • Detect alternate versions.
+// • Evaluate YouTube channel quality.
+// • Select the most accurate result.
 //
 // ============================================================
 
@@ -36,14 +29,14 @@ const providers = [];
 
 function loadProvider(
     name,
-    path,
+    providerPath,
     priority
 ) {
 
     try {
 
         const provider =
-            require(path);
+            require(providerPath);
 
         if (
             !provider ||
@@ -65,9 +58,7 @@ function loadProvider(
                 provider.search,
 
             priority:
-                Number.isFinite(
-                    priority
-                )
+                Number.isFinite(priority)
                     ? priority
                     : 0
         });
@@ -88,40 +79,21 @@ function loadProvider(
 // ============================================================
 // ACTIVE SOURCES
 // ============================================================
-//
-// Higher priority means a small preference when results are
-// otherwise similarly accurate.
-//
-// Playable sources:
-//
-// Audio.com
-// Audius
-//
-// Discovery:
-//
-// YouTube
-//
-// ============================================================
-
-loadProvider(
-    'audius',
-    './audius',
-    25
-);
 
 loadProvider(
     'youtube',
     './youtube',
-    10
+    20
+);
+
+loadProvider(
+    'audius',
+    './audius',
+    15
 );
 
 // ============================================================
 // VARIATION TERMS
-// ============================================================
-//
-// These usually mean that a result is a different version of
-// the requested song.
-//
 // ============================================================
 
 const variationTerms = [
@@ -319,10 +291,10 @@ function removeVariationTerms(
 }
 
 // ============================================================
-// PARSE QUERY
+// QUERY PARSER
 // ============================================================
 //
-// Supports:
+// Supported:
 //
 // After Dark
 // After Dark by Mr.Kitty
@@ -423,14 +395,10 @@ function symmetricTokenSimilarity(
 ) {
 
     const aTokens =
-        tokenize(
-            a
-        );
+        tokenize(a);
 
     const bTokens =
-        tokenize(
-            b
-        );
+        tokenize(b);
 
     if (
         !aTokens.length ||
@@ -459,9 +427,7 @@ function symmetricTokenSimilarity(
     ) {
 
         if (
-            bSet.has(
-                token
-            )
+            bSet.has(token)
         ) {
 
             intersection++;
@@ -535,15 +501,11 @@ function tokenOverlap(
 ) {
 
     const aTokens =
-        tokenize(
-            a
-        );
+        tokenize(a);
 
     const bSet =
         new Set(
-            tokenize(
-                b
-            )
+            tokenize(b)
         );
 
     if (
@@ -562,9 +524,7 @@ function tokenOverlap(
     ) {
 
         if (
-            bSet.has(
-                token
-            )
+            bSet.has(token)
         ) {
 
             matches++;
@@ -632,7 +592,7 @@ function getVariationPenalty(
                 normalizedQuery
             );
 
-        // User explicitly asked for the variation:
+        // If the user explicitly requested that variation,
         // do not punish it.
 
         if (
@@ -653,76 +613,117 @@ function getVariationPenalty(
 }
 
 // ============================================================
-// DURATION SCORE
+// YOUTUBE CHANNEL QUALITY
 // ============================================================
 
-function durationScore(
-    queryDuration,
-    resultDuration
+function getYouTubeChannelBonus(
+    result,
+    requestedArtist
 ) {
 
     if (
-        !Number.isFinite(
-            queryDuration
-        ) ||
-        !Number.isFinite(
-            resultDuration
-        )
+        result.source !== 'youtube'
     ) {
 
         return 0;
     }
 
-    if (
-        queryDuration <= 0 ||
-        resultDuration <= 0
-    ) {
-
-        return 0;
-    }
-
-    const difference =
-        Math.abs(
-            queryDuration -
-            resultDuration
+    const channel =
+        normalizeText(
+            result.channelTitle ||
+            result.artist ||
+            ''
         );
 
+    const artist =
+        normalizeText(
+            requestedArtist
+        );
+
+    let bonus =
+        0;
+
+    // --------------------------------------------------------
+    // Artist / channel similarity
+    // --------------------------------------------------------
+
     if (
-        difference <= 2
+        artist &&
+        channel
     ) {
 
-        return 30;
+        const similarity =
+            stringSimilarity(
+                artist,
+                channel
+            );
+
+        if (
+            similarity === 1
+        ) {
+
+            bonus +=
+                60;
+
+        } else if (
+            similarity >= 0.8
+        ) {
+
+            bonus +=
+                40;
+
+        } else if (
+            similarity >= 0.5
+        ) {
+
+            bonus +=
+                20;
+        }
+    }
+
+    // --------------------------------------------------------
+    // Official / Topic / VEVO signals
+    // --------------------------------------------------------
+
+    if (
+        /\btopic\b/i.test(channel)
+    ) {
+
+        bonus +=
+            70;
     }
 
     if (
-        difference <= 5
+        /\bofficial\b/i.test(channel)
     ) {
 
-        return 24;
+        bonus +=
+            60;
     }
 
     if (
-        difference <= 10
+        /\bvevo\b/i.test(channel)
     ) {
 
-        return 16;
+        bonus +=
+            60;
     }
+
+    // --------------------------------------------------------
+    // Suspicious upload channels
+    // --------------------------------------------------------
 
     if (
-        difference <= 20
+        /\bfan\b/i.test(channel) ||
+        /\barchive\b/i.test(channel) ||
+        /\buploads?\b/i.test(channel)
     ) {
 
-        return 8;
+        bonus -=
+            25;
     }
 
-    if (
-        difference <= 40
-    ) {
-
-        return 0;
-    }
-
-    return -12;
+    return bonus;
 }
 
 // ============================================================
@@ -789,6 +790,14 @@ function normalizeResult(
             result.id ||
             null,
 
+        channelId:
+            result.channelId ||
+            null,
+
+        channelTitle:
+            result.channelTitle ||
+            null,
+
         duration:
             Number.isFinite(
                 result.duration
@@ -841,49 +850,24 @@ async function searchProvider(
                 query
             );
 
-        // ----------------------------------------------------
-        // Single result
-        // ----------------------------------------------------
-
-        if (
-            raw &&
-            typeof raw === 'object' &&
-            !Array.isArray(raw)
-        ) {
-
-            const normalized =
-                normalizeResult(
-                    provider,
-                    raw
-                );
-
-            return normalized
-                ? [normalized]
-                : [];
-        }
-
-        // ----------------------------------------------------
-        // Multiple results
-        // ----------------------------------------------------
-
-        if (
+        const items =
             Array.isArray(raw)
-        ) {
+                ? raw
+                : raw
+                    ? [raw]
+                    : [];
 
-            return raw
-                .map(
-                    item =>
-                        normalizeResult(
-                            provider,
-                            item
-                        )
-                )
-                .filter(
-                    Boolean
-                );
-        }
-
-        return [];
+        return items
+            .map(
+                item =>
+                    normalizeResult(
+                        provider,
+                        item
+                    )
+            )
+            .filter(
+                Boolean
+            );
 
     } catch (error) {
 
@@ -930,31 +914,6 @@ function scoreResult(
         0;
 
     // ========================================================
-    // PLAYABILITY
-    // ========================================================
-
-    if (
-        result.playable
-    ) {
-
-        score +=
-            70;
-    } else {
-
-        // Discovery-only result.
-
-        score -=
-            50;
-    }
-
-    // ========================================================
-    // SOURCE PRIORITY
-    // ========================================================
-
-    score +=
-        result._providerPriority;
-
-    // ========================================================
     // TITLE
     // ========================================================
 
@@ -966,7 +925,7 @@ function scoreResult(
 
     score +=
         titleSimilarity *
-        140;
+        180;
 
     if (
         parsedQuery.titleClean &&
@@ -975,7 +934,7 @@ function scoreResult(
     ) {
 
         score +=
-            100;
+            120;
     }
 
     score +=
@@ -983,7 +942,7 @@ function scoreResult(
             parsedQuery.titleClean,
             cleanResultTitle
         ) *
-        50;
+        40;
 
     // ========================================================
     // ARTIST
@@ -1001,7 +960,7 @@ function scoreResult(
 
         score +=
             artistSimilarity *
-            150;
+            170;
 
         if (
             cleanResultArtist ===
@@ -1011,19 +970,43 @@ function scoreResult(
             score +=
                 130;
         }
-
-    } else if (
-        result.artist &&
-        result.artist !==
-            'Unknown artist'
-    ) {
-
-        score +=
-            5;
     }
 
     // ========================================================
-    // VARIATION PENALTY
+    // YOUTUBE CHANNEL
+    // ========================================================
+
+    score +=
+        getYouTubeChannelBonus(
+            result,
+            parsedQuery.artistClean
+        );
+
+    // ========================================================
+    // PLAYABILITY
+    // ========================================================
+    //
+    // Playability matters, but does NOT dominate matching.
+    //
+    // ========================================================
+
+    if (
+        result.playable
+    ) {
+
+        score +=
+            30;
+    }
+
+    // ========================================================
+    // PROVIDER PRIORITY
+    // ========================================================
+
+    score +=
+        result._providerPriority;
+
+    // ========================================================
+    // VARIATIONS
     // ========================================================
 
     score -=
@@ -1044,31 +1027,12 @@ function scoreResult(
             5;
     }
 
-    // ========================================================
-    // DURATION
-    // ========================================================
-    //
-    // This only contributes when a provider gives us a
-    // reference duration.
-    //
-    // ========================================================
-
-    // No query-side duration is available from plain text, so
-    // duration is intentionally not guessed.
-
-    // ========================================================
-    // SOURCE SPECIFIC
-    // ========================================================
-
-    // Slight preference for playable sources with a real id.
-
     if (
-        result.playable &&
         result.id
     ) {
 
         score +=
-            5;
+            3;
     }
 
     return score;
@@ -1204,18 +1168,10 @@ async function search(
                 );
             }
 
-            if (
-                b._providerPriority !==
+            return (
+                b._providerPriority -
                 a._providerPriority
-            ) {
-
-                return (
-                    b._providerPriority -
-                    a._providerPriority
-                );
-            }
-
-            return 0;
+            );
         }
     );
 
@@ -1242,8 +1198,17 @@ async function search(
         `🔊 Playable: ${best.playable ? 'yes' : 'no'}`
     );
 
+    if (
+        best.source === 'youtube'
+    ) {
+
+        console.log(
+            `📺 Channel: ${best.channelTitle || best.artist}`
+        );
+    }
+
     // ========================================================
-    // RETURN NORMALIZED RESULT
+    // RETURN
     // ========================================================
 
     return {
@@ -1268,6 +1233,12 @@ async function search(
 
         id:
             best.id,
+
+        channelId:
+            best.channelId,
+
+        channelTitle:
+            best.channelTitle,
 
         duration:
             best.duration,

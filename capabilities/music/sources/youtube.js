@@ -1,24 +1,50 @@
 'use strict';
 
+// ============================================================
+// DUCKAI — YOUTUBE PROVIDER
+// ============================================================
+//
+// Responsibilities:
+//
+// • Search YouTube.
+// • Return clean metadata.
+// • Provide channel information for matching.
+// • Prefer videos that can be played outside youtube.com.
+// • Do NOT attempt to extract audio here.
+//
+// Playback/extraction should be handled by a separate layer.
+//
+// ============================================================
+
 const API_KEY =
     process.env.YOUTUBE_API_KEY;
 
 const priority =
-    10;
+    20;
+
+// ============================================================
+// SEARCH
+// ============================================================
 
 async function search(
     query
 ) {
 
     if (
-        !API_KEY ||
-        typeof query !== 'string' ||
-        !query.trim()
+        !API_KEY
     ) {
 
         console.warn(
-            '⚠️ YouTube: API key missing or query invalid.'
+            '⚠️ YouTube: YOUTUBE_API_KEY is missing.'
         );
+
+        return [];
+    }
+
+    if (
+        typeof query !== 'string' ||
+        !query.trim()
+    ) {
 
         return [];
     }
@@ -45,6 +71,12 @@ async function search(
 
                 regionCode:
                     'PT',
+
+                videoEmbeddable:
+                    'true',
+
+                videoSyndicated:
+                    'true',
 
                 key:
                     API_KEY
@@ -83,6 +115,10 @@ async function search(
             data = null;
         }
 
+        // ========================================================
+        // API ERROR
+        // ========================================================
+
         if (
             !response.ok
         ) {
@@ -119,56 +155,90 @@ async function search(
                 ? data.items
                 : [];
 
+        // ========================================================
+        // RESULTS
+        // ========================================================
+
         return items
             .filter(
                 item =>
                     item?.id?.videoId
             )
             .map(
-                item => ({
+                item => {
 
-                    success:
-                        true,
+                    const snippet =
+                        item.snippet ||
+                        {};
 
-                    source:
-                        'youtube',
+                    const channelTitle =
+                        typeof snippet.channelTitle === 'string' &&
+                        snippet.channelTitle.trim()
+                            ? snippet.channelTitle.trim()
+                            : 'Unknown artist';
 
-                    title:
-                        item.snippet?.title ||
-                        query,
+                    const videoId =
+                        item.id.videoId;
 
-                    artist:
-                        item.snippet?.channelTitle ||
-                        'Unknown artist',
+                    return {
 
-                    url:
-                        null,
+                        success:
+                            true,
 
-                    artwork:
-                        item.snippet?.thumbnails?.high?.url ||
-                        item.snippet?.thumbnails?.medium?.url ||
-                        item.snippet?.thumbnails?.default?.url ||
-                        null,
+                        source:
+                            'youtube',
 
-                    id:
-                        item.id.videoId,
+                        title:
+                            snippet.title ||
+                            query.trim(),
 
-                    duration:
-                        null,
+                        artist:
+                            channelTitle,
 
-                    genre:
-                        null,
+                        url:
+                            `https://www.youtube.com/watch?v=${videoId}`,
 
-                    description:
-                        item.snippet?.description ||
-                        null,
+                        artwork:
+                            snippet.thumbnails?.maxres?.url ||
+                            snippet.thumbnails?.high?.url ||
+                            snippet.thumbnails?.medium?.url ||
+                            snippet.thumbnails?.default?.url ||
+                            null,
 
-                    permalink:
-                        `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                        id:
+                            videoId,
 
-                    playable:
-                        false
-                })
+                        channelId:
+                            snippet.channelId ||
+                            null,
+
+                        channelTitle,
+
+                        publishedAt:
+                            snippet.publishedAt ||
+                            null,
+
+                        description:
+                            snippet.description ||
+                            null,
+
+                        permalink:
+                            `https://www.youtube.com/watch?v=${videoId}`,
+
+                        // ------------------------------------------------
+                        // This is a discovered YouTube video.
+                        //
+                        // It is NOT a direct audio URL.
+                        //
+                        // ------------------------------------------------
+
+                        playable:
+                            false,
+
+                        playableThrough:
+                            'youtube'
+                    };
+                }
             );
 
     } catch (error) {
@@ -181,6 +251,10 @@ async function search(
         return [];
     }
 }
+
+// ============================================================
+// EXPORTS
+// ============================================================
 
 module.exports = {
 

@@ -18,7 +18,7 @@
 //
 // Audio path:
 //
-// Source
+// Audius
 //   ↓
 // HTTPS stream
 //   ↓
@@ -27,8 +27,20 @@
 // Ogg/Opus
 //   ↓
 // @discordjs/voice
+//
+// YouTube
 //   ↓
-// Discord Voice Channel
+// YouTube URL
+//   ↓
+// youtubeStream.js
+//   ↓
+// direct audio stream
+//   ↓
+// FFmpeg
+//   ↓
+// Ogg/Opus
+//   ↓
+// @discordjs/voice
 //
 // ============================================================
 
@@ -52,20 +64,16 @@ const ffmpegPath =
 // ============================================================
 // MUSIC RESOLVER
 // ============================================================
-//
-// The resolver handles:
-//
-// • Spotify
-// • YouTube
-// • SoundCloud
-// • Audius
-//
-// It returns the best playable result.
-//
-// ============================================================
 
 const resolver =
     require('./sources/resolver');
+
+// ============================================================
+// YOUTUBE STREAM EXTRACTOR
+// ============================================================
+
+const youtubeStream =
+    require('./sources/youtubeStream');
 
 // ============================================================
 // DISCORD VOICE
@@ -89,9 +97,6 @@ const {
 
 const guilds =
     new Map();
-
-// Prevents two Play operations for the same guild from
-// initializing Voice/FFmpeg simultaneously.
 
 const playLocks =
     new Set();
@@ -258,11 +263,13 @@ function validGuildId(
 }
 
 // ============================================================
-// MUSIC SEARCH — MULTI SOURCE
+// MUSIC SEARCH
 // ============================================================
 //
-// The rest of the engine does not care where the track came
-// from. The resolver returns a normalized playable result.
+// The resolver chooses the best source.
+//
+// YouTube results are kept as YouTube video URLs.
+// The youtubeStream extractor is used later by play().
 //
 // ============================================================
 
@@ -300,7 +307,7 @@ async function search(
         );
 
         const result =
-            await resolver.searchPlayable(
+            await resolver.search(
                 cleanQuery
             );
 
@@ -350,12 +357,24 @@ async function search(
             url:
                 result.url,
 
+            source:
+                result.source ||
+                'unknown',
+
             artwork:
                 result.artwork ||
                 null,
 
             id:
                 result.id ||
+                null,
+
+            channelId:
+                result.channelId ||
+                null,
+
+            channelTitle:
+                result.channelTitle ||
                 null,
 
             duration:
@@ -375,11 +394,7 @@ async function search(
 
             permalink:
                 result.permalink ||
-                null,
-
-            source:
-                result.source ||
-                'unknown',
+                result.url,
 
             playable:
                 result.playable !== false
@@ -417,8 +432,7 @@ async function search(
 // HTTP JSON REQUEST
 // ============================================================
 //
-// Kept for compatibility with modules that may still use this
-// engine helper in the future.
+// Kept for compatibility.
 //
 // ============================================================
 
@@ -438,6 +452,7 @@ function requestJSON(
                     url,
 
                     {
+
                         headers: {
 
                             'User-Agent':
@@ -449,8 +464,6 @@ function requestJSON(
                     },
 
                     response => {
-
-                        // Redirect
 
                         if (
                             response.statusCode >= 300 &&
@@ -468,8 +481,6 @@ function requestJSON(
 
                             return;
                         }
-
-                        // HTTP error
 
                         if (
                             response.statusCode < 200 ||
@@ -541,6 +552,7 @@ function setSong({
     title,
     artist,
     url,
+    source = null,
     artwork = null,
     id = null,
     duration = null,
@@ -588,6 +600,8 @@ function setSong({
             'Unknown artist',
 
         url,
+
+        source,
 
         artwork,
 
@@ -649,6 +663,9 @@ function selectSearchResult(
 
             url:
                 result.url,
+
+            source:
+                result.source,
 
             artwork:
                 result.artwork,
@@ -754,10 +771,6 @@ function getState(
 // ============================================================
 // OPEN AUDIO STREAM
 // ============================================================
-//
-// Receives a playable HTTP(S) URL from the resolver.
-//
-// ============================================================
 
 function createAudioStream(
     url
@@ -789,6 +802,7 @@ function createAudioStream(
                     url,
 
                     {
+
                         headers: {
 
                             'User-Agent':
@@ -1231,7 +1245,6 @@ function cleanupStream(
             ) {
 
                 guild.ffmpeg.stdin.destroy();
-
             }
 
         } catch {}
@@ -1343,7 +1356,7 @@ async function play(
         // ====================================================
 
         if (
-            !guild.song?.url
+            !guild.song
         ) {
 
             return {
@@ -1417,6 +1430,74 @@ async function play(
         }
 
         // ====================================================
+        // RESOLVE PLAYBACK URL
+        // ========================================================
+
+        let playbackURL =
+            guild.song.url;
+
+        // ----------------------------------------------------
+        // YOUTUBE EXTRACTION
+        // ----------------------------------------------------
+
+        if (
+            guild.song.source ===
+            'youtube'
+        ) {
+
+            try {
+
+                const youtubeInput =
+                    guild.song.permalink ||
+                    guild.song.url ||
+                    guild.song.id;
+
+                console.log(
+                    `🎬 Extracting YouTube audio: ${youtubeInput}`
+                );
+
+                const extracted =
+                    await youtubeStream
+                        .getCachedOrExtractStream(
+                            youtubeInput
+                        );
+
+                if (
+                    !extracted?.success ||
+                    !extracted.url
+                ) {
+
+                    throw new Error(
+                        'YouTube extractor did not return a playable stream.'
+                    );
+                }
+
+                playbackURL =
+                    extracted.url;
+
+                console.log(
+                    '✅ YouTube audio stream extracted.'
+                );
+
+            } catch (error) {
+
+                console.error(
+                    '❌ YouTube extraction failed:',
+                    error
+                );
+
+                return {
+
+                    success:
+                        false,
+
+                    message:
+                        '🎵 I found the YouTube track, but I could not extract its audio stream.'
+                };
+            }
+        }
+
+        // ====================================================
         // OPEN SOURCE STREAM
         // ====================================================
 
@@ -1424,7 +1505,7 @@ async function play(
 
             guild.inputStream =
                 await createAudioStream(
-                    guild.song.url
+                    playbackURL
                 );
 
         } catch (error) {
@@ -1565,8 +1646,6 @@ async function play(
         ffmpeg.stdin.on(
             'error',
             error => {
-
-                // EPIPE during cleanup is expected.
 
                 if (
                     error.code !==
@@ -1989,12 +2068,6 @@ function leave(
 
 // ============================================================
 // SEEK
-// ============================================================
-//
-// Stores the requested position.
-//
-// Precise seeking will require restarting the source/FFmpeg
-// pipeline from a timestamp.
 // ============================================================
 
 function seek(
