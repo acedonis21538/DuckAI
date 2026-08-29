@@ -4,17 +4,14 @@
 // DUCKAI — UNIVERSAL INTERACTION HANDLER
 // ============================================================
 //
-// One central interaction handler.
+// Central dispatcher for Discord interactions.
 //
-// Currently handles:
-// • DuckAI music panel buttons
+// RULES:
 //
-// IMPORTANT:
-//
-// • This file does NOT create Discord listeners.
-// • index.js remains untouched.
-// • Music capability does NOT create listeners.
-// • The same Discord interaction is processed only once.
+// • This file registers NO Discord listeners.
+// • start.js registers this handler once.
+// • This file only routes interactions.
+// • Capabilities own their interaction lifecycle.
 //
 // ============================================================
 
@@ -23,149 +20,9 @@
 // ============================================================
 
 const musicPanel =
-    require('../capabilities/music/panel');
-
-// ============================================================
-// PROCESSED INTERACTIONS
-// ============================================================
-//
-// Protects against the same interaction reaching this handler
-// more than once.
-//
-// Discord interaction IDs are unique.
-//
-// ============================================================
-
-const processedInteractions =
-    new Set();
-
-// Keep the set from growing forever.
-
-const PROCESSED_TTL =
-    60 * 1000;
-
-// ============================================================
-// MARK INTERACTION AS PROCESSED
-// ============================================================
-
-function markInteraction(
-    interaction
-) {
-
-    const interactionId =
-        interaction?.id;
-
-    if (
-        !interactionId
-    ) {
-
-        return true;
-    }
-
-    if (
-        processedInteractions.has(
-            interactionId
-        )
-    ) {
-
-        return false;
-    }
-
-    processedInteractions.add(
-        interactionId
+    require(
+        '../capabilities/music/panel'
     );
-
-    setTimeout(
-        () => {
-
-            processedInteractions.delete(
-                interactionId
-            );
-
-        },
-        PROCESSED_TTL
-    ).unref();
-
-    return true;
-}
-
-// ============================================================
-// SAFE ERROR RESPONSE
-// ============================================================
-
-async function sendInteractionError(
-    interaction,
-    message
-) {
-
-    try {
-
-        if (
-            interaction.deferred ||
-            interaction.replied
-        ) {
-
-            // The interaction already has an initial response.
-            // followUp() is valid here.
-
-            await interaction.followUp({
-
-                content:
-                    message,
-
-                ephemeral:
-                    true
-            });
-
-            return;
-        }
-
-        await interaction.reply({
-
-            content:
-                message,
-
-            ephemeral:
-                true
-        });
-
-    } catch (error) {
-
-        // 40060 = interaction was already acknowledged somewhere
-        // else. There is nothing more to acknowledge.
-
-        if (
-            error?.code ===
-            40060
-        ) {
-
-            console.log(
-                `ℹ️ Interaction already acknowledged: ${interaction?.customId || interaction?.id}`
-            );
-
-            return;
-        }
-
-        // 10062 = interaction expired / unknown interaction.
-
-        if (
-            error?.code ===
-            10062
-        ) {
-
-            console.warn(
-                `⚠️ Interaction expired: ${interaction?.customId || interaction?.id}`
-            );
-
-            return;
-        }
-
-        console.error(
-            '⚠️ Could not send interaction error:',
-            error
-        );
-    }
-}
 
 // ============================================================
 // EXECUTE
@@ -188,43 +45,18 @@ async function execute(
 
     if (
         interaction.isButton() &&
-        typeof interaction.customId === 'string' &&
-        interaction.customId.startsWith('music:')
+        typeof interaction.customId ===
+            'string' &&
+        interaction.customId.startsWith(
+            'music:'
+        )
     ) {
 
-        // ----------------------------------------------------
-        // DUPLICATE PROTECTION
-        // ----------------------------------------------------
-        //
-        // This must happen BEFORE calling panel.handleInteraction().
-        //
-        // If the same interaction reaches this handler twice,
-        // only the first execution is allowed to continue.
-        //
-        // ----------------------------------------------------
-
-        if (
-            !markInteraction(
-                interaction
-            )
-        ) {
-
-            console.log(
-                `ℹ️ Ignoring duplicate music interaction: ${interaction.customId}`
-            );
-
-            return;
-        }
-
         console.log(
-            `🎛️ MUSIC PANEL CLICK: ${interaction.customId}`
+            `🎛️ MUSIC INTERACTION → ${interaction.customId}`
         );
 
         try {
-
-            // ------------------------------------------------
-            // SINGLE HANDOFF
-            // ------------------------------------------------
 
             await musicPanel.handleInteraction(
                 interaction
@@ -237,23 +69,49 @@ async function execute(
                 error
             );
 
-            await sendInteractionError(
+            // The panel owns acknowledgement.
+            // Only attempt an error response if Discord
+            // has not already received one.
 
-                interaction,
+            try {
 
-                '🦆 Something went wrong with the music controls.'
-            );
+                if (
+                    !interaction.replied &&
+                    !interaction.deferred
+                ) {
+
+                    await interaction.reply({
+
+                        content:
+                            '🦆 Something went wrong with the music controls.',
+
+                        ephemeral:
+                            true
+                    });
+                }
+
+            } catch (
+                responseError
+            ) {
+
+                if (
+                    responseError?.code !==
+                    40060
+                ) {
+
+                    console.error(
+                        '⚠️ Could not send interaction error:',
+                        responseError
+                    );
+                }
+            }
         }
 
         return;
     }
 
     // ========================================================
-    // OTHER INTERACTIONS
-    // ========================================================
-    //
-    // Future capabilities can be dispatched here.
-    //
+    // FUTURE CAPABILITIES
     // ========================================================
 }
 

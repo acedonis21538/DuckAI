@@ -1,121 +1,139 @@
 'use strict';
 
 // ============================================================
-// DUCKAI — MUSIC SOURCE RESOLVER
+// DUCKAI — YOUTUBE MUSIC RESOLVER
 // ============================================================
 //
-// Sources:
-// • YouTube
-// • Audius
-//
-// Responsibilities:
-// • Search all active providers.
-// • Normalize results.
-// • Parse title + artist.
-// • Compare title + artist.
-// • Detect alternate versions.
-// • Evaluate YouTube channel quality.
-// • Select the most accurate result.
+// • YouTube is the only music provider
+// • Search YouTube
+// • Parse title + artist
+// • Compare title + artist
+// • Detect alternate versions
+// • Evaluate YouTube channel quality
+// • Select the most accurate result
 //
 // IMPORTANT:
-// • A YouTube video URL is NOT a direct audio stream.
-// • YouTube results are intended for Web Player playback.
-// • Audius can provide a direct playable audio URL.
+//
+// A YouTube URL is a webpage URL, NOT a direct audio stream.
+//
+// Playback is handled separately by youtubeStream.js.
 //
 // ============================================================
 
 // ============================================================
-// PROVIDERS
+// PROVIDER
 // ============================================================
 
-const providers = [];
+let youtube = null;
 
-function loadProvider(name, providerPath, priority) {
-    try {
-        const provider = require(providerPath);
+try {
 
-        if (!provider || typeof provider.search !== 'function') {
-            console.warn(
-                `⚠️ Provider "${name}" does not export search().`
-            );
-            return;
-        }
+    youtube =
+        require('./youtube');
 
-        providers.push({
-            name,
-            search: provider.search,
-            priority: Number.isFinite(priority) ? priority : 0
-        });
+    if (
+        !youtube ||
+        typeof youtube.search !== 'function'
+    ) {
 
-        console.log(`✅ Music provider loaded: ${name}`);
-    } catch (error) {
         console.warn(
-            `⚠️ Provider "${name}" unavailable:`,
-            error.message
+            '⚠️ YouTube provider does not export search().'
+        );
+
+        youtube = null;
+    } else {
+
+        console.log(
+            '✅ Music provider loaded: youtube'
         );
     }
+
+} catch (error) {
+
+    console.warn(
+        '⚠️ YouTube provider unavailable:',
+        error.message
+    );
 }
-
-// ============================================================
-// ACTIVE SOURCES
-// ============================================================
-
-loadProvider('youtube', './youtube', 20);
-loadProvider('audius', './audius', 15);
 
 // ============================================================
 // VARIATION TERMS
 // ============================================================
 
 const variationTerms = [
+
     'remix',
     'rmx',
+
     'live',
     'live version',
     'live performance',
+
     'cover',
     'cover version',
+
     'karaoke',
+
     'instrumental',
     'instrumental version',
+
     'sped up',
     'sped-up',
     'speed up',
+
     'slowed',
     'slowed down',
     'slowed reverb',
+
     'slowed + reverb',
+
     'nightcore',
+
     '8d',
     '8d audio',
+
     'radio edit',
     'edit',
+
     'extended',
     'extended mix',
+
     'acoustic',
     'acoustic version',
+
     'piano version',
+
     'orchestral',
+
     'bootleg',
     'mashup',
+
     'fanmade',
     'fan made',
+
     'reverb',
     'mix'
 ];
 
 const strongVariationTerms = [
+
     'remix',
     'live',
     'cover',
     'karaoke',
     'instrumental',
+
     'sped up',
     'sped-up',
+
     'slowed',
+
     'nightcore',
+
     '8d',
+
     'mashup',
+
     'acoustic'
 ];
 
@@ -124,18 +142,37 @@ const strongVariationTerms = [
 // ============================================================
 
 function normalizeText(value) {
+
     if (typeof value !== 'string') {
         return '';
     }
 
     return value
+
         .normalize('NFKD')
-        .replace(/[\u0300-\u036f]/g, '')
+
+        .replace(
+            /[\u0300-\u036f]/g,
+            ''
+        )
+
         .toLowerCase()
-        .replace(/&/g, ' and ')
-        .replace(/[\[\](){}"'“”‘’]/g, ' ')
-        .replace(/[-_/.,!?;:+|]/g, ' ')
-        .replace(/\s+/g, ' ')
+
+        .replace(
+            /[()[\]{}"'“”‘’*]/g,
+            ' '
+        )
+
+        .replace(
+            /[-_/.,!?;:+|]/g,
+            ' '
+        )
+
+        .replace(
+            /\s+/g,
+            ' '
+        )
+
         .trim();
 }
 
@@ -144,10 +181,15 @@ function normalizeText(value) {
 // ============================================================
 
 function tokenize(value) {
+
     return [
+
         ...new Set(
+
             normalizeText(value)
+
                 .split(' ')
+
                 .filter(Boolean)
         )
     ];
@@ -158,7 +200,11 @@ function tokenize(value) {
 // ============================================================
 
 function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    return value.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+    );
 }
 
 // ============================================================
@@ -166,25 +212,41 @@ function escapeRegExp(value) {
 // ============================================================
 
 function removeVariationTerms(value) {
-    let text = normalizeText(value);
 
-    for (const term of variationTerms) {
-        const normalizedTerm = normalizeText(term);
+    let text =
+        normalizeText(value);
+
+    for (
+        const term of variationTerms
+    ) {
+
+        const normalizedTerm =
+            normalizeText(term);
 
         if (!normalizedTerm) {
             continue;
         }
 
-        const pattern = new RegExp(
-            `\\b${escapeRegExp(normalizedTerm)}\\b`,
-            'gi'
-        );
+        const pattern =
+            new RegExp(
+                `\\b${escapeRegExp(normalizedTerm)}\\b`,
+                'gi'
+            );
 
-        text = text.replace(pattern, ' ');
+        text =
+            text.replace(
+                pattern,
+                ' '
+            );
     }
 
     return text
-        .replace(/\s+/g, ' ')
+
+        .replace(
+            /\s+/g,
+            ' '
+        )
+
         .trim();
 }
 
@@ -201,46 +263,66 @@ function removeVariationTerms(value) {
 // ============================================================
 
 function parseQuery(query) {
-    const normalized = normalizeText(query);
 
-    let title = normalized;
+    const normalized =
+        normalizeText(query);
+
+    let title =
+        normalized;
+
     let artist = '';
 
-    // --------------------------------------------------------
     // "song by artist"
-    // --------------------------------------------------------
 
-    const byMatch = normalized.match(
-        /^(.+?)\s+by\s+(.+)$/
-    );
-
-    if (byMatch) {
-        title = byMatch[1].trim();
-        artist = byMatch[2].trim();
-    }
-
-    // --------------------------------------------------------
-    // "artist - song"
-    // --------------------------------------------------------
-
-    if (!artist) {
-        const dashMatch = normalized.match(
-            /^(.+?)\s+-\s+(.+)$/
+    const byMatch =
+        normalized.match(
+            /^(.+?)\s+by\s+(.+)$/
         );
 
+    if (byMatch) {
+
+        title =
+            byMatch[1].trim();
+
+        artist =
+            byMatch[2].trim();
+    }
+
+    // "artist - song"
+
+    if (!artist) {
+
+        const dashMatch =
+            normalized.match(
+                /^(.+?)\s+-\s+(.+)$/
+            );
+
         if (dashMatch) {
-            artist = dashMatch[1].trim();
-            title = dashMatch[2].trim();
+
+            artist =
+                dashMatch[1].trim();
+
+            title =
+                dashMatch[2].trim();
         }
     }
 
     return {
-        raw: query,
+
+        raw:
+            query,
+
         normalized,
+
         title,
+
         artist,
-        titleClean: removeVariationTerms(title),
-        artistClean: removeVariationTerms(artist)
+
+        titleClean:
+            removeVariationTerms(title),
+
+        artistClean:
+            removeVariationTerms(artist)
     };
 }
 
@@ -249,19 +331,33 @@ function parseQuery(query) {
 // ============================================================
 
 function symmetricTokenSimilarity(a, b) {
-    const aTokens = tokenize(a);
-    const bTokens = tokenize(b);
 
-    if (!aTokens.length || !bTokens.length) {
+    const aTokens =
+        tokenize(a);
+
+    const bTokens =
+        tokenize(b);
+
+    if (
+        !aTokens.length ||
+        !bTokens.length
+    ) {
+
         return 0;
     }
 
-    const aSet = new Set(aTokens);
-    const bSet = new Set(bTokens);
+    const aSet =
+        new Set(aTokens);
+
+    const bSet =
+        new Set(bTokens);
 
     let intersection = 0;
 
-    for (const token of aSet) {
+    for (
+        const token of aSet
+    ) {
+
         if (bSet.has(token)) {
             intersection++;
         }
@@ -278,10 +374,18 @@ function symmetricTokenSimilarity(a, b) {
 // ============================================================
 
 function stringSimilarity(a, b) {
-    const first = normalizeText(a);
-    const second = normalizeText(b);
 
-    if (!first || !second) {
+    const first =
+        normalizeText(a);
+
+    const second =
+        normalizeText(b);
+
+    if (
+        !first ||
+        !second
+    ) {
+
         return 0;
     }
 
@@ -293,10 +397,14 @@ function stringSimilarity(a, b) {
         first.includes(second) ||
         second.includes(first)
     ) {
+
         return 0.85;
     }
 
-    return symmetricTokenSimilarity(first, second);
+    return symmetricTokenSimilarity(
+        first,
+        second
+    );
 }
 
 // ============================================================
@@ -304,8 +412,14 @@ function stringSimilarity(a, b) {
 // ============================================================
 
 function tokenOverlap(a, b) {
-    const aTokens = tokenize(a);
-    const bSet = new Set(tokenize(b));
+
+    const aTokens =
+        tokenize(a);
+
+    const bSet =
+        new Set(
+            tokenize(b)
+        );
 
     if (!aTokens.length) {
         return 0;
@@ -313,47 +427,78 @@ function tokenOverlap(a, b) {
 
     let matches = 0;
 
-    for (const token of aTokens) {
+    for (
+        const token of aTokens
+    ) {
+
         if (bSet.has(token)) {
             matches++;
         }
     }
 
-    return matches / aTokens.length;
+    return (
+        matches /
+        aTokens.length
+    );
 }
 
 // ============================================================
 // VARIATION PENALTY
 // ============================================================
 
-function getVariationPenalty(resultText, queryText) {
-    const normalizedResult = normalizeText(resultText);
-    const normalizedQuery = normalizeText(queryText);
+function getVariationPenalty(
+    resultText,
+    queryText
+) {
+
+    const normalizedResult =
+        normalizeText(resultText);
+
+    const normalizedQuery =
+        normalizeText(queryText);
 
     let penalty = 0;
 
-    for (const term of variationTerms) {
-        const normalizedTerm = normalizeText(term);
+    for (
+        const term of variationTerms
+    ) {
+
+        const normalizedTerm =
+            normalizeText(term);
 
         if (!normalizedTerm) {
             continue;
         }
 
-        const pattern = new RegExp(
-            `\\b${escapeRegExp(normalizedTerm)}\\b`,
-            'i'
-        );
+        const pattern =
+            new RegExp(
+                `\\b${escapeRegExp(normalizedTerm)}\\b`,
+                'i'
+            );
 
-        const resultHas = pattern.test(normalizedResult);
-        const queryHas = pattern.test(normalizedQuery);
+        const resultHas =
+            pattern.test(
+                normalizedResult
+            );
 
-        // The user explicitly requested the variation.
-        // Therefore do not penalize it.
+        const queryHas =
+            pattern.test(
+                normalizedQuery
+            );
 
-        if (resultHas && !queryHas) {
-            penalty += strongVariationTerms.includes(normalizedTerm)
-                ? 50
-                : 20;
+        // User explicitly requested variation.
+
+        if (
+            resultHas &&
+            !queryHas
+        ) {
+
+            penalty +=
+                strongVariationTerms.includes(
+                    normalizedTerm
+                )
+                    ? 50
+                    : 20;
         }
     }
 
@@ -364,65 +509,94 @@ function getVariationPenalty(resultText, queryText) {
 // YOUTUBE CHANNEL QUALITY
 // ============================================================
 
-function getYouTubeChannelBonus(result, requestedArtist) {
-    if (result.source !== 'youtube') {
+function getYouTubeChannelBonus(
+    result,
+    requestedArtist
+) {
+
+    if (
+        result.source !== 'youtube'
+    ) {
+
         return 0;
     }
 
-    const channel = normalizeText(
-        result.channelTitle ||
-        result.artist ||
-        ''
-    );
+    const channel =
+        normalizeText(
+            result.channelTitle ||
+            result.artist ||
+            ''
+        );
 
-    const artist = normalizeText(requestedArtist);
+    const artist =
+        normalizeText(
+            requestedArtist
+        );
 
     let bonus = 0;
 
-    // --------------------------------------------------------
     // Artist / channel similarity
-    // --------------------------------------------------------
 
-    if (artist && channel) {
-        const similarity = stringSimilarity(
-            artist,
-            channel
-        );
+    if (
+        artist &&
+        channel
+    ) {
+
+        const similarity =
+            stringSimilarity(
+                artist,
+                channel
+            );
 
         if (similarity === 1) {
+
             bonus += 60;
-        } else if (similarity >= 0.8) {
+
+        } else if (
+            similarity >= 0.8
+        ) {
+
             bonus += 40;
-        } else if (similarity >= 0.5) {
+
+        } else if (
+            similarity >= 0.5
+        ) {
+
             bonus += 20;
         }
     }
 
-    // --------------------------------------------------------
     // Official signals
-    // --------------------------------------------------------
 
-    if (/\btopic\b/i.test(channel)) {
+    if (
+        /\btopic\b/i.test(channel)
+    ) {
+
         bonus += 70;
     }
 
-    if (/\bofficial\b/i.test(channel)) {
+    if (
+        /\bofficial\b/i.test(channel)
+    ) {
+
         bonus += 60;
     }
 
-    if (/\bvevo\b/i.test(channel)) {
+    if (
+        /\bvevo\b/i.test(channel)
+    ) {
+
         bonus += 60;
     }
 
-    // --------------------------------------------------------
     // Suspicious upload channels
-    // --------------------------------------------------------
 
     if (
         /\bfan\b/i.test(channel) ||
         /\barchive\b/i.test(channel) ||
         /\buploads?\b/i.test(channel)
     ) {
+
         bonus -= 25;
     }
 
@@ -433,8 +607,13 @@ function getYouTubeChannelBonus(result, requestedArtist) {
 // NORMALIZE RESULT
 // ============================================================
 
-function normalizeResult(provider, result) {
-    if (!result || typeof result !== 'object') {
+function normalizeResult(result) {
+
+    if (
+        !result ||
+        typeof result !== 'object'
+    ) {
+
         return null;
     }
 
@@ -450,23 +629,26 @@ function normalizeResult(provider, result) {
     const artist =
         typeof result.artist === 'string' &&
         result.artist.trim()
+
             ? result.artist.trim()
+
             : 'Unknown artist';
 
     const url =
         typeof result.url === 'string' &&
         result.url.trim()
+
             ? result.url.trim()
+
             : null;
 
-    const source =
-        result.source ||
-        provider.name;
-
     return {
-        success: result.success !== false,
 
-        source,
+        success:
+            result.success !== false,
+
+        source:
+            'youtube',
 
         title,
 
@@ -491,7 +673,9 @@ function normalizeResult(provider, result) {
             null,
 
         duration:
-            Number.isFinite(result.duration)
+            Number.isFinite(
+                result.duration
+            )
                 ? result.duration
                 : null,
 
@@ -505,28 +689,13 @@ function normalizeResult(provider, result) {
 
         permalink:
             result.permalink ||
-            null,
+            url,
 
-        // IMPORTANT:
-        //
-        // A URL alone does NOT mean that the result is playable.
-        //
-        // YouTube:
-        //   url = webpage
-        //   playable = false
-        //
-        // Audius:
-        //   url = direct audio stream
-        //   playable = true
+        // YouTube search results are
+        // webpage URLs, not direct streams.
 
         playable:
-            result.playable === true,
-
-        _provider:
-            provider.name,
-
-        _providerPriority:
-            provider.priority,
+            false,
 
         _score:
             0
@@ -534,57 +703,38 @@ function normalizeResult(provider, result) {
 }
 
 // ============================================================
-// PROVIDER SEARCH
-// ============================================================
-
-async function searchProvider(provider, query) {
-    try {
-        const raw = await provider.search(query);
-
-        const items =
-            Array.isArray(raw)
-                ? raw
-                : raw
-                    ? [raw]
-                    : [];
-
-        return items
-            .map(item =>
-                normalizeResult(
-                    provider,
-                    item
-                )
-            )
-            .filter(Boolean);
-    } catch (error) {
-        console.warn(
-            `⚠️ ${provider.name} search failed:`,
-            error.message
-        );
-
-        return [];
-    }
-}
-
-// ============================================================
 // SCORE RESULT
 // ============================================================
 
-function scoreResult(query, parsedQuery, result) {
-    const resultTitle = normalizeText(result.title);
-    const resultArtist = normalizeText(result.artist);
+function scoreResult(
+    query,
+    parsedQuery,
+    result
+) {
+
+    const resultTitle =
+        normalizeText(
+            result.title
+        );
+
+    const resultArtist =
+        normalizeText(
+            result.artist
+        );
 
     const cleanResultTitle =
-        removeVariationTerms(resultTitle);
+        removeVariationTerms(
+            resultTitle
+        );
 
     const cleanResultArtist =
-        removeVariationTerms(resultArtist);
+        removeVariationTerms(
+            resultArtist
+        );
 
     let score = 0;
 
-    // ========================================================
     // TITLE
-    // ========================================================
 
     const titleSimilarity =
         stringSimilarity(
@@ -592,12 +742,15 @@ function scoreResult(query, parsedQuery, result) {
             cleanResultTitle
         );
 
-    score += titleSimilarity * 180;
+    score +=
+        titleSimilarity * 180;
 
     if (
         parsedQuery.titleClean &&
-        cleanResultTitle === parsedQuery.titleClean
+        cleanResultTitle ===
+        parsedQuery.titleClean
     ) {
+
         score += 120;
     }
 
@@ -607,68 +760,47 @@ function scoreResult(query, parsedQuery, result) {
             cleanResultTitle
         ) * 40;
 
-    // ========================================================
     // ARTIST
-    // ========================================================
 
-    if (parsedQuery.artistClean) {
+    if (
+        parsedQuery.artistClean
+    ) {
+
         const artistSimilarity =
             stringSimilarity(
                 parsedQuery.artistClean,
                 cleanResultArtist
             );
 
-        score += artistSimilarity * 170;
+        score +=
+            artistSimilarity * 170;
 
         if (
             cleanResultArtist ===
             parsedQuery.artistClean
         ) {
+
             score += 130;
         }
     }
 
-    // ========================================================
     // YOUTUBE CHANNEL
-    // ========================================================
 
-    score += getYouTubeChannelBonus(
-        result,
-        parsedQuery.artistClean
-    );
+    score +=
+        getYouTubeChannelBonus(
+            result,
+            parsedQuery.artistClean
+        );
 
-    // ========================================================
-    // PLAYABILITY
-    // ========================================================
-
-    //
-    // Small bonus only.
-    //
-    // It must NOT overpower a clearly superior YouTube match.
-    //
-
-    if (result.playable) {
-        score += 30;
-    }
-
-    // ========================================================
-    // PROVIDER PRIORITY
-    // ========================================================
-
-    score += result._providerPriority;
-
-    // ========================================================
     // VARIATIONS
-    // ========================================================
 
-    score -= getVariationPenalty(
-        `${result.title} ${result.artist}`,
-        query
-    );
+    score -=
+        getVariationPenalty(
+            `${result.title} ${result.artist}`,
+            query
+        );
 
-    // ========================================================
     // METADATA
-    // ========================================================
 
     if (result.artwork) {
         score += 5;
@@ -686,22 +818,29 @@ function scoreResult(query, parsedQuery, result) {
 // ============================================================
 
 async function search(query) {
+
     if (
         typeof query !== 'string' ||
         !query.trim()
     ) {
+
         return {
+
             success: false,
+
             message:
                 '🎵 Tell me which song you want to play.'
         };
     }
 
-    if (!providers.length) {
+    if (!youtube) {
+
         return {
+
             success: false,
+
             message:
-                '🦆 No music providers are currently available.'
+                '🦆 YouTube music provider is currently unavailable.'
         };
     }
 
@@ -711,29 +850,53 @@ async function search(query) {
             .slice(0, 200);
 
     const parsedQuery =
-        parseQuery(cleanQuery);
-
-    console.log(
-        `🔎 Music resolver searching: "${cleanQuery}"`
-    );
-
-    // ========================================================
-    // SEARCH ALL PROVIDERS
-    // ========================================================
-
-    const batches =
-        await Promise.all(
-            providers.map(provider =>
-                searchProvider(
-                    provider,
-                    cleanQuery
-                )
-            )
+        parseQuery(
+            cleanQuery
         );
 
+    console.log(
+        `🔎 YouTube resolver searching: "${cleanQuery}"`
+    );
+
+    let rawResults = [];
+
+    try {
+
+        const raw =
+            await youtube.search(
+                cleanQuery
+            );
+
+        rawResults =
+            Array.isArray(raw)
+                ? raw
+                : raw
+                    ? [raw]
+                    : [];
+
+    } catch (error) {
+
+        console.warn(
+            '⚠️ YouTube search failed:',
+            error.message
+        );
+
+        return {
+
+            success: false,
+
+            message:
+                '🦆 I could not search YouTube right now.'
+        };
+    }
+
     const allResults =
-        batches
-            .flat()
+        rawResults
+
+            .map(
+                normalizeResult
+            )
+
             .filter(
                 result =>
                     result &&
@@ -741,18 +904,22 @@ async function search(query) {
             );
 
     if (!allResults.length) {
+
         return {
+
             success: false,
+
             message:
                 `🦆 I couldn't find **${cleanQuery}**.`
         };
     }
 
-    // ========================================================
     // SCORE
-    // ========================================================
 
-    for (const result of allResults) {
+    for (
+        const result of allResults
+    ) {
+
         result._score =
             scoreResult(
                 cleanQuery,
@@ -761,33 +928,25 @@ async function search(query) {
             );
     }
 
-    // ========================================================
     // SORT
-    // ========================================================
 
-    allResults.sort((a, b) => {
-        if (b._score !== a._score) {
-            return b._score - a._score;
-        }
+    allResults.sort(
+        (a, b) =>
+            b._score -
+            a._score
+    );
 
-        return (
-            b._providerPriority -
-            a._providerPriority
-        );
-    });
+    const best =
+        allResults[0];
 
-    const best = allResults[0];
-
-    // ========================================================
     // DEBUG
-    // ========================================================
 
     console.log(
         `🎯 Best match: ${best.title} — ${best.artist}`
     );
 
     console.log(
-        `📡 Source: ${best.source}`
+        '📡 Source: youtube'
     );
 
     console.log(
@@ -795,24 +954,17 @@ async function search(query) {
     );
 
     console.log(
-        `🔊 Playable: ${best.playable ? 'yes' : 'no'}`
+        `📺 Channel: ${best.channelTitle || best.artist}`
     );
 
-    if (best.source === 'youtube') {
-        console.log(
-            `📺 Channel: ${best.channelTitle || best.artist}`
-        );
-    }
-
-    // ========================================================
     // RETURN
-    // ========================================================
 
     return {
+
         success: true,
 
         source:
-            best.source,
+            'youtube',
 
         title:
             best.title,
@@ -848,40 +1000,8 @@ async function search(query) {
             best.permalink,
 
         playable:
-            best.playable
+            false
     };
-}
-
-// ============================================================
-// PLAYABLE SEARCH
-// ============================================================
-//
-// This function is intentionally limited to results that
-// actually expose a direct playable stream.
-//
-// For normal music selection use search().
-//
-// ============================================================
-
-async function searchPlayable(query) {
-    const result = await search(query);
-
-    if (!result?.success) {
-        return result;
-    }
-
-    if (
-        !result.playable ||
-        !result.url
-    ) {
-        return {
-            success: false,
-            message:
-                `🦆 I found **${result.title}**, but no direct playable audio source is available.`
-        };
-    }
-
-    return result;
 }
 
 // ============================================================
@@ -889,26 +1009,35 @@ async function searchPlayable(query) {
 // ============================================================
 
 function getProviders() {
-    return providers.map(provider => ({
-        name:
-            provider.name,
 
-        priority:
-            provider.priority
-    }));
+    return youtube
+
+        ? [
+            {
+                name: 'youtube',
+                priority: 20
+            }
+        ]
+
+        : [];
 }
 
 function getProviderStatus() {
-    return providers.map(provider => ({
-        name:
-            provider.name,
 
-        available:
-            true,
+    return [
 
-        priority:
-            provider.priority
-    }));
+        {
+
+            name:
+                'youtube',
+
+            available:
+                Boolean(youtube),
+
+            priority:
+                20
+        }
+    ];
 }
 
 // ============================================================
@@ -916,8 +1045,10 @@ function getProviderStatus() {
 // ============================================================
 
 module.exports = {
+
     search,
-    searchPlayable,
+
     getProviders,
+
     getProviderStatus
 };

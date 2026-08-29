@@ -5,10 +5,11 @@
 // ============================================================
 //
 // • Elegant music control panel
-// • Safe interaction handling
-// • Prevents duplicate interaction processing
-// • Updates the existing panel message directly
-// • Keeps the music engine untouched
+// • Handles music button actions
+// • Does NOT register Discord listeners
+// • Does NOT duplicate interaction protection
+// • Updates the existing panel message
+// • Keeps the music engine isolated
 //
 // ============================================================
 
@@ -17,8 +18,7 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle
-} =
-    require('discord.js');
+} = require('discord.js');
 
 const music =
     require('./music');
@@ -59,70 +59,10 @@ const PANEL_TITLE =
     '🦆 DuckAI Music';
 
 // ============================================================
-// INTERACTION LOCK
-// ============================================================
-//
-// Discord interaction IDs are unique.
-//
-// This prevents the same interaction from being processed
-// twice by the application.
-//
-// ============================================================
-
-const handledInteractions =
-    new Set();
-
-const HANDLED_TTL =
-    60 * 1000;
-
-function claimInteraction(
-    interaction
-) {
-
-    const id =
-        interaction?.id;
-
-    if (
-        !id
-    ) {
-
-        return true;
-    }
-
-    if (
-        handledInteractions.has(
-            id
-        )
-    ) {
-
-        return false;
-    }
-
-    handledInteractions.add(
-        id
-    );
-
-    setTimeout(
-        () => {
-
-            handledInteractions.delete(
-                id
-            );
-
-        },
-        HANDLED_TTL
-    ).unref();
-
-    return true;
-}
-
-// ============================================================
 // STATE
 // ============================================================
 
-function getState(
-    guildId
-) {
+function getState(guildId) {
 
     try {
 
@@ -189,16 +129,12 @@ function getState(
 }
 
 // ============================================================
-// STATUS
+// PLAYBACK STATUS
 // ============================================================
 
-function getPlaybackStatus(
-    state
-) {
+function getPlaybackStatus(state) {
 
-    switch (
-        state
-    ) {
+    switch (state) {
 
         case 'playing':
             return '🟢 Playing';
@@ -215,9 +151,7 @@ function getPlaybackStatus(
 // FORMAT TIME
 // ============================================================
 
-function formatTime(
-    seconds
-) {
+function formatTime(seconds) {
 
     const value =
         Number(
@@ -273,18 +207,14 @@ function formatTime(
 // BUILD PANEL
 // ============================================================
 
-function buildPanel(
-    guildId
-) {
+function buildPanel(guildId) {
 
     const {
-
         song,
         state,
         connected,
         position,
         volume
-
     } =
         getState(
             guildId
@@ -303,13 +233,10 @@ function buildPanel(
     // SONG
     // ========================================================
 
-    if (
-        song
-    ) {
+    if (song) {
 
         const source =
-            typeof song.source ===
-                'string' &&
+            typeof song.source === 'string' &&
             song.source.trim()
                 ? song.source.trim()
                 : 'unknown';
@@ -330,7 +257,8 @@ function buildPanel(
         );
 
         if (
-            song.artwork
+            typeof song.artwork === 'string' &&
+            song.artwork.trim()
         ) {
 
             embed.setThumbnail(
@@ -341,9 +269,7 @@ function buildPanel(
         const trackFields = [];
 
         if (
-            Number.isFinite(
-                song.duration
-            ) &&
+            Number.isFinite(song.duration) &&
             song.duration > 0
         ) {
 
@@ -444,7 +370,7 @@ function buildPanel(
     });
 
     // ========================================================
-    // PLAYBACK
+    // PLAYBACK BUTTONS
     // ========================================================
 
     const playback =
@@ -522,7 +448,7 @@ function buildPanel(
             );
 
     // ========================================================
-    // UTILITY
+    // UTILITY BUTTONS
     // ========================================================
 
     const utility =
@@ -560,6 +486,10 @@ function buildPanel(
                         ButtonStyle.Secondary
                     )
             );
+
+    // ========================================================
+    // FOOTER
+    // ========================================================
 
     embed.setFooter({
 
@@ -620,8 +550,7 @@ async function sendError(
     } catch (error) {
 
         if (
-            error?.code ===
-            40060
+            error?.code === 40060
         ) {
 
             console.log(
@@ -632,8 +561,7 @@ async function sendError(
         }
 
         if (
-            error?.code ===
-            10062
+            error?.code === 10062
         ) {
 
             console.warn(
@@ -653,14 +581,22 @@ async function sendError(
 // ============================================================
 // HANDLE INTERACTION
 // ============================================================
+//
+// IMPORTANT:
+//
+// interactionCreate.js is responsible for duplicate protection.
+//
+// This function:
+//   1. validates the button
+//   2. acknowledges it
+//   3. executes the music action
+//   4. updates the panel
+//
+// ============================================================
 
 async function handleInteraction(
     interaction
 ) {
-
-    // --------------------------------------------------------
-    // VALIDATE
-    // --------------------------------------------------------
 
     if (
         !interaction ||
@@ -675,9 +611,7 @@ async function handleInteraction(
 
     if (
         typeof customId !== 'string' ||
-        !customId.startsWith(
-            'music:'
-        )
+        !customId.startsWith('music:')
     ) {
 
         return false;
@@ -686,9 +620,7 @@ async function handleInteraction(
     const guildId =
         interaction.guildId;
 
-    if (
-        !guildId
-    ) {
+    if (!guildId) {
 
         await sendError(
             interaction,
@@ -699,36 +631,8 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // DUPLICATE PROTECTION
+    // ACKNOWLEDGE
     // ========================================================
-    //
-    // This happens BEFORE ACKNOWLEDGING or executing anything.
-    //
-    // ========================================================
-
-    if (
-        !claimInteraction(
-            interaction
-        )
-    ) {
-
-        console.log(
-            `ℹ️ Ignoring duplicate music interaction: ${customId}`
-        );
-
-        return true;
-    }
-
-    console.log(
-        `🎛️ MUSIC PANEL CLICK: ${customId}`
-    );
-
-    // ========================================================
-    // ACKNOWLEDGE ONCE
-    // ========================================================
-
-    let acknowledged =
-        false;
 
     try {
 
@@ -739,34 +643,27 @@ async function handleInteraction(
 
             await interaction.deferUpdate();
 
-            acknowledged =
-                true;
-
-        } else {
-
-            // Another valid handler already acknowledged it.
-            acknowledged =
-                true;
-
-            console.log(
-                `ℹ️ Interaction already acknowledged: ${customId}`
-            );
         }
 
     } catch (error) {
 
         if (
-            error?.code ===
-            40060
+            error?.code === 40060
         ) {
 
-            // Someone else won the race.
-            acknowledged =
-                true;
-
             console.log(
-                `ℹ️ Interaction was acknowledged elsewhere: ${customId}`
+                `ℹ️ Music interaction already acknowledged: ${customId}`
             );
+
+        } else if (
+            error?.code === 10062
+        ) {
+
+            console.warn(
+                `⚠️ Music interaction expired: ${customId}`
+            );
+
+            return true;
 
         } else {
 
@@ -784,16 +681,12 @@ async function handleInteraction(
     // ========================================================
 
     let result = {
-
-        success:
-            true
+        success: true
     };
 
     try {
 
-        switch (
-            customId
-        ) {
+        switch (customId) {
 
             case BUTTON.PLAY:
 
@@ -835,30 +728,16 @@ async function handleInteraction(
             case BUTTON.LEAVE:
 
                 result =
-                    typeof music.leave ===
-                    'function'
-
-                        ? music.leave(
-                            guildId
-                        )
-
-                        : {
-
-                            success:
-                                false,
-
-                            message:
-                                '👋 Leave is not available.'
-                        };
+                    music.leave(
+                        guildId
+                    );
 
                 break;
 
             case BUTTON.REFRESH:
 
                 result = {
-
-                    success:
-                        true
+                    success: true
                 };
 
                 break;
@@ -886,15 +765,14 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // UPDATE EXISTING PANEL MESSAGE
+    // UPDATE PANEL
     // ========================================================
 
     try {
 
         if (
             interaction.message &&
-            typeof interaction.message.edit ===
-                'function'
+            typeof interaction.message.edit === 'function'
         ) {
 
             await interaction.message.edit(
@@ -917,7 +795,6 @@ async function handleInteraction(
     // ========================================================
 
     if (
-        acknowledged &&
         result?.success === false &&
         result.message
     ) {
@@ -942,9 +819,7 @@ async function sendPanel(
     const guildId =
         channel?.guild?.id;
 
-    if (
-        !guildId
-    ) {
+    if (!guildId) {
 
         throw new Error(
             'Music panel requires a guild channel.'
