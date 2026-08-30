@@ -10,8 +10,8 @@
 //
 // • Detect music requests.
 // • Extract the requested song.
-// • Send the request to music.js.
-// • Let music.js handle search / queue / playback state.
+// • Search YouTube through music.js.
+// • Add the selected result to the queue.
 // • Update the Discord music panel.
 //
 // This file does NOT:
@@ -20,7 +20,6 @@
 // • Extract audio.
 // • Run yt-dlp.
 // • Create Voice connections.
-// • Handle Discord interactions.
 // • Manage the web player.
 //
 // FLOW:
@@ -33,13 +32,11 @@
 //      ↓
 // music.js
 //      ↓
-// yt.js
-//      ↓
 // resolver.js
 //      ↓
-// ytStream.js
+// youtubeStream.js
 //      ↓
-// player.js
+// Discord Voice
 //
 // ============================================================
 
@@ -50,10 +47,6 @@ const name = 'music';
 
 // ============================================================
 // PANEL CACHE
-// ============================================================
-//
-// One music panel per guild/player.
-//
 // ============================================================
 
 const panelMessages = new Map();
@@ -106,7 +99,6 @@ function isMusicRequest(message) {
         return false;
     }
 
-    // Explicit music commands / natural language
     const patterns = [
 
         // English
@@ -135,7 +127,6 @@ function isMusicRequest(message) {
         /^stop\b/,
         /^skip\b/,
         /^next\b/,
-        /^repeat\b/,
 
         /^pausa\b/,
         /^pausar\b/,
@@ -145,8 +136,7 @@ function isMusicRequest(message) {
         /^continuar\b/,
         /^parar\b/,
         /^salta\b/,
-        /^seguinte\b/,
-        /^repetir\b/
+        /^seguinte\b/
     ];
 
     if (
@@ -157,7 +147,6 @@ function isMusicRequest(message) {
         return true;
     }
 
-    // Natural references
     const musicWords = [
         /\bmusic\b/,
         /\bm[uú]sica\b/,
@@ -190,23 +179,11 @@ function canHandle(message) {
 // ============================================================
 // EXTRACT QUERY
 // ============================================================
-//
-// Examples:
-//
-// play Paradise
-// play Paradise by Coldplay
-// DuckAI, play Paradise
-// toca Paradise
-//
-// → Paradise
-//
-// ============================================================
 
 function extractQuery(content) {
 
     let text = normalizeMessage(content);
 
-    // Explicit prefixes
     const prefixes = [
 
         /^(?:please\s+)?play\s+me\s+/i,
@@ -239,7 +216,6 @@ function extractQuery(content) {
         }
     }
 
-    // Remove quotes
     text = text
         .trim()
         .replace(
@@ -261,39 +237,28 @@ function getMusicAction(content) {
         content
     ).toLowerCase();
 
-    // Pause
     if (
         /^(?:pause|pausa|pausar)\b/.test(text)
     ) {
         return 'pause';
     }
 
-    // Resume
     if (
         /^(?:resume|retoma|retomar|continua|continuar)\b/.test(text)
     ) {
         return 'resume';
     }
 
-    // Stop
     if (
         /^(?:stop|parar)\b/.test(text)
     ) {
         return 'stop';
     }
 
-    // Skip
     if (
         /^(?:skip|next|salta|seguinte)\b/.test(text)
     ) {
         return 'skip';
-    }
-
-    // Repeat
-    if (
-        /^(?:repeat|repetir)\b/.test(text)
-    ) {
-        return 'repeat';
     }
 
     return 'search';
@@ -359,7 +324,6 @@ async function sendOrUpdatePanel(
         return null;
     }
 
-    // Existing panel
     const existing =
         panelMessages.get(playerId);
 
@@ -381,7 +345,6 @@ async function sendOrUpdatePanel(
         }
     }
 
-    // New panel
     try {
 
         const created =
@@ -483,6 +446,22 @@ async function execute(message) {
         });
     }
 
+    // Music playback requires a guild.
+    if (!message?.guildId) {
+
+        return capabilityResult({
+
+            action: 'error',
+
+            playerId,
+
+            reason: 'music_requires_guild',
+
+            message:
+                '🎵 Music playback is only available inside a server.'
+        });
+    }
+
     const action =
         getMusicAction(
             message.content
@@ -501,39 +480,51 @@ async function execute(message) {
             switch (action) {
 
                 case 'pause':
-                    result = await music.pause(
-                        playerId
-                    );
+
+                    result =
+                        music.pause(
+                            playerId
+                        );
+
                     break;
 
                 case 'resume':
-                    result = await music.resume(
-                        playerId
-                    );
+
+                    result =
+                        music.resume(
+                            playerId
+                        );
+
                     break;
 
                 case 'stop':
-                    result = await music.stop(
-                        playerId
-                    );
+
+                    result =
+                        music.stop(
+                            playerId
+                        );
+
                     break;
 
                 case 'skip':
-                    result = await music.skip(
-                        playerId
-                    );
-                    break;
 
-                case 'repeat':
-                    result = await music.repeat(
-                        playerId
-                    );
+                    result =
+                        await music.skip(
+                            message,
+                            playerId
+                        );
+
                     break;
 
                 default:
+
                     result = {
-                        success: false,
-                        reason: 'unknown_action'
+
+                        success:
+                            false,
+
+                        reason:
+                            'unknown_action'
                     };
             }
 
@@ -546,11 +537,14 @@ async function execute(message) {
 
             result = {
 
-                success: false,
+                success:
+                    false,
 
-                reason: 'action_failed',
+                reason:
+                    'action_failed',
 
-                error: error.message
+                error:
+                    error.message
             };
         }
 
@@ -569,7 +563,7 @@ async function execute(message) {
     }
 
     // ========================================================
-    // SEARCH
+    // SEARCH QUERY
     // ========================================================
 
     const query =
@@ -586,7 +580,8 @@ async function execute(message) {
 
         return capabilityResult({
 
-            action: 'missing_query',
+            action:
+                'missing_query',
 
             playerId
         });
@@ -598,41 +593,135 @@ async function execute(message) {
     );
 
     // ========================================================
-    // MUSIC.JS OWNS SEARCH + QUEUE + PLAYER FLOW
+    // SEARCH
+    // ========================================================
+    //
+    // music.search() handles:
+    //
+    // capability
+    //      ↓
+    // music.search()
+    //      ↓
+    // resolver.search()
+    //      ↓
+    // youtube.search()
+    //
     // ========================================================
 
-    let result;
+    let searchResult;
 
     try {
 
-        result =
-            await music.request(
-                playerId,
-                {
-                    query,
-
-                    message
-                }
+        searchResult =
+            await music.search(
+                query
             );
 
     } catch (error) {
 
         console.error(
-            '❌ Music request failed:',
+            '❌ Music search failed:',
             error
         );
 
         return capabilityResult({
 
-            action: 'request_error',
+            action:
+                'search_error',
 
             playerId,
 
             query,
 
-            error: error.message
+            error:
+                error.message
         });
     }
+
+    if (
+        !searchResult?.success
+    ) {
+
+        await sendOrUpdatePanel(
+            message,
+            playerId
+        );
+
+        return capabilityResult({
+
+            action:
+                'search_failed',
+
+            playerId,
+
+            query,
+
+            result:
+                searchResult
+        });
+    }
+
+    // ========================================================
+    // ADD RESULT TO QUEUE
+    // ========================================================
+
+    let queueResult;
+
+    try {
+
+        queueResult =
+            music.selectSearchResult(
+                playerId,
+                searchResult
+            );
+
+    } catch (error) {
+
+        console.error(
+            '❌ Could not add music to queue:',
+            error
+        );
+
+        return capabilityResult({
+
+            action:
+                'queue_error',
+
+            playerId,
+
+            query,
+
+            error:
+                error.message
+        });
+    }
+
+    if (
+        !queueResult?.success
+    ) {
+
+        await sendOrUpdatePanel(
+            message,
+            playerId
+        );
+
+        return capabilityResult({
+
+            action:
+                'queue_failed',
+
+            playerId,
+
+            query,
+
+            result:
+                queueResult
+        });
+    }
+
+    console.log(
+        `🎵 QUEUED: ${queueResult.song?.title || query}`
+    );
 
     // ========================================================
     // UPDATE PANEL
@@ -651,14 +740,20 @@ async function execute(message) {
     return capabilityResult({
 
         action:
-            result?.action ||
-            'request',
+            'queued',
 
         playerId,
 
         query,
 
-        result,
+        song:
+            queueResult.song,
+
+        queuePosition:
+            queueResult.queuePosition,
+
+        result:
+            queueResult,
 
         panelMessageId:
             panelMessage?.id ||
@@ -696,7 +791,8 @@ module.exports = {
     // Compatibility
     isMusicRequest,
 
-    executeMusic: execute,
+    executeMusic:
+        execute,
 
     // Helpers
     normalizeMessage,
