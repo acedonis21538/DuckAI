@@ -9,11 +9,18 @@
 // YouTube is currently the only music provider.
 //
 // The resolver DOES NOT extract audio.
+// youtubeStream.js handles audio extraction.
 //
 // ============================================================
 
 const youtube =
-    require('./sources/youtube');
+    require('./youtube');
+
+// ============================================================
+// PROVIDER CONFIG
+// ============================================================
+
+const priority = 100;
 
 // ============================================================
 // VARIATIONS
@@ -83,23 +90,11 @@ function normalizeText(value) {
 
     return value
         .normalize('NFKD')
-        .replace(
-            /[\u0300-\u036f]/g,
-            ''
-        )
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(
-            /[()[\]{}"'“”‘’*]/g,
-            ' '
-        )
-        .replace(
-            /[-_/.,!?;:+|]/g,
-            ' '
-        )
-        .replace(
-            /\s+/g,
-            ' '
-        )
+        .replace(/[()[\]{}"'“”‘’*]/g, ' ')
+        .replace(/[-_/.,!?;:+|]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 }
 
@@ -139,6 +134,7 @@ function tokenSimilarity(a, b) {
     let intersection = 0;
 
     for (const token of aTokens) {
+
         if (bSet.has(token)) {
             intersection++;
         }
@@ -196,6 +192,7 @@ function tokenOverlap(a, b) {
     let matches = 0;
 
     for (const token of aTokens) {
+
         if (bSet.has(token)) {
             matches++;
         }
@@ -450,9 +447,6 @@ function getPopularityBonus(result) {
         return 0;
     }
 
-    // Logarithmic so 100M views does not completely
-    // destroy an otherwise better result.
-
     const bonus =
         Math.log10(
             views + 1
@@ -483,9 +477,6 @@ function getDurationBonus(
         return 0;
     }
 
-    const title =
-        normalizeText(result.title);
-
     const requested =
         normalizeText(query);
 
@@ -498,8 +489,6 @@ function getDurationBonus(
         return 0;
     }
 
-    // Penalize extremely long videos for ordinary music searches.
-
     if (duration > 900) {
         return -100;
     }
@@ -508,13 +497,12 @@ function getDurationBonus(
         return -50;
     }
 
-    if (duration >= 90 && duration <= 600) {
+    if (
+        duration >= 90 &&
+        duration <= 600
+    ) {
         return 20;
     }
-
-    // Keep title referenced so this helper remains
-    // useful for future title-based duration rules.
-    void title;
 
     return 0;
 }
@@ -551,9 +539,7 @@ function scoreResult(
 
     let score = 0;
 
-    // --------------------------------------------------------
     // TITLE
-    // --------------------------------------------------------
 
     const titleSimilarity =
         stringSimilarity(
@@ -578,9 +564,7 @@ function scoreResult(
             cleanResultTitle
         ) * 50;
 
-    // --------------------------------------------------------
     // ARTIST
-    // --------------------------------------------------------
 
     if (parsedQuery.artistClean) {
 
@@ -601,9 +585,7 @@ function scoreResult(
         }
     }
 
-    // --------------------------------------------------------
     // CHANNEL
-    // --------------------------------------------------------
 
     score +=
         getChannelBonus(
@@ -611,18 +593,14 @@ function scoreResult(
             parsedQuery.artistClean
         );
 
-    // --------------------------------------------------------
     // POPULARITY
-    // --------------------------------------------------------
 
     score +=
         getPopularityBonus(
             result
         );
 
-    // --------------------------------------------------------
     // DURATION
-    // --------------------------------------------------------
 
     score +=
         getDurationBonus(
@@ -630,9 +608,7 @@ function scoreResult(
             query
         );
 
-    // --------------------------------------------------------
     // VARIATIONS
-    // --------------------------------------------------------
 
     score -=
         getVariationPenalty(
@@ -640,9 +616,7 @@ function scoreResult(
             query
         );
 
-    // --------------------------------------------------------
     // METADATA
-    // --------------------------------------------------------
 
     if (result.artwork) {
         score += 5;
@@ -770,6 +744,7 @@ async function search(query) {
         typeof query !== 'string' ||
         !query.trim()
     ) {
+
         return {
 
             success:
@@ -816,9 +791,10 @@ async function search(query) {
     }
 
     const results =
-        (Array.isArray(rawResults)
-            ? rawResults
-            : []
+        (
+            Array.isArray(rawResults)
+                ? rawResults
+                : []
         )
             .map(normalizeResult)
             .filter(
@@ -841,9 +817,7 @@ async function search(query) {
         };
     }
 
-    // --------------------------------------------------------
     // SCORE
-    // --------------------------------------------------------
 
     for (const result of results) {
 
@@ -855,9 +829,7 @@ async function search(query) {
             );
     }
 
-    // --------------------------------------------------------
     // SORT
-    // --------------------------------------------------------
 
     results.sort(
         (a, b) =>
@@ -952,7 +924,9 @@ async function search(query) {
 function getProviders() {
 
     return [
+
         {
+
             name:
                 'youtube',
 
@@ -964,7 +938,9 @@ function getProviders() {
 function getProviderStatus() {
 
     return [
+
         {
+
             name:
                 'youtube',
 
