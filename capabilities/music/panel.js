@@ -4,12 +4,28 @@
 // DUCKAI — DISCORD MUSIC PANEL
 // ============================================================
 //
-// • Elegant music control panel
-// • Handles music button actions
-// • Does NOT register Discord listeners
-// • Does NOT duplicate interaction protection
-// • Updates the existing panel message
-// • Keeps the music engine isolated
+// Visual/control layer for DuckAI Music.
+//
+// RESPONSIBILITIES:
+//
+// • Build the Discord music panel
+// • Display current track
+// • Display playback state
+// • Display queue
+// • Provide music controls
+// • Handle music button interactions
+// • Update the existing panel
+//
+// DOES NOT:
+//
+// • Search YouTube
+// • Extract YouTube audio
+// • Spawn FFmpeg
+// • Create Voice connections
+// • Own playback state
+// • Register interactionCreate listeners
+//
+// All actual music operations belong to music.js.
 //
 // ============================================================
 
@@ -24,31 +40,6 @@ const music =
     require('./music');
 
 // ============================================================
-// BUTTON IDS
-// ============================================================
-
-const BUTTON = {
-
-    PLAY:
-        'music:play',
-
-    PAUSE:
-        'music:pause',
-
-    RESUME:
-        'music:resume',
-
-    STOP:
-        'music:stop',
-
-    LEAVE:
-        'music:leave',
-
-    REFRESH:
-        'music:refresh'
-};
-
-// ============================================================
 // PANEL CONFIG
 // ============================================================
 
@@ -58,100 +49,132 @@ const PANEL_COLOR =
 const PANEL_TITLE =
     '🦆 DuckAI Music';
 
+const PANEL_FOOTER =
+    'DuckAI Music • YouTube • Discord Voice';
+
 // ============================================================
-// STATE
+// BUTTON IDS
 // ============================================================
 
-function getState(guildId) {
+const BUTTON = {
 
-    try {
+    TOGGLE:
+        'music:toggle',
 
-        const state =
-            music.getState(
-                guildId
-            );
+    SKIP:
+        'music:skip',
 
-        return {
+    STOP:
+        'music:stop',
 
-            song:
-                state?.song ||
-                null,
+    REPEAT:
+        'music:repeat',
 
-            state:
-                state?.state ||
-                'stopped',
+    LEAVE:
+        'music:leave',
 
-            connected:
-                Boolean(
-                    state?.connected
-                ),
+    VOLUME_DOWN:
+        'music:volume_down',
 
-            position:
-                Number.isFinite(
-                    state?.position
-                )
-                    ? state.position
-                    : 0,
+    VOLUME_UP:
+        'music:volume_up',
 
-            volume:
-                Number.isFinite(
-                    state?.volume
-                )
-                    ? state.volume
-                    : 1
-        };
+    REMOVE_PREFIX:
+        'music:remove:'
+};
 
-    } catch (error) {
+// ============================================================
+// LIMITS
+// ============================================================
 
-        console.error(
-            '❌ Music state error:',
-            error
-        );
+const MAX_QUEUE_DISPLAY =
+    8;
 
-        return {
+const MAX_TITLE_LENGTH =
+    70;
 
-            song:
-                null,
+const MAX_ARTIST_LENGTH =
+    40;
 
-            state:
-                'stopped',
+// ============================================================
+// SAFE STRING
+// ============================================================
 
-            connected:
-                false,
+function safeString(
+    value,
+    fallback = ''
+) {
 
-            position:
-                0,
+    if (
+        typeof value !== 'string'
+    ) {
 
-            volume:
-                1
-        };
+        return fallback;
     }
+
+    const clean =
+        value
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    return clean || fallback;
 }
 
 // ============================================================
-// PLAYBACK STATUS
+// ESCAPE DISCORD MARKDOWN
 // ============================================================
 
-function getPlaybackStatus(state) {
+function escapeMarkdown(
+    value
+) {
 
-    switch (state) {
+    return safeString(
+        value
+    )
+        .replace(/\\/g, '\\\\')
+        .replace(/([*_~`|])/g, '\\$1');
+}
 
-        case 'playing':
-            return '🟢 Playing';
+// ============================================================
+// TRUNCATE
+// ============================================================
 
-        case 'paused':
-            return '🟡 Paused';
+function truncate(
+    value,
+    length
+) {
 
-        default:
-            return '🔴 Stopped';
+    const text =
+        safeString(
+            value
+        );
+
+    if (
+        text.length <= length
+    ) {
+
+        return text;
     }
+
+    return (
+        text.slice(
+            0,
+            Math.max(
+                1,
+                length - 1
+            )
+        ) +
+        '…'
+    );
 }
 
 // ============================================================
 // FORMAT TIME
 // ============================================================
 
-function formatTime(seconds) {
+function formatTime(
+    seconds
+) {
 
     const value =
         Number(
@@ -181,7 +204,7 @@ function formatTime(seconds) {
             (total % 3600) / 60
         );
 
-    const secondsPart =
+    const remainingSeconds =
         String(
             total % 60
         ).padStart(
@@ -194,27 +217,565 @@ function formatTime(seconds) {
     ) {
 
         return (
-            `${hours}:${String(minutes).padStart(2, '0')}:${secondsPart}`
+            `${hours}:${String(minutes).padStart(2, '0')}:${remainingSeconds}`
         );
     }
 
     return (
-        `${minutes}:${secondsPart}`
+        `${minutes}:${remainingSeconds}`
     );
+}
+
+// ============================================================
+// GET MUSIC STATE
+// ============================================================
+
+function getState(
+    guildId
+) {
+
+    try {
+
+        const state =
+            music.getState(
+                guildId
+            );
+
+        return {
+
+            song:
+                state?.song ||
+                null,
+
+            state:
+                state?.state ||
+                'stopped',
+
+            connected:
+                Boolean(
+                    state?.connected
+                ),
+
+            channelId:
+                state?.channelId ||
+                null,
+
+            position:
+                Number.isFinite(
+                    state?.position
+                )
+                    ? state.position
+                    : 0,
+
+            volume:
+                Number.isFinite(
+                    state?.volume
+                )
+                    ? state.volume
+                    : 1,
+
+            repeat:
+                Boolean(
+                    state?.repeat
+                ),
+
+            queue:
+                Array.isArray(
+                    state?.queue
+                )
+                    ? state.queue
+                    : []
+        };
+
+    } catch (error) {
+
+        console.error(
+            '❌ Could not read music state:',
+            error
+        );
+
+        return {
+
+            song: null,
+
+            state:
+                'stopped',
+
+            connected:
+                false,
+
+            channelId:
+                null,
+
+            position:
+                0,
+
+            volume:
+                1,
+
+            repeat:
+                false,
+
+            queue: []
+        };
+    }
+}
+
+// ============================================================
+// PLAYBACK STATUS
+// ============================================================
+
+function getPlaybackStatus(
+    state
+) {
+
+    switch (
+        state
+    ) {
+
+        case 'playing':
+            return '🟢 Playing';
+
+        case 'paused':
+            return '🟡 Paused';
+
+        case 'loading':
+            return '🔵 Loading';
+
+        default:
+            return '⚪ Stopped';
+    }
+}
+
+// ============================================================
+// TOGGLE BUTTON
+// ============================================================
+//
+// One button.
+//
+// PLAYING → Pause
+// PAUSED  → Resume
+// STOPPED → Play
+//
+// ============================================================
+
+function buildToggleButton(
+    state,
+    song
+) {
+
+    let emoji =
+        '▶️';
+
+    let label =
+        'Play';
+
+    let style =
+        ButtonStyle.Success;
+
+    if (
+        state === 'playing'
+    ) {
+
+        emoji =
+            '⏸️';
+
+        label =
+            'Pause';
+
+        style =
+            ButtonStyle.Secondary;
+    }
+
+    else if (
+        state === 'paused'
+    ) {
+
+        emoji =
+            '▶️';
+
+        label =
+            'Resume';
+
+        style =
+            ButtonStyle.Primary;
+    }
+
+    return new ButtonBuilder()
+        .setCustomId(
+            BUTTON.TOGGLE
+        )
+        .setEmoji(
+            emoji
+        )
+        .setLabel(
+            label
+        )
+        .setStyle(
+            style
+        )
+        .setDisabled(
+            !song
+        );
+}
+
+// ============================================================
+// SKIP BUTTON
+// ============================================================
+
+function buildSkipButton(
+    song
+) {
+
+    return new ButtonBuilder()
+        .setCustomId(
+            BUTTON.SKIP
+        )
+        .setEmoji(
+            '⏭️'
+        )
+        .setLabel(
+            'Skip'
+        )
+        .setStyle(
+            ButtonStyle.Primary
+        )
+        .setDisabled(
+            !song
+        );
+}
+
+// ============================================================
+// STOP BUTTON
+// ============================================================
+
+function buildStopButton(
+    song
+) {
+
+    return new ButtonBuilder()
+        .setCustomId(
+            BUTTON.STOP
+        )
+        .setEmoji(
+            '⏹️'
+        )
+        .setLabel(
+            'Stop'
+        )
+        .setStyle(
+            ButtonStyle.Danger
+        )
+        .setDisabled(
+            !song
+        );
+}
+
+// ============================================================
+// REPEAT BUTTON
+// ============================================================
+
+function buildRepeatButton(
+    repeat
+) {
+
+    return new ButtonBuilder()
+        .setCustomId(
+            BUTTON.REPEAT
+        )
+        .setEmoji(
+            repeat
+                ? '🔂'
+                : '🔁'
+        )
+        .setLabel(
+            repeat
+                ? 'Repeat On'
+                : 'Repeat'
+        )
+        .setStyle(
+            repeat
+                ? ButtonStyle.Success
+                : ButtonStyle.Secondary
+        );
+}
+
+// ============================================================
+// LEAVE BUTTON
+// ============================================================
+
+function buildLeaveButton(
+    connected
+) {
+
+    return new ButtonBuilder()
+        .setCustomId(
+            BUTTON.LEAVE
+        )
+        .setEmoji(
+            '👋'
+        )
+        .setLabel(
+            'Leave'
+        )
+        .setStyle(
+            ButtonStyle.Secondary
+        )
+        .setDisabled(
+            !connected
+        );
+}
+
+// ============================================================
+// VOLUME BUTTONS
+// ============================================================
+
+function buildVolumeButtons() {
+
+    return [
+
+        new ButtonBuilder()
+            .setCustomId(
+                BUTTON.VOLUME_DOWN
+            )
+            .setEmoji(
+                '🔉'
+            )
+            .setLabel(
+                'Volume'
+            )
+            .setStyle(
+                ButtonStyle.Secondary
+            ),
+
+        new ButtonBuilder()
+            .setCustomId(
+                BUTTON.VOLUME_UP
+            )
+            .setEmoji(
+                '🔊'
+            )
+            .setLabel(
+                '+'
+            )
+            .setStyle(
+                ButtonStyle.Secondary
+            )
+    ];
+}
+
+// ============================================================
+// QUEUE ITEM
+// ============================================================
+
+function buildQueueLine(
+    song,
+    index
+) {
+
+    const title =
+        truncate(
+            escapeMarkdown(
+                song?.title ||
+                'Unknown title'
+            ),
+            MAX_TITLE_LENGTH
+        );
+
+    const artist =
+        truncate(
+            escapeMarkdown(
+                song?.artist ||
+                'Unknown artist'
+            ),
+            MAX_ARTIST_LENGTH
+        );
+
+    const duration =
+        Number.isFinite(
+            song?.duration
+        )
+            ? ` • ${formatTime(song.duration)}`
+            : '';
+
+    return (
+        `**${index + 1}.** ${title} — ${artist}${duration}`
+    );
+}
+
+// ============================================================
+// QUEUE
+// ============================================================
+
+function buildQueueSection(
+    queue
+) {
+
+    if (
+        !Array.isArray(queue) ||
+        queue.length === 0
+    ) {
+
+        return {
+            name:
+                '📋 Queue',
+
+            value:
+                'The queue is empty.',
+
+            inline:
+                false
+        };
+    }
+
+    const visible =
+        queue.slice(
+            0,
+            MAX_QUEUE_DISPLAY
+        );
+
+    const lines =
+        visible.map(
+            (
+                song,
+                index
+            ) =>
+                buildQueueLine(
+                    song,
+                    index
+                )
+        );
+
+    if (
+        queue.length >
+        MAX_QUEUE_DISPLAY
+    ) {
+
+        lines.push(
+            `*…and ${queue.length - MAX_QUEUE_DISPLAY} more*`
+        );
+    }
+
+    return {
+
+        name:
+            `📋 Queue • ${queue.length}`,
+
+        value:
+            lines.join('\n'),
+
+        inline:
+            false
+    };
+}
+
+// ============================================================
+// REMOVE QUEUE BUTTONS
+// ============================================================
+//
+// Discord allows max 5 buttons per row.
+// Therefore we expose the first few removable queue items.
+//
+// ============================================================
+
+function buildQueueRemoveRows(
+    queue
+) {
+
+    if (
+        !Array.isArray(queue) ||
+        queue.length === 0
+    ) {
+
+        return [];
+    }
+
+    const rows = [];
+
+    const removable =
+        queue.slice(
+            0,
+            10
+        );
+
+    for (
+        let i = 0;
+        i < removable.length;
+        i += 5
+    ) {
+
+        const chunk =
+            removable.slice(
+                i,
+                i + 5
+            );
+
+        const row =
+            new ActionRowBuilder();
+
+        for (
+            let index = 0;
+            index < chunk.length;
+            index++
+        ) {
+
+            const absoluteIndex =
+                i + index;
+
+            row.addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        `${BUTTON.REMOVE_PREFIX}${absoluteIndex}`
+                    )
+                    .setEmoji(
+                        '❌'
+                    )
+                    .setLabel(
+                        String(
+                            absoluteIndex + 1
+                        )
+                    )
+                    .setStyle(
+                        ButtonStyle.Danger
+                    )
+            );
+        }
+
+        rows.push(
+            row
+        );
+    }
+
+    return rows;
 }
 
 // ============================================================
 // BUILD PANEL
 // ============================================================
 
-function buildPanel(guildId) {
+function buildPanel(
+    guildId
+) {
 
     const {
+
         song,
+
         state,
+
         connected,
+
+        channelId,
+
         position,
-        volume
+
+        volume,
+
+        repeat,
+
+        queue
+
     } =
         getState(
             guildId
@@ -230,29 +791,51 @@ function buildPanel(guildId) {
             );
 
     // ========================================================
-    // SONG
+    // CURRENT SONG
     // ========================================================
 
-    if (song) {
+    if (
+        song
+    ) {
 
-        const source =
-            typeof song.source === 'string' &&
-            song.source.trim()
-                ? song.source.trim()
-                : 'unknown';
+        const title =
+            truncate(
+                escapeMarkdown(
+                    song.title ||
+                    'Unknown title'
+                ),
+                100
+            );
 
-        const sourceLabel =
-            source === 'youtube'
-                ? 'YouTube'
-                : source === 'audius'
-                    ? 'Audius'
-                    : source;
+        const artist =
+            truncate(
+                escapeMarkdown(
+                    song.artist ||
+                    'Unknown artist'
+                ),
+                100
+            );
+
+        const currentDuration =
+            Number.isFinite(
+                song.duration
+            )
+                ? formatTime(
+                    song.duration
+                )
+                : '—';
+
+        const currentPosition =
+            formatTime(
+                position
+            );
 
         embed.setDescription(
             [
-                `🎵 **${song.title || 'Unknown title'}**`,
-                `👤 ${song.artist || 'Unknown artist'}`,
-                `📡 ${sourceLabel}`
+                `🎵 **${title}**`,
+                `👤 ${artist}`,
+                '',
+                `\`${currentPosition} / ${currentDuration}\``
             ].join('\n')
         );
 
@@ -266,84 +849,13 @@ function buildPanel(guildId) {
             );
         }
 
-        const trackFields = [];
-
-        if (
-            Number.isFinite(song.duration) &&
-            song.duration > 0
-        ) {
-
-            trackFields.push({
-
-                name:
-                    '⏱ Duration',
-
-                value:
-                    formatTime(
-                        song.duration
-                    ),
-
-                inline:
-                    true
-            });
-        }
-
-        trackFields.push({
-
-            name:
-                '🔊 Volume',
-
-            value:
-                `${Math.round(
-                    Math.max(
-                        0,
-                        Math.min(
-                            1,
-                            volume
-                        )
-                    ) * 100
-                )}%`,
-
-            inline:
-                true
-        });
-
-        if (
-            Number.isFinite(position) &&
-            position > 0
-        ) {
-
-            trackFields.push({
-
-                name:
-                    '⏭ Position',
-
-                value:
-                    formatTime(
-                        position
-                    ),
-
-                inline:
-                    true
-            });
-        }
-
-        if (
-            trackFields.length
-        ) {
-
-            embed.addFields(
-                trackFields
-            );
-        }
-
     } else {
 
         embed.setDescription(
             [
-                '🎵 **Nothing is playing**',
+                '🎵 **Nothing selected**',
                 '',
-                'Use the music command to search for a song.'
+                'Ask DuckAI for a song to add it to the queue.'
             ].join('\n')
         );
     }
@@ -357,135 +869,134 @@ function buildPanel(guildId) {
             ? '🔊 Connected'
             : '⚪ Not connected';
 
-    embed.addFields({
+    const volumePercent =
+        Math.round(
+            Math.max(
+                0,
+                Math.min(
+                    1,
+                    volume
+                )
+            ) * 100
+        );
 
-        name:
-            'Status',
+    const voiceText =
+        connected && channelId
+            ? `${voiceStatus} • <#${channelId}>`
+            : voiceStatus;
 
-        value:
-            `${getPlaybackStatus(state)} • ${voiceStatus}`,
+    embed.addFields(
 
-        inline:
-            false
-    });
+        {
+
+            name:
+                'Status',
+
+            value:
+                `${getPlaybackStatus(state)} • ${voiceText}`,
+
+            inline:
+                false
+        },
+
+        {
+
+            name:
+                '🔊 Volume',
+
+            value:
+                `${volumePercent}%`,
+
+            inline:
+                true
+        },
+
+        {
+
+            name:
+                '🔁 Repeat',
+
+            value:
+                repeat
+                    ? 'Enabled'
+                    : 'Disabled',
+
+            inline:
+                true
+        },
+
+        buildQueueSection(
+            queue
+        )
+    );
 
     // ========================================================
-    // PLAYBACK BUTTONS
+    // MAIN CONTROLS
     // ========================================================
 
-    const playback =
+    const mainControls =
         new ActionRowBuilder()
             .addComponents(
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.PLAY
-                    )
-                    .setEmoji(
-                        '▶️'
-                    )
-                    .setLabel(
-                        'Play'
-                    )
-                    .setStyle(
-                        ButtonStyle.Success
-                    )
-                    .setDisabled(
-                        !song ||
-                        state === 'playing'
-                    ),
+                buildToggleButton(
+                    state,
+                    song
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.PAUSE
-                    )
-                    .setEmoji(
-                        '⏸️'
-                    )
-                    .setLabel(
-                        'Pause'
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
-                    .setDisabled(
-                        state !== 'playing'
-                    ),
+                buildSkipButton(
+                    song
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.RESUME
-                    )
-                    .setEmoji(
-                        '▶️'
-                    )
-                    .setLabel(
-                        'Resume'
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    )
-                    .setDisabled(
-                        state !== 'paused'
-                    ),
+                buildStopButton(
+                    song
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.STOP
-                    )
-                    .setEmoji(
-                        '⏹️'
-                    )
-                    .setLabel(
-                        'Stop'
-                    )
-                    .setStyle(
-                        ButtonStyle.Danger
-                    )
-                    .setDisabled(
-                        !song
-                    )
+                buildRepeatButton(
+                    repeat
+                ),
+
+                buildLeaveButton(
+                    connected
+                )
             );
 
     // ========================================================
-    // UTILITY BUTTONS
+    // VOLUME
     // ========================================================
 
-    const utility =
+    const volumeControls =
         new ActionRowBuilder()
             .addComponents(
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.LEAVE
-                    )
-                    .setEmoji(
-                        '👋'
-                    )
-                    .setLabel(
-                        'Leave'
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
-                    .setDisabled(
-                        !connected
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        BUTTON.REFRESH
-                    )
-                    .setEmoji(
-                        '🔄'
-                    )
-                    .setLabel(
-                        'Refresh'
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                ...buildVolumeButtons()
             );
+
+    // ========================================================
+    // QUEUE REMOVE BUTTONS
+    // ========================================================
+
+    const queueRemoveRows =
+        buildQueueRemoveRows(
+            queue
+        );
+
+    // Discord max = 5 component rows.
+    //
+    // Keep:
+    // 1. main
+    // 2. volume
+    // 3-4. queue removal
+    //
+    const components = [
+
+        mainControls,
+
+        volumeControls,
+
+        ...queueRemoveRows.slice(
+            0,
+            2
+        )
+    ];
 
     // ========================================================
     // FOOTER
@@ -494,7 +1005,7 @@ function buildPanel(guildId) {
     embed.setFooter({
 
         text:
-            'DuckAI Music • Discord Voice'
+            PANEL_FOOTER
     });
 
     return {
@@ -503,10 +1014,7 @@ function buildPanel(guildId) {
             embed
         ],
 
-        components: [
-            playback,
-            utility
-        ]
+        components
     };
 }
 
@@ -519,78 +1027,203 @@ async function sendError(
     message
 ) {
 
+    if (
+        !interaction
+    ) {
+
+        return;
+    }
+
     try {
 
-        if (
-            interaction.deferred ||
-            interaction.replied
-        ) {
-
-            await interaction.followUp({
-
-                content:
-                    message,
-
-                ephemeral:
-                    true
-            });
-
-            return;
-        }
-
-        await interaction.reply({
+        const payload = {
 
             content:
                 message,
 
             ephemeral:
                 true
-        });
-
-    } catch (error) {
+        };
 
         if (
-            error?.code === 40060
+            interaction.replied ||
+            interaction.deferred
         ) {
 
-            console.log(
-                `ℹ️ Interaction already acknowledged: ${interaction?.customId || interaction?.id}`
+            await interaction.followUp(
+                payload
             );
 
             return;
         }
 
+        await interaction.reply(
+            payload
+        );
+
+    } catch (error) {
+
         if (
+            error?.code === 40060 ||
             error?.code === 10062
         ) {
-
-            console.warn(
-                `⚠️ Interaction expired: ${interaction?.customId || interaction?.id}`
-            );
 
             return;
         }
 
         console.error(
-            '❌ Could not send music interaction error:',
+            '❌ Music panel error response failed:',
             error
         );
     }
 }
 
 // ============================================================
+// GET REMOVE INDEX
+// ============================================================
+
+function getRemoveIndex(
+    customId
+) {
+
+    if (
+        typeof customId !== 'string'
+    ) {
+
+        return null;
+    }
+
+    if (
+        !customId.startsWith(
+            BUTTON.REMOVE_PREFIX
+        )
+    ) {
+
+        return null;
+    }
+
+    const raw =
+        customId.slice(
+            BUTTON.REMOVE_PREFIX.length
+        );
+
+    const index =
+        Number(
+            raw
+        );
+
+    if (
+        !Number.isInteger(index) ||
+        index < 0
+    ) {
+
+        return null;
+    }
+
+    return index;
+}
+
+// ============================================================
+// HANDLE TOGGLE
+// ============================================================
+
+async function handleToggle(
+    interaction,
+    guildId
+) {
+
+    const state =
+        music.getState(
+            guildId
+        );
+
+    if (
+        state?.state === 'playing'
+    ) {
+
+        return music.pause(
+            guildId
+        );
+    }
+
+    if (
+        state?.state === 'paused'
+    ) {
+
+        return music.resume(
+            guildId
+        );
+    }
+
+    return music.play(
+        interaction,
+        guildId
+    );
+}
+
+// ============================================================
+// HANDLE VOLUME
+// ============================================================
+
+function changeVolume(
+    guildId,
+    amount
+) {
+
+    const state =
+        music.getState(
+            guildId
+        );
+
+    const current =
+        Number.isFinite(
+            state?.volume
+        )
+            ? state.volume
+            : 1;
+
+    return music.setVolume(
+        guildId,
+        current + amount
+    );
+}
+
+// ============================================================
+// HANDLE REMOVE
+// ============================================================
+
+function removeQueueItem(
+    guildId,
+    index
+) {
+
+    if (
+        typeof music.removeFromQueue !==
+        'function'
+    ) {
+
+        return {
+
+            success: false,
+
+            message:
+                '🦆 Queue removal is not available yet.'
+        };
+    }
+
+    return music.removeFromQueue(
+        guildId,
+        index
+    );
+}
+
+// ============================================================
 // HANDLE INTERACTION
 // ============================================================
 //
-// IMPORTANT:
+// interactionCreate.js should call this.
 //
-// interactionCreate.js is responsible for duplicate protection.
-//
-// This function:
-//   1. validates the button
-//   2. acknowledges it
-//   3. executes the music action
-//   4. updates the panel
+// This module does NOT register the Discord event.
 //
 // ============================================================
 
@@ -600,6 +1233,7 @@ async function handleInteraction(
 
     if (
         !interaction ||
+        typeof interaction.isButton !== 'function' ||
         !interaction.isButton()
     ) {
 
@@ -611,7 +1245,9 @@ async function handleInteraction(
 
     if (
         typeof customId !== 'string' ||
-        !customId.startsWith('music:')
+        !customId.startsWith(
+            'music:'
+        )
     ) {
 
         return false;
@@ -620,18 +1256,20 @@ async function handleInteraction(
     const guildId =
         interaction.guildId;
 
-    if (!guildId) {
+    if (
+        !guildId
+    ) {
 
         await sendError(
             interaction,
-            '🦆 This music panel can only be used inside a server.'
+            '🦆 This music panel only works inside a server.'
         );
 
         return true;
     }
 
     // ========================================================
-    // ACKNOWLEDGE
+    // ACK
     // ========================================================
 
     try {
@@ -642,115 +1280,231 @@ async function handleInteraction(
         ) {
 
             await interaction.deferUpdate();
-
         }
 
     } catch (error) {
 
         if (
+            error?.code === 10062 ||
             error?.code === 40060
         ) {
 
-            console.log(
-                `ℹ️ Music interaction already acknowledged: ${customId}`
-            );
-
-        } else if (
-            error?.code === 10062
-        ) {
-
-            console.warn(
-                `⚠️ Music interaction expired: ${customId}`
-            );
-
-            return true;
-
-        } else {
-
-            console.error(
-                '❌ Could not acknowledge music button:',
-                error
-            );
-
             return true;
         }
+
+        console.error(
+            '❌ Could not acknowledge music button:',
+            error
+        );
+
+        return true;
     }
 
     // ========================================================
-    // EXECUTE ACTION
+    // ACTION
     // ========================================================
 
     let result = {
-        success: true
+
+        success:
+            true
     };
 
     try {
 
-        switch (customId) {
+        // ----------------------------------------------------
+        // TOGGLE
+        // ----------------------------------------------------
 
-            case BUTTON.PLAY:
+        if (
+            customId ===
+            BUTTON.TOGGLE
+        ) {
 
-                result =
-                    await music.play(
-                        interaction,
-                        guildId
-                    );
+            result =
+                await handleToggle(
+                    interaction,
+                    guildId
+                );
+        }
 
-                break;
+        // ----------------------------------------------------
+        // SKIP
+        // ----------------------------------------------------
 
-            case BUTTON.PAUSE:
+        else if (
+            customId ===
+            BUTTON.SKIP
+        ) {
 
-                result =
-                    music.pause(
-                        guildId
-                    );
-
-                break;
-
-            case BUTTON.RESUME:
-
-                result =
-                    music.resume(
-                        guildId
-                    );
-
-                break;
-
-            case BUTTON.STOP:
-
-                result =
-                    music.stop(
-                        guildId
-                    );
-
-                break;
-
-            case BUTTON.LEAVE:
-
-                result =
-                    music.leave(
-                        guildId
-                    );
-
-                break;
-
-            case BUTTON.REFRESH:
+            if (
+                typeof music.skip !==
+                'function'
+            ) {
 
                 result = {
-                    success: true
+
+                    success:
+                        false,
+
+                    message:
+                        '🦆 Skip is not available yet.'
                 };
 
-                break;
+            } else {
 
-            default:
+                result =
+                    await music.skip(
+                        guildId
+                    );
+            }
+        }
 
-                return true;
+        // ----------------------------------------------------
+        // STOP
+        // ----------------------------------------------------
+
+        else if (
+            customId ===
+            BUTTON.STOP
+        ) {
+
+            result =
+                music.stop(
+                    guildId
+                );
+        }
+
+        // ----------------------------------------------------
+        // REPEAT
+        // ----------------------------------------------------
+
+        else if (
+            customId ===
+            BUTTON.REPEAT
+        ) {
+
+            if (
+                typeof music.toggleRepeat !==
+                'function'
+            ) {
+
+                result = {
+
+                    success:
+                        false,
+
+                    message:
+                        '🦆 Repeat is not available yet.'
+                };
+
+            } else {
+
+                result =
+                    music.toggleRepeat(
+                        guildId
+                    );
+            }
+        }
+
+        // ----------------------------------------------------
+        // LEAVE
+        // ----------------------------------------------------
+
+        else if (
+            customId ===
+            BUTTON.LEAVE
+        ) {
+
+            result =
+                music.leave(
+                    guildId
+                );
+        }
+
+        // ----------------------------------------------------
+        // VOLUME DOWN
+        // ----------------------------------------------------
+
+        else if (
+            customId ===
+            BUTTON.VOLUME_DOWN
+        ) {
+
+            result =
+                changeVolume(
+                    guildId,
+                    -0.10
+                );
+        }
+
+        // ----------------------------------------------------
+        // VOLUME UP
+        // ----------------------------------------------------
+
+        else if (
+            customId ===
+            BUTTON.VOLUME_UP
+        ) {
+
+            result =
+                changeVolume(
+                    guildId,
+                    0.10
+                );
+        }
+
+        // ----------------------------------------------------
+        // REMOVE QUEUE ITEM
+        // ----------------------------------------------------
+
+        else if (
+            customId.startsWith(
+                BUTTON.REMOVE_PREFIX
+            )
+        ) {
+
+            const index =
+                getRemoveIndex(
+                    customId
+                );
+
+            if (
+                index === null
+            ) {
+
+                result = {
+
+                    success:
+                        false,
+
+                    message:
+                        '🦆 Invalid queue item.'
+                };
+
+            } else {
+
+                result =
+                    removeQueueItem(
+                        guildId,
+                        index
+                    );
+            }
+        }
+
+        // ----------------------------------------------------
+        // UNKNOWN
+        // ----------------------------------------------------
+
+        else {
+
+            return true;
         }
 
     } catch (error) {
 
         console.error(
-            `❌ Music action failed [${customId}]:`,
+            `❌ Music panel action failed [${customId}]:`,
             error
         );
 
@@ -760,7 +1514,7 @@ async function handleInteraction(
                 false,
 
             message:
-                '🦆 Something went wrong while controlling the player.'
+                '🦆 Something went wrong while controlling the music player.'
         };
     }
 
@@ -772,7 +1526,8 @@ async function handleInteraction(
 
         if (
             interaction.message &&
-            typeof interaction.message.edit === 'function'
+            typeof interaction.message.edit ===
+                'function'
         ) {
 
             await interaction.message.edit(
@@ -791,7 +1546,7 @@ async function handleInteraction(
     }
 
     // ========================================================
-    // ERROR FEEDBACK
+    // ERROR
     // ========================================================
 
     if (
@@ -819,7 +1574,9 @@ async function sendPanel(
     const guildId =
         channel?.guild?.id;
 
-    if (!guildId) {
+    if (
+        !guildId
+    ) {
 
         throw new Error(
             'Music panel requires a guild channel.'
@@ -847,7 +1604,9 @@ async function updatePanel(
 
     if (
         !guildId ||
-        !message
+        !message ||
+        typeof message.edit !==
+            'function'
     ) {
 
         return false;
@@ -890,5 +1649,7 @@ module.exports = {
 
     updatePanel,
 
-    formatTime
+    formatTime,
+
+    getPlaybackStatus
 };

@@ -4,135 +4,83 @@
 // DUCKAI — MUSIC CAPABILITY
 // ============================================================
 //
-// This module owns the music feature.
+// Music request entry point.
 //
-// RESPONSIBILITIES:
+// Responsibilities:
 //
-// • Detect music requests
-// • Extract the requested song
-// • Search Audius through music.js
-// • Select/store the song
-// • Create/update the Discord music panel
-// • Return a universal capability result
+// • Detect music requests.
+// • Extract the requested song.
+// • Send the request to music.js.
+// • Let music.js handle search / queue / playback state.
+// • Update the Discord music panel.
 //
-// IMPORTANT:
+// This file does NOT:
 //
-// • NO Discord event listeners here.
-// • NO interactionCreate here.
-// • NO client.on(...) here.
-// • NO Brain calls.
-// • NO capability XML.
-// • NO direct Voice connection here.
+// • Search YouTube directly.
+// • Extract audio.
+// • Run yt-dlp.
+// • Create Voice connections.
+// • Handle Discord interactions.
+// • Manage the web player.
 //
-// MESSAGE FLOW:
+// FLOW:
 //
 // Discord message
 //      ↓
-// index.js
-//      ↓
 // router.js
 //      ↓
-// canHandle()
-//      ↓
-// execute()
+// capability.js
 //      ↓
 // music.js
 //      ↓
-// panel.js
-//
-// BUTTON FLOW:
-//
-// Discord button
+// yt.js
 //      ↓
-// handler/interactionCreate.js
+// resolver.js
 //      ↓
-// panel.handleInteraction()
+// ytStream.js
 //      ↓
-// music.js
+// player.js
 //
 // ============================================================
 
-// ============================================================
-// DEPENDENCIES
-// ============================================================
+const music = require('./music');
+const panel = require('./panel');
 
-const music =
-    require('./music');
-
-const panel =
-    require('./panel');
-
-// ============================================================
-// CAPABILITY NAME
-// ============================================================
-
-const name =
-    'music';
+const name = 'music';
 
 // ============================================================
 // PANEL CACHE
 // ============================================================
 //
-// Keeps one panel message per guild during the current process.
-//
-// The cache is intentionally in-memory.
-// A restart simply allows a new panel to be created.
+// One music panel per guild/player.
 //
 // ============================================================
 
-const panelMessages =
-    new Map();
+const panelMessages = new Map();
 
 // ============================================================
 // NORMALIZE MESSAGE
 // ============================================================
-//
-// Supported examples:
-//
-// @DuckAI play After Dark
-// DuckAI play After Dark
-// <@123456789> play After Dark
-// play After Dark
-//
-// All become:
-//
-// play After Dark
-//
-// ============================================================
 
-function normalizeMessage(
-    content
-) {
+function normalizeMessage(content) {
 
-    if (
-        typeof content !== 'string'
-    ) {
-
+    if (typeof content !== 'string') {
         return '';
     }
 
-    let text =
-        content.trim();
+    let text = content.trim();
 
-    // --------------------------------------------------------
     // Discord mention
-    // --------------------------------------------------------
+    text = text.replace(
+        /^<@!?\d+>\s*/i,
+        ''
+    );
 
-    text =
-        text.replace(
-            /^<@!?\d+>\s*/i,
-            ''
-        );
-
-    // --------------------------------------------------------
-    // DuckAI name
-    // --------------------------------------------------------
-
-    text =
-        text.replace(
-            /^@?duck\s*ai[\s,:-]*/i,
-            ''
-        );
+    // DuckAI / @DuckAI
+    text = text.replace(
+        /^@?duck\s*ai[\s,:-]*/i,
+        ''
+    );
 
     return text.trim();
 }
@@ -141,43 +89,35 @@ function normalizeMessage(
 // MUSIC REQUEST DETECTION
 // ============================================================
 
-function isMusicRequest(
-    message
-) {
+function isMusicRequest(message) {
 
     if (
         !message ||
         typeof message.content !== 'string'
     ) {
-
         return false;
     }
 
-    const text =
-        normalizeMessage(
-            message.content
-        ).toLowerCase();
+    const text = normalizeMessage(
+        message.content
+    ).toLowerCase();
 
-    if (
-        !text
-    ) {
-
+    if (!text) {
         return false;
     }
 
-    // --------------------------------------------------------
-    // Explicit music actions
-    // --------------------------------------------------------
-
-    const explicitPatterns = [
+    // Explicit music commands / natural language
+    const patterns = [
 
         // English
         /^play\b/,
         /^playing\b/,
+        /^play\s+me\b/,
         /^listen\b/,
         /^listen\s+to\b/,
         /^put\s+on\b/,
-        /^play\s+me\b/,
+        /^queue\b/,
+        /^add\b/,
 
         // Portuguese
         /^toca\b/,
@@ -189,10 +129,13 @@ function isMusicRequest(
         /^mete\s+m[uú]sica\b/,
         /^mete\s+uma\s+m[uú]sica\b/,
 
-        // Playback controls
+        // Playback
         /^pause\b/,
         /^resume\b/,
         /^stop\b/,
+        /^skip\b/,
+        /^next\b/,
+        /^repeat\b/,
 
         /^pausa\b/,
         /^pausar\b/,
@@ -201,37 +144,32 @@ function isMusicRequest(
         /^continua\b/,
         /^continuar\b/,
         /^parar\b/,
-        /^para\s+a\s+m[uú]sica\b/,
-        /^parar\s+a\s+m[uú]sica\b/
+        /^salta\b/,
+        /^seguinte\b/,
+        /^repetir\b/
     ];
 
     if (
-        explicitPatterns.some(
-            pattern =>
-                pattern.test(text)
+        patterns.some(
+            pattern => pattern.test(text)
         )
     ) {
-
         return true;
     }
 
-    // --------------------------------------------------------
-    // Natural music references
-    // --------------------------------------------------------
-
-    const musicPatterns = [
-
+    // Natural references
+    const musicWords = [
         /\bmusic\b/,
         /\bm[uú]sica\b/,
         /\bsong\b/,
         /\btrack\b/,
         /\bfaixa\b/,
-        /\bcan[cç]ão\b/
+        /\bcan[cç][aã]o\b/,
+        /\bplaylist\b/
     ];
 
-    return musicPatterns.some(
-        pattern =>
-            pattern.test(text)
+    return musicWords.some(
+        pattern => pattern.test(text)
     );
 }
 
@@ -239,95 +177,76 @@ function isMusicRequest(
 // CAN HANDLE
 // ============================================================
 
-function canHandle(
-    message
-) {
+function canHandle(message) {
 
     console.log(
         '🎵 MUSIC CAPABILITY CHECK:',
         message?.content
     );
 
-    return isMusicRequest(
-        message
-    );
+    return isMusicRequest(message);
 }
 
 // ============================================================
 // EXTRACT QUERY
 // ============================================================
 //
-// Converts:
+// Examples:
 //
-// @DuckAI play After Dark by Kitty
+// play Paradise
+// play Paradise by Coldplay
+// DuckAI, play Paradise
+// toca Paradise
 //
-// into:
-//
-// After Dark by Kitty
+// → Paradise
 //
 // ============================================================
 
-function extractQuery(
-    content
-) {
+function extractQuery(content) {
 
-    let text =
-        normalizeMessage(
-            content
-        );
+    let text = normalizeMessage(content);
 
-    // --------------------------------------------------------
-    // Remove command prefixes
-    // --------------------------------------------------------
+    // Explicit prefixes
+    const prefixes = [
 
-    text =
-        text.replace(
-            /^(?:please\s+)?(?:play|playing|play\s+me)\s+/i,
-            ''
-        );
+        /^(?:please\s+)?play\s+me\s+/i,
+        /^(?:please\s+)?play\s+/i,
+        /^playing\s+/i,
 
-    text =
-        text.replace(
-            /^(?:please\s+)?(?:toca|tocar|toque)\s+/i,
-            ''
-        );
+        /^(?:listen\s+to|listen)\s+/i,
 
-    text =
-        text.replace(
-            /^(?:listen\s+to|listen)\s+/i,
-            ''
-        );
+        /^put\s+on\s+/i,
 
-    text =
-        text.replace(
-            /^(?:quero\s+)?(?:ouvir|ouve)\s+/i,
-            ''
-        );
+        /^(?:please\s+)?(?:toca|tocar|toque)\s+/i,
 
-    text =
-        text.replace(
-            /^put\s+on\s+/i,
-            ''
-        );
+        /^(?:quero\s+)?(?:ouvir|ouve)\s+/i,
 
-    text =
-        text.replace(
-            /^mete\s+(?:uma\s+)?m[uú]sica\s*/i,
-            ''
-        );
+        /^mete\s+(?:uma\s+)?m[uú]sica\s*/i,
 
-    // --------------------------------------------------------
-    // Remove surrounding quotation marks
-    // --------------------------------------------------------
+        /^(?:queue|add)\s+/i
+    ];
 
-    text =
-        text
-            .trim()
-            .replace(
-                /^["'“”‘’]+|["'“”‘’]+$/g,
+    for (const prefix of prefixes) {
+
+        if (prefix.test(text)) {
+
+            text = text.replace(
+                prefix,
                 ''
-            )
-            .trim();
+            );
+
+            break;
+        }
+    }
+
+    // Remove quotes
+    text = text
+        .trim()
+        .replace(
+            /^["'“”‘’]+|["'“”‘’]+$/g,
+            ''
+        )
+        .trim();
 
     return text;
 }
@@ -336,60 +255,46 @@ function extractQuery(
 // ACTION
 // ============================================================
 
-function getMusicAction(
-    content
-) {
+function getMusicAction(content) {
 
-    const text =
-        normalizeMessage(
-            content
-        ).toLowerCase();
+    const text = normalizeMessage(
+        content
+    ).toLowerCase();
 
-    // --------------------------------------------------------
     // Pause
-    // --------------------------------------------------------
-
     if (
-        /\b(?:pause|pausa|pausar)\b/.test(
-            text
-        )
+        /^(?:pause|pausa|pausar)\b/.test(text)
     ) {
-
         return 'pause';
     }
 
-    // --------------------------------------------------------
     // Resume
-    // --------------------------------------------------------
-
     if (
-        /\b(?:resume|retoma|retomar|continua|continuar)\b/.test(
-            text
-        )
+        /^(?:resume|retoma|retomar|continua|continuar)\b/.test(text)
     ) {
-
         return 'resume';
     }
 
-    // --------------------------------------------------------
     // Stop
-    // --------------------------------------------------------
-
     if (
-        /\b(?:stop|parar)\b/.test(
-            text
-        ) &&
-        !/\b(?:play|toca|tocar)\b/.test(
-            text
-        )
+        /^(?:stop|parar)\b/.test(text)
     ) {
-
         return 'stop';
     }
 
-    // --------------------------------------------------------
-    // Default
-    // --------------------------------------------------------
+    // Skip
+    if (
+        /^(?:skip|next|salta|seguinte)\b/.test(text)
+    ) {
+        return 'skip';
+    }
+
+    // Repeat
+    if (
+        /^(?:repeat|repetir)\b/.test(text)
+    ) {
+        return 'repeat';
+    }
 
     return 'search';
 }
@@ -397,39 +302,18 @@ function getMusicAction(
 // ============================================================
 // PLAYER ID
 // ============================================================
-//
-// Guilds use the Discord guild ID.
-//
-// DMs use a stable user-specific fallback.
-//
-// ============================================================
 
-function getPlayerId(
-    message
-) {
+function getPlayerId(message) {
 
-    if (
-        message?.guildId
-    ) {
-
-        return String(
-            message.guildId
-        );
+    if (message?.guildId) {
+        return String(message.guildId);
     }
 
-    if (
-        message?.guild?.id
-    ) {
-
-        return String(
-            message.guild.id
-        );
+    if (message?.guild?.id) {
+        return String(message.guild.id);
     }
 
-    if (
-        message?.author?.id
-    ) {
-
+    if (message?.author?.id) {
         return `dm:${message.author.id}`;
     }
 
@@ -437,11 +321,7 @@ function getPlayerId(
 }
 
 // ============================================================
-// PANEL MESSAGE
-// ============================================================
-//
-// Creates a new panel or updates the previous one.
-//
+// PANEL
 // ============================================================
 
 async function sendOrUpdatePanel(
@@ -455,43 +335,45 @@ async function sendOrUpdatePanel(
     ) {
 
         console.error(
-            '❌ Music panel cannot access the message channel.'
+            '❌ Music panel cannot access message channel.'
         );
 
         return null;
     }
 
-    const panelPayload =
-        panel.buildPanel(
+    let payload;
+
+    try {
+
+        payload = panel.buildPanel(
             playerId
         );
 
-    // --------------------------------------------------------
+    } catch (error) {
+
+        console.error(
+            '❌ Could not build music panel:',
+            error
+        );
+
+        return null;
+    }
+
     // Existing panel
-    // --------------------------------------------------------
-
     const existing =
-        panelMessages.get(
-            playerId
-        );
+        panelMessages.get(playerId);
 
-    if (
-        existing
-    ) {
+    if (existing) {
 
         try {
 
             await existing.edit(
-                panelPayload
+                payload
             );
 
             return existing;
 
-        } catch (error) {
-
-            console.warn(
-                `⚠️ Existing music panel is unavailable [${playerId}].`
-            );
+        } catch {
 
             panelMessages.delete(
                 playerId
@@ -499,15 +381,12 @@ async function sendOrUpdatePanel(
         }
     }
 
-    // --------------------------------------------------------
-    // Create new panel
-    // --------------------------------------------------------
-
+    // New panel
     try {
 
         const created =
             await message.channel.send(
-                panelPayload
+                payload
             );
 
         panelMessages.set(
@@ -529,7 +408,7 @@ async function sendOrUpdatePanel(
 }
 
 // ============================================================
-// UPDATE EXISTING PANEL
+// UPDATE PANEL
 // ============================================================
 
 async function updateExistingPanel(
@@ -537,32 +416,21 @@ async function updateExistingPanel(
 ) {
 
     const existing =
-        panelMessages.get(
-            playerId
-        );
+        panelMessages.get(playerId);
 
-    if (
-        !existing
-    ) {
-
+    if (!existing) {
         return null;
     }
 
     try {
 
         await existing.edit(
-            panel.buildPanel(
-                playerId
-            )
+            panel.buildPanel(playerId)
         );
 
         return existing;
 
-    } catch (error) {
-
-        console.warn(
-            `⚠️ Could not update music panel [${playerId}].`
-        );
+    } catch {
 
         panelMessages.delete(
             playerId
@@ -575,33 +443,14 @@ async function updateExistingPanel(
 // ============================================================
 // CAPABILITY RESULT
 // ============================================================
-//
-// The panel is already sent by this point.
-//
-// Therefore there is deliberately NO "response" property.
-//
-// This is important because index.js does:
-//
-// if (route.response) {
-//     safeReply(...)
-// }
-//
-// With no response, index.js simply stops here and does not
-// send an additional text message.
-//
-// ============================================================
 
-function capabilityResult(
-    data = {}
-) {
+function capabilityResult(data = {}) {
 
     return {
 
-        type:
-            'capability',
+        type: 'capability',
 
-        capability:
-            name,
+        capability: name,
 
         data
     };
@@ -611,26 +460,16 @@ function capabilityResult(
 // EXECUTE
 // ============================================================
 
-async function execute(
-    message
-) {
+async function execute(message) {
 
     console.log(
         '🎵 MUSIC CAPABILITY EXECUTED'
     );
 
     const playerId =
-        getPlayerId(
-            message
-        );
+        getPlayerId(message);
 
-    // ========================================================
-    // INVALID PLAYER CONTEXT
-    // ========================================================
-
-    if (
-        !playerId
-    ) {
+    if (!playerId) {
 
         console.error(
             '❌ Music capability has no player context.'
@@ -638,17 +477,11 @@ async function execute(
 
         return capabilityResult({
 
-            action:
-                'error',
+            action: 'error',
 
-            reason:
-                'missing_player_context'
+            reason: 'missing_player_context'
         });
     }
-
-    // ========================================================
-    // ACTION
-    // ========================================================
 
     const action =
         getMusicAction(
@@ -656,17 +489,70 @@ async function execute(
         );
 
     // ========================================================
-    // PAUSE
+    // PLAYBACK ACTIONS
     // ========================================================
 
-    if (
-        action === 'pause'
-    ) {
+    if (action !== 'search') {
 
-        const result =
-            music.pause(
-                playerId
+        let result;
+
+        try {
+
+            switch (action) {
+
+                case 'pause':
+                    result = await music.pause(
+                        playerId
+                    );
+                    break;
+
+                case 'resume':
+                    result = await music.resume(
+                        playerId
+                    );
+                    break;
+
+                case 'stop':
+                    result = await music.stop(
+                        playerId
+                    );
+                    break;
+
+                case 'skip':
+                    result = await music.skip(
+                        playerId
+                    );
+                    break;
+
+                case 'repeat':
+                    result = await music.repeat(
+                        playerId
+                    );
+                    break;
+
+                default:
+                    result = {
+                        success: false,
+                        reason: 'unknown_action'
+                    };
+            }
+
+        } catch (error) {
+
+            console.error(
+                `❌ Music action failed [${action}]:`,
+                error
             );
+
+            result = {
+
+                success: false,
+
+                reason: 'action_failed',
+
+                error: error.message
+            };
+        }
 
         await updateExistingPanel(
             playerId
@@ -674,8 +560,7 @@ async function execute(
 
         return capabilityResult({
 
-            action:
-                'pause',
+            action,
 
             playerId,
 
@@ -684,63 +569,7 @@ async function execute(
     }
 
     // ========================================================
-    // RESUME
-    // ========================================================
-
-    if (
-        action === 'resume'
-    ) {
-
-        const result =
-            music.resume(
-                playerId
-            );
-
-        await updateExistingPanel(
-            playerId
-        );
-
-        return capabilityResult({
-
-            action:
-                'resume',
-
-            playerId,
-
-            result
-        });
-    }
-
-    // ========================================================
-    // STOP
-    // ========================================================
-
-    if (
-        action === 'stop'
-    ) {
-
-        const result =
-            music.stop(
-                playerId
-            );
-
-        await updateExistingPanel(
-            playerId
-        );
-
-        return capabilityResult({
-
-            action:
-                'stop',
-
-            playerId,
-
-            result
-        });
-    }
-
-    // ========================================================
-    // SEARCH QUERY
+    // SEARCH
     // ========================================================
 
     const query =
@@ -748,9 +577,7 @@ async function execute(
             message.content
         );
 
-    if (
-        !query
-    ) {
+    if (!query) {
 
         await sendOrUpdatePanel(
             message,
@@ -759,8 +586,7 @@ async function execute(
 
         return capabilityResult({
 
-            action:
-                'missing_query',
+            action: 'missing_query',
 
             playerId
         });
@@ -772,98 +598,44 @@ async function execute(
     );
 
     // ========================================================
-    // AUDIUS SEARCH
+    // MUSIC.JS OWNS SEARCH + QUEUE + PLAYER FLOW
     // ========================================================
 
-    let searchResult;
+    let result;
 
     try {
 
-        searchResult =
-            await music.search(
-                query
+        result =
+            await music.request(
+                playerId,
+                {
+                    query,
+
+                    message
+                }
             );
 
     } catch (error) {
 
         console.error(
-            '❌ Music search failed:',
+            '❌ Music request failed:',
             error
         );
 
         return capabilityResult({
 
-            action:
-                'search_error',
+            action: 'request_error',
 
             playerId,
 
-            query
+            query,
+
+            error: error.message
         });
     }
 
     // ========================================================
-    // SEARCH FAILED
-    // ========================================================
-
-    if (
-        !searchResult?.success
-    ) {
-
-        console.warn(
-            `⚠️ Music search failed for: ${query}`
-        );
-
-        return capabilityResult({
-
-            action:
-                'search_failed',
-
-            playerId,
-
-            query
-        });
-    }
-
-    // ========================================================
-    // SELECT RESULT
-    // ========================================================
-
-    const selected =
-        music.selectSearchResult(
-            playerId,
-            searchResult
-        );
-
-    if (
-        !selected?.success
-    ) {
-
-        console.error(
-            '❌ Could not select Audius result:',
-            selected
-        );
-
-        return capabilityResult({
-
-            action:
-                'selection_failed',
-
-            playerId,
-
-            query
-        });
-    }
-
-    const song =
-        selected.song;
-
-    console.log(
-        `🎵 MUSIC SELECTED: ${song.title} — ${song.artist}`
-    );
-
-    // ========================================================
-    // PANEL
+    // UPDATE PANEL
     // ========================================================
 
     const panelMessage =
@@ -879,11 +651,14 @@ async function execute(
     return capabilityResult({
 
         action:
-            'selected',
+            result?.action ||
+            'request',
 
         playerId,
 
-        song,
+        query,
+
+        result,
 
         panelMessageId:
             panelMessage?.id ||
@@ -895,21 +670,14 @@ async function execute(
 // PANEL CACHE CLEANUP
 // ============================================================
 
-function clearPanel(
-    playerId
-) {
+function clearPanel(playerId) {
 
-    if (
-        !playerId
-    ) {
-
+    if (!playerId) {
         return;
     }
 
     panelMessages.delete(
-        String(
-            playerId
-        )
+        String(playerId)
     );
 }
 
@@ -928,8 +696,7 @@ module.exports = {
     // Compatibility
     isMusicRequest,
 
-    executeMusic:
-        execute,
+    executeMusic: execute,
 
     // Helpers
     normalizeMessage,

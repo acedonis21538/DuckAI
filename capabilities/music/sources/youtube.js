@@ -6,249 +6,493 @@
 //
 // Responsibilities:
 //
-// • Search YouTube.
-// • Return clean metadata.
-// • Provide channel information for matching.
-// • Prefer videos that can be played outside youtube.com.
-// • Do NOT attempt to extract audio here.
+// • Search YouTube using yt-dlp.
+// • Return clean video metadata.
+// • Return view count when available.
+// • Return channel information.
+// • Never extract/play audio.
+// • Never download the complete video.
 //
-// Playback/extraction should be handled by a separate layer.
+// Search and playback remain separate.
 //
 // ============================================================
 
-const API_KEY =
-    process.env.YOUTUBE_API_KEY;
-
-const priority =
-    20;
+const { spawn } = require('child_process');
+const fs = require('fs');
 
 // ============================================================
-// SEARCH
+// CONFIG
 // ============================================================
 
-async function search(
-    query
-) {
+const YTDLP_TIMEOUT =
+    Number(process.env.YTDLP_TIMEOUT) || 30000;
 
-    if (
-        !API_KEY
-    ) {
+const priority = 20;
 
-        console.warn(
-            '⚠️ YouTube: YOUTUBE_API_KEY is missing.'
-        );
+// ============================================================
+// YT-DLP COMMAND
+// ============================================================
 
-        return [];
-    }
+const YTDLP_CANDIDATES = [
+    process.env.YTDLP_COMMAND,
+    'yt-dlp',
+    '/home/codespace/.python/current/bin/yt-dlp',
+    '/usr/local/bin/yt-dlp',
+    '/usr/bin/yt-dlp',
+    '/opt/render/project/.venv/bin/yt-dlp'
+].filter(Boolean);
 
-    if (
-        typeof query !== 'string' ||
-        !query.trim()
-    ) {
-
-        return [];
-    }
-
-    try {
-
-        const params =
-            new URLSearchParams({
-
-                part:
-                    'snippet',
-
-                q:
-                    query.trim(),
-
-                type:
-                    'video',
-
-                maxResults:
-                    '10',
-
-                order:
-                    'relevance',
-
-                regionCode:
-                    'PT',
-
-                videoEmbeddable:
-                    'true',
-
-                videoSyndicated:
-                    'true',
-
-                key:
-                    API_KEY
-            });
-
-        const response =
-            await fetch(
-                `https://www.googleapis.com/youtube/v3/search?${params.toString()}`,
-                {
-
-                    method:
-                        'GET',
-
-                    headers: {
-
-                        Accept:
-                            'application/json'
-                    }
-                }
-            );
-
-        const rawText =
-            await response.text();
-
-        let data;
-
-        try {
-
-            data =
-                JSON.parse(
-                    rawText
-                );
-
-        } catch {
-
-            data = null;
+function resolveYtDlpCommand() {
+    for (const candidate of YTDLP_CANDIDATES) {
+        if (candidate === 'yt-dlp') {
+            return candidate;
         }
 
-        // ========================================================
-        // API ERROR
-        // ========================================================
+        try {
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+        } catch {}
+    }
 
-        if (
-            !response.ok
-        ) {
+    return 'yt-dlp';
+}
 
-            const reason =
-                data?.error?.errors?.[0]?.reason ||
-                'unknown';
+const YTDLP_COMMAND =
+    resolveYtDlpCommand();
 
-            const message =
-                data?.error?.message ||
-                rawText ||
-                `HTTP ${response.status}`;
+console.log(
+    `🎬 YouTube search command: ${YTDLP_COMMAND}`
+);
 
+// ============================================================
+// COOKIES
+// ============================================================
+
+function getCookieArgs() {
+    const configured =
+        process.env.YOUTUBE_COOKIES_PATH;
+
+    if (
+        typeof configured !== 'string' ||
+        !configured.trim()
+    ) {
+        return [];
+    }
+
+    const cookiePath =
+        configured.trim();
+
+    try {
+        if (!fs.existsSync(cookiePath)) {
             console.warn(
-                '⚠️ YouTube API error:',
-                JSON.stringify({
-
-                    status:
-                        response.status,
-
-                    reason,
-
-                    message
-                })
+                '⚠️ YouTube cookies configured but file was not found.'
             );
 
             return [];
         }
 
-        const items =
-            Array.isArray(
-                data?.items
-            )
-                ? data.items
-                : [];
-
-        // ========================================================
-        // RESULTS
-        // ========================================================
-
-        return items
-            .filter(
-                item =>
-                    item?.id?.videoId
-            )
-            .map(
-                item => {
-
-                    const snippet =
-                        item.snippet ||
-                        {};
-
-                    const channelTitle =
-                        typeof snippet.channelTitle === 'string' &&
-                        snippet.channelTitle.trim()
-                            ? snippet.channelTitle.trim()
-                            : 'Unknown artist';
-
-                    const videoId =
-                        item.id.videoId;
-
-                    return {
-
-                        success:
-                            true,
-
-                        source:
-                            'youtube',
-
-                        title:
-                            snippet.title ||
-                            query.trim(),
-
-                        artist:
-                            channelTitle,
-
-                        url:
-                            `https://www.youtube.com/watch?v=${videoId}`,
-
-                        artwork:
-                            snippet.thumbnails?.maxres?.url ||
-                            snippet.thumbnails?.high?.url ||
-                            snippet.thumbnails?.medium?.url ||
-                            snippet.thumbnails?.default?.url ||
-                            null,
-
-                        id:
-                            videoId,
-
-                        channelId:
-                            snippet.channelId ||
-                            null,
-
-                        channelTitle,
-
-                        publishedAt:
-                            snippet.publishedAt ||
-                            null,
-
-                        description:
-                            snippet.description ||
-                            null,
-
-                        permalink:
-                            `https://www.youtube.com/watch?v=${videoId}`,
-
-                        // ------------------------------------------------
-                        // This is a discovered YouTube video.
-                        //
-                        // It is NOT a direct audio URL.
-                        //
-                        // ------------------------------------------------
-
-                        playable:
-                            false,
-
-                        playableThrough:
-                            'youtube'
-                    };
-                }
+        if (!fs.statSync(cookiePath).isFile()) {
+            console.warn(
+                '⚠️ YouTube cookies path is not a file.'
             );
 
-    } catch (error) {
+            return [];
+        }
 
+        return [
+            '--cookies',
+            cookiePath
+        ];
+    } catch (error) {
         console.warn(
-            '⚠️ YouTube provider failed:',
+            '⚠️ Could not access YouTube cookies:',
             error.message
         );
 
         return [];
+    }
+}
+
+// ============================================================
+// COMMAND HELPER
+// ============================================================
+
+function runYtDlp(
+    args,
+    timeout = YTDLP_TIMEOUT
+) {
+    return new Promise(
+        (resolve, reject) => {
+
+            let child;
+
+            try {
+                child = spawn(
+                    YTDLP_COMMAND,
+                    args,
+                    {
+                        windowsHide: true,
+                        stdio: [
+                            'ignore',
+                            'pipe',
+                            'pipe'
+                        ]
+                    }
+                );
+            } catch (error) {
+                reject(error);
+                return;
+            }
+
+            let stdout = '';
+            let stderr = '';
+            let settled = false;
+
+            const timer =
+                setTimeout(
+                    () => {
+
+                        if (settled) {
+                            return;
+                        }
+
+                        settled = true;
+
+                        try {
+                            child.kill('SIGKILL');
+                        } catch {}
+
+                        const error =
+                            new Error(
+                                `yt-dlp search timed out after ${timeout}ms`
+                            );
+
+                        error.code =
+                            'YTDLP_TIMEOUT';
+
+                        reject(error);
+                    },
+                    timeout
+                );
+
+            child.stdout.on(
+                'data',
+                chunk => {
+                    stdout +=
+                        chunk.toString();
+                }
+            );
+
+            child.stderr.on(
+                'data',
+                chunk => {
+                    stderr +=
+                        chunk.toString();
+                }
+            );
+
+            child.once(
+                'error',
+                error => {
+
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    clearTimeout(timer);
+
+                    reject(error);
+                }
+            );
+
+            child.once(
+                'close',
+                code => {
+
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    clearTimeout(timer);
+
+                    if (code === 0) {
+                        resolve({
+                            stdout:
+                                stdout.trim(),
+
+                            stderr:
+                                stderr.trim()
+                        });
+
+                        return;
+                    }
+
+                    const error =
+                        new Error(
+                            `yt-dlp exited with code ${code}: ${
+                                stderr.trim() ||
+                                'unknown error'
+                            }`
+                        );
+
+                    error.code =
+                        code;
+
+                    error.stdout =
+                        stdout;
+
+                    error.stderr =
+                        stderr;
+
+                    reject(error);
+                }
+            );
+        }
+    );
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+
+async function search(query) {
+
+    if (
+        typeof query !== 'string' ||
+        !query.trim()
+    ) {
+        return [];
+    }
+
+    const cleanQuery =
+        query
+            .trim()
+            .slice(0, 200);
+
+    console.log(
+        `🔎 YouTube search: "${cleanQuery}"`
+    );
+
+    try {
+
+        const args = [
+            `ytsearch10:${cleanQuery}`,
+
+            '--flat-playlist',
+
+            '--dump-single-json',
+
+            '--skip-download',
+
+            '--no-warnings',
+
+            '--no-playlist',
+
+            ...getCookieArgs()
+        ];
+
+        const result =
+            await runYtDlp(args);
+
+        if (!result.stdout) {
+            return [];
+        }
+
+        const data =
+            JSON.parse(
+                result.stdout
+            );
+
+        const entries =
+            Array.isArray(data?.entries)
+                ? data.entries
+                : [];
+
+        const results =
+            entries
+                .map(normalizeResult)
+                .filter(Boolean);
+
+        console.log(
+            `📺 YouTube search returned ${results.length} result(s).`
+        );
+
+        return results;
+
+    } catch (error) {
+
+        console.warn(
+            '⚠️ YouTube search failed:',
+            error.message
+        );
+
+        return [];
+    }
+}
+
+// ============================================================
+// NORMALIZE RESULT
+// ============================================================
+
+function normalizeResult(entry) {
+
+    if (
+        !entry ||
+        typeof entry !== 'object'
+    ) {
+        return null;
+    }
+
+    const id =
+        typeof entry.id === 'string'
+            ? entry.id
+            : null;
+
+    if (!id) {
+        return null;
+    }
+
+    const title =
+        typeof entry.title === 'string' &&
+        entry.title.trim()
+            ? entry.title.trim()
+            : null;
+
+    if (!title) {
+        return null;
+    }
+
+    const channelTitle =
+        typeof entry.channel === 'string'
+            ? entry.channel.trim()
+            : typeof entry.uploader === 'string'
+                ? entry.uploader.trim()
+                : '';
+
+    const url =
+        `https://www.youtube.com/watch?v=${id}`;
+
+    const duration =
+        Number.isFinite(
+            Number(entry.duration)
+        )
+            ? Number(entry.duration)
+            : null;
+
+    const viewCount =
+        Number.isFinite(
+            Number(entry.view_count)
+        )
+            ? Number(entry.view_count)
+            : 0;
+
+    const thumbnail =
+        typeof entry.thumbnail === 'string'
+            ? entry.thumbnail
+            : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
+    return {
+
+        success:
+            true,
+
+        source:
+            'youtube',
+
+        title,
+
+        artist:
+            channelTitle ||
+            'Unknown artist',
+
+        url,
+
+        permalink:
+            url,
+
+        id,
+
+        channelId:
+            entry.channel_id ||
+            entry.uploader_id ||
+            null,
+
+        channelTitle:
+            channelTitle ||
+            null,
+
+        artwork:
+            thumbnail,
+
+        duration,
+
+        views:
+            viewCount,
+
+        viewCount,
+
+        description:
+            typeof entry.description === 'string'
+                ? entry.description
+                : null,
+
+        uploadDate:
+            entry.upload_date ||
+            null,
+
+        live:
+            Boolean(entry.is_live),
+
+        playable:
+            false,
+
+        playableThrough:
+            'youtube'
+    };
+}
+
+// ============================================================
+// PROVIDER STATUS
+// ============================================================
+
+async function checkAvailable() {
+
+    try {
+
+        const result =
+            await runYtDlp(
+                ['--version'],
+                10000
+            );
+
+        return {
+
+            available:
+                true,
+
+            version:
+                result.stdout ||
+                null
+
+        };
+
+    } catch (error) {
+
+        return {
+
+            available:
+                false,
+
+            version:
+                null,
+
+            error:
+                error.message
+
+        };
     }
 }
 
@@ -263,5 +507,7 @@ module.exports = {
 
     priority,
 
-    search
+    search,
+
+    checkAvailable
 };
