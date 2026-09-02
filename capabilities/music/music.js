@@ -3,23 +3,6 @@
 // ============================================================
 // DUCKAI — MUSIC ENGINE
 // ============================================================
-//
-// Responsibilities:
-//
-// • Search songs through resolver
-// • Manage queue
-// • Manage one player per guild
-// • Connect to Discord Voice
-// • Extract YouTube audio stream
-// • Stream through FFmpeg
-// • Play through Discord Voice
-// • Track playback state and position
-// • Automatically advance the queue
-// • Protect playback against race conditions
-//
-// This engine does NOT download complete YouTube videos.
-//
-// ============================================================
 
 require('dotenv').config();
 
@@ -57,7 +40,6 @@ function getFFmpegPath() {
         process.env.FFMPEG_PATH &&
         fs.existsSync(process.env.FFMPEG_PATH)
     ) {
-
         return process.env.FFMPEG_PATH;
     }
 
@@ -65,7 +47,6 @@ function getFFmpegPath() {
         ffmpegStatic &&
         fs.existsSync(ffmpegStatic)
     ) {
-
         return ffmpegStatic;
     }
 
@@ -84,8 +65,7 @@ function getFFmpegPath() {
     return 'ffmpeg';
 }
 
-const ffmpegPath =
-    getFFmpegPath();
+const ffmpegPath = getFFmpegPath();
 
 console.log(
     `🎬 FFmpeg path: ${ffmpegPath}`
@@ -95,11 +75,8 @@ console.log(
 // STORAGE
 // ============================================================
 
-const guildStates =
-    new Map();
-
-const playLocks =
-    new Set();
+const guildStates = new Map();
+const playLocks = new Set();
 
 // ============================================================
 // CREATE GUILD STATE
@@ -107,122 +84,60 @@ const playLocks =
 
 function createGuildState() {
 
-    const player =
-        createAudioPlayer({
+    const player = createAudioPlayer({
 
-            behaviors: {
-
-                noSubscriber:
-                    NoSubscriberBehavior.Pause
-            }
-        });
+        behaviors: {
+            noSubscriber:
+                NoSubscriberBehavior.Pause
+        }
+    });
 
     const state = {
 
-        // ----------------------------------------------------
-        // Queue
-        // ----------------------------------------------------
-
         queue: [],
+        currentIndex: -1,
 
-        currentIndex:
-            -1,
+        state: 'stopped',
+        position: 0,
+        volume: 1,
 
-        // ----------------------------------------------------
-        // Playback
-        // ----------------------------------------------------
+        startedAt: null,
+        pausedAt: null,
+        pausedPosition: 0,
 
-        state:
-            'stopped',
-
-        position:
-            0,
-
-        volume:
-            1,
-
-        // ----------------------------------------------------
-        // Timing
-        // ----------------------------------------------------
-
-        startedAt:
-            null,
-
-        pausedAt:
-            null,
-
-        pausedPosition:
-            0,
-
-        // ----------------------------------------------------
-        // Discord
-        // ----------------------------------------------------
-
-        connection:
-            null,
-
+        connection: null,
         player,
+        resource: null,
 
-        resource:
-            null,
+        inputStream: null,
+        ffmpeg: null,
 
-        // ----------------------------------------------------
-        // Stream
-        // ----------------------------------------------------
+        playbackId: 0,
+        activePlaybackId: null,
 
-        inputStream:
-            null,
+        autoAdvance: true,
 
-        ffmpeg:
-            null,
-
-        // ----------------------------------------------------
-        // Race protection
-        // ----------------------------------------------------
-
-        playbackId:
-            0,
-
-        activePlaybackId:
-            null,
-
-        // ----------------------------------------------------
-        // Internal behaviour
-        // ----------------------------------------------------
-
-        autoAdvance:
-            true,
-
-        // ----------------------------------------------------
-        // Metadata
-        // ----------------------------------------------------
-
-        updatedAt:
-            Date.now()
+        updatedAt: Date.now()
     };
 
     // ========================================================
-    // PLAYER — PLAYING
+    // PLAYING
     // ========================================================
 
     player.on(
         AudioPlayerStatus.Playing,
         () => {
 
-            state.state =
-                'playing';
+            state.state = 'playing';
 
             if (!state.startedAt) {
 
                 state.startedAt =
                     Date.now() -
-                    (
-                        state.position * 1000
-                    );
+                    (state.position * 1000);
             }
 
-            state.updatedAt =
-                Date.now();
+            state.updatedAt = Date.now();
 
             console.log(
                 '▶️ Discord player: PLAYING'
@@ -231,28 +146,19 @@ function createGuildState() {
     );
 
     // ========================================================
-    // PLAYER — PAUSED
+    // PAUSED
     // ========================================================
 
     player.on(
         AudioPlayerStatus.Paused,
         () => {
 
-            updatePosition(
-                state
-            );
+            updatePosition(state);
 
-            state.state =
-                'paused';
-
-            state.pausedAt =
-                Date.now();
-
-            state.pausedPosition =
-                state.position;
-
-            state.updatedAt =
-                Date.now();
+            state.state = 'paused';
+            state.pausedAt = Date.now();
+            state.pausedPosition = state.position;
+            state.updatedAt = Date.now();
 
             console.log(
                 '⏸️ Discord player: PAUSED'
@@ -261,7 +167,7 @@ function createGuildState() {
     );
 
     // ========================================================
-    // PLAYER — IDLE
+    // IDLE
     // ========================================================
 
     player.on(
@@ -280,46 +186,29 @@ function createGuildState() {
                 finishedPlaybackId
             );
 
-            state.state =
-                'stopped';
-
-            state.position =
-                0;
-
-            state.startedAt =
-                null;
-
-            state.pausedAt =
-                null;
-
-            state.pausedPosition =
-                0;
-
-            state.updatedAt =
-                Date.now();
+            state.state = 'stopped';
+            state.position = 0;
+            state.startedAt = null;
+            state.pausedAt = null;
+            state.pausedPosition = 0;
+            state.updatedAt = Date.now();
 
             console.log(
                 '⏹️ Discord player: IDLE'
             );
-
-            // ------------------------------------------------
-            // Automatically play next song
-            // ------------------------------------------------
 
             if (
                 wasPlaying &&
                 state.autoAdvance
             ) {
 
-                playNextFromIdle(
-                    state
-                );
+                playNextFromIdle(state);
             }
         }
     );
 
     // ========================================================
-    // PLAYER — ERROR
+    // ERROR
     // ========================================================
 
     player.on(
@@ -331,27 +220,14 @@ function createGuildState() {
                 error
             );
 
-            cleanupStream(
-                state
-            );
+            cleanupStream(state);
 
-            state.state =
-                'stopped';
-
-            state.position =
-                0;
-
-            state.startedAt =
-                null;
-
-            state.pausedAt =
-                null;
-
-            state.pausedPosition =
-                0;
-
-            state.updatedAt =
-                Date.now();
+            state.state = 'stopped';
+            state.position = 0;
+            state.startedAt = null;
+            state.pausedAt = null;
+            state.pausedPosition = 0;
+            state.updatedAt = Date.now();
         }
     );
 
@@ -362,20 +238,15 @@ function createGuildState() {
 // GET GUILD
 // ============================================================
 
-function getGuild(
-    guildId
-) {
+function getGuild(guildId) {
 
-    const id =
-        String(guildId || '');
+    const id = String(guildId || '');
 
     if (!id) {
         return null;
     }
 
-    if (
-        !guildStates.has(id)
-    ) {
+    if (!guildStates.has(id)) {
 
         guildStates.set(
             id,
@@ -390,9 +261,7 @@ function getGuild(
 // VALID GUILD ID
 // ============================================================
 
-function validGuildId(
-    guildId
-) {
+function validGuildId(guildId) {
 
     return (
         typeof guildId === 'string' &&
@@ -404,17 +273,11 @@ function validGuildId(
 // UPDATE POSITION
 // ============================================================
 
-function updatePosition(
-    guild
-) {
+function updatePosition(guild) {
 
     if (!guild) {
         return 0;
     }
-
-    // --------------------------------------------------------
-    // Playing
-    // --------------------------------------------------------
 
     if (
         guild.state === 'playing' &&
@@ -422,10 +285,7 @@ function updatePosition(
     ) {
 
         const elapsed =
-            (
-                Date.now() -
-                guild.startedAt
-            ) / 1000;
+            (Date.now() - guild.startedAt) / 1000;
 
         const duration =
             Number(
@@ -435,10 +295,7 @@ function updatePosition(
             );
 
         let position =
-            Math.max(
-                0,
-                elapsed
-            );
+            Math.max(0, elapsed);
 
         if (
             Number.isFinite(duration) &&
@@ -452,13 +309,8 @@ function updatePosition(
                 );
         }
 
-        guild.position =
-            position;
+        guild.position = position;
     }
-
-    // --------------------------------------------------------
-    // Paused
-    // --------------------------------------------------------
 
     else if (
         guild.state === 'paused'
@@ -475,9 +327,7 @@ function updatePosition(
 // SEARCH
 // ============================================================
 
-async function search(
-    query
-) {
+async function search(query) {
 
     if (
         typeof query !== 'string' ||
@@ -485,10 +335,7 @@ async function search(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Tell me which song you want to play.'
         };
@@ -506,34 +353,22 @@ async function search(
     try {
 
         const result =
-            await resolver.search(
-                cleanQuery
-            );
+            await resolver.search(cleanQuery);
 
-        if (
-            !result?.success
-        ) {
+        if (!result?.success) {
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     result?.message ||
                     `🦆 I couldn't find "${cleanQuery}".`
             };
         }
 
-        if (
-            !result.url
-        ) {
+        if (!result.url) {
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 YouTube returned no playable result.'
             };
@@ -541,15 +376,10 @@ async function search(
 
         const song = {
 
-            success:
-                true,
+            success: true,
+            source: 'youtube',
 
-            source:
-                'youtube',
-
-            id:
-                result.id ||
-                null,
+            id: result.id || null,
 
             title:
                 result.title ||
@@ -560,8 +390,7 @@ async function search(
                 result.channelTitle ||
                 'Unknown artist',
 
-            url:
-                result.url,
+            url: result.url,
 
             permalink:
                 result.permalink ||
@@ -580,9 +409,7 @@ async function search(
                 null,
 
             duration:
-                Number.isFinite(
-                    result.duration
-                )
+                Number.isFinite(result.duration)
                     ? result.duration
                     : null,
 
@@ -594,11 +421,9 @@ async function search(
                 result.publishedAt ||
                 null,
 
-            playable:
-                false,
+            playable: false,
 
-            requestedAt:
-                Date.now()
+            requestedAt: Date.now()
         };
 
         console.log(
@@ -615,10 +440,7 @@ async function search(
         );
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🦆 I could not search YouTube right now.'
         };
@@ -644,9 +466,7 @@ function setSong({
     permalink = null
 }) {
 
-    if (
-        !validGuildId(guildId)
-    ) {
+    if (!validGuildId(guildId)) {
         return null;
     }
 
@@ -657,8 +477,7 @@ function setSong({
         return null;
     }
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     if (!guild) {
         return null;
@@ -687,39 +506,27 @@ function setSong({
         artwork,
 
         channelId,
-
         channelTitle,
 
         duration:
-            Number.isFinite(
-                Number(duration)
-            )
+            Number.isFinite(Number(duration))
                 ? Number(duration)
                 : null,
 
         description,
 
-        playable:
-            false,
+        playable: false,
 
-        addedAt:
-            Date.now()
+        addedAt: Date.now()
     };
 
-    guild.queue.push(
-        song
-    );
+    guild.queue.push(song);
 
-    if (
-        guild.currentIndex === -1
-    ) {
-
-        guild.currentIndex =
-            0;
+    if (guild.currentIndex === -1) {
+        guild.currentIndex = 0;
     }
 
-    guild.updatedAt =
-        Date.now();
+    guild.updatedAt = Date.now();
 
     console.log(
         `🎵 QUEUE ADD: ${song.title} — ${song.artist}`
@@ -732,20 +539,12 @@ function setSong({
 // SELECT SEARCH RESULT
 // ============================================================
 
-function selectSearchResult(
-    guildId,
-    result
-) {
+function selectSearchResult(guildId, result) {
 
-    if (
-        !result?.success
-    ) {
+    if (!result?.success) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 result?.message ||
                 '🎵 No song found.'
@@ -757,26 +556,17 @@ function selectSearchResult(
 
             guildId,
 
-            title:
-                result.title,
+            title: result.title,
+            artist: result.artist,
+            url: result.url,
 
-            artist:
-                result.artist,
+            source: 'youtube',
 
-            url:
-                result.url,
+            artwork: result.artwork,
 
-            source:
-                'youtube',
+            id: result.id,
 
-            artwork:
-                result.artwork,
-
-            id:
-                result.id,
-
-            channelId:
-                result.channelId,
+            channelId: result.channelId,
 
             channelTitle:
                 result.channelTitle,
@@ -795,22 +585,15 @@ function selectSearchResult(
     if (!song) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 I could not add that song to the queue.'
         };
     }
 
     return {
-
-        success:
-            true,
-
+        success: true,
         song,
-
         queuePosition:
             getQueue(guildId).length
     };
@@ -820,25 +603,19 @@ function selectSearchResult(
 // CURRENT SONG
 // ============================================================
 
-function getCurrentSong(
-    guildId
-) {
+function getCurrentSong(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     if (
         !guild ||
         guild.currentIndex < 0
     ) {
-
         return null;
     }
 
     return (
-        guild.queue[
-            guild.currentIndex
-        ] ||
+        guild.queue[guild.currentIndex] ||
         null
     );
 }
@@ -847,12 +624,9 @@ function getCurrentSong(
 // QUEUE
 // ============================================================
 
-function getQueue(
-    guildId
-) {
+function getQueue(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     if (!guild) {
         return [];
@@ -865,35 +639,25 @@ function getQueue(
 // STATE
 // ============================================================
 
-function getState(
-    guildId
-) {
+function getState(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     if (!guild) {
 
         return {
-
-            success:
-                false
+            success: false
         };
     }
 
-    updatePosition(
-        guild
-    );
+    updatePosition(guild);
 
     return {
 
-        success:
-            true,
+        success: true,
 
         song:
-            getCurrentSong(
-                guildId
-            ),
+            getCurrentSong(guildId),
 
         queue:
             guild.queue,
@@ -911,9 +675,7 @@ function getState(
             guild.volume,
 
         connected:
-            Boolean(
-                guild.connection
-            ),
+            Boolean(guild.connection),
 
         channelId:
             guild.connection
@@ -928,6 +690,13 @@ function getState(
 
 // ============================================================
 // CREATE HTTP AUDIO STREAM
+// ============================================================
+//
+// FIX 403:
+// YouTube CDN URLs are protected and can reject simplistic
+// Node HTTP requests. We use browser-like headers and preserve
+// the full signed URL.
+//
 // ============================================================
 
 function createAudioStream(
@@ -955,9 +724,7 @@ function createAudioStream(
                 return;
             }
 
-            if (
-                redirectCount > 5
-            ) {
+            if (redirectCount > 8) {
 
                 reject(
                     new Error(
@@ -1004,23 +771,40 @@ function createAudioStream(
                 return;
             }
 
+            const headers = {
+
+                // Browser-like identity
+                'User-Agent':
+                    process.env.YOUTUBE_USER_AGENT ||
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151.0.0.0 Safari/537.36',
+
+                // Important for YouTube CDN
+                'Referer':
+                    'https://www.youtube.com/',
+
+                'Origin':
+                    'https://www.youtube.com',
+
+                'Accept':
+                    '*/*',
+
+                'Accept-Language':
+                    'en-US,en;q=0.9',
+
+                'Connection':
+                    'keep-alive'
+            };
+
             const request =
                 transport.get(
                     parsed,
                     {
-                        headers: {
-
-                            'User-Agent':
-                                'DuckAI/1.0',
-
-                            'Accept':
-                                'audio/*'
-                        }
+                        headers
                     },
                     response => {
 
                         // ------------------------------------------------
-                        // Redirect
+                        // REDIRECT
                         // ------------------------------------------------
 
                         if (
@@ -1029,11 +813,14 @@ function createAudioStream(
                             response.headers.location
                         ) {
 
+                            const location =
+                                response.headers.location;
+
                             response.resume();
 
                             const redirect =
                                 new URL(
-                                    response.headers.location,
+                                    location,
                                     parsed
                                 ).toString();
 
@@ -1048,27 +835,32 @@ function createAudioStream(
                         }
 
                         // ------------------------------------------------
-                        // HTTP error
+                        // SUCCESS
                         // ------------------------------------------------
 
                         if (
-                            response.statusCode < 200 ||
-                            response.statusCode >= 300
+                            response.statusCode >= 200 &&
+                            response.statusCode < 300
                         ) {
 
-                            response.resume();
-
-                            reject(
-                                new Error(
-                                    `Audio stream HTTP ${response.statusCode}`
-                                )
-                            );
+                            resolve(response);
 
                             return;
                         }
 
-                        resolve(
-                            response
+                        // ------------------------------------------------
+                        // ERROR
+                        // ------------------------------------------------
+
+                        const status =
+                            response.statusCode;
+
+                        response.resume();
+
+                        reject(
+                            new Error(
+                                `Audio stream HTTP ${status}`
+                            )
                         );
                     }
                 );
@@ -1102,15 +894,10 @@ async function connectVoice(
     guildId
 ) {
 
-    if (
-        !interaction?.guild
-    ) {
+    if (!interaction?.guild) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 I can only play music inside a server.'
         };
@@ -1133,10 +920,7 @@ async function connectVoice(
         );
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 I could not determine your Voice Channel.'
         };
@@ -1148,10 +932,7 @@ async function connectVoice(
     if (!voiceChannel) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 Join a Voice Channel first.'
         };
@@ -1163,17 +944,13 @@ async function connectVoice(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 That is not a valid Voice Channel.'
         };
     }
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     // ========================================================
     // EXISTING CONNECTION
@@ -1192,11 +969,9 @@ async function connectVoice(
         ) {
 
             try {
-
                 guild.connection.subscribe(
                     guild.player
                 );
-
             } catch {}
 
             try {
@@ -1210,44 +985,30 @@ async function connectVoice(
             } catch {
 
                 return {
-
-                    success:
-                        false,
-
+                    success: false,
                     message:
                         '🔊 The Voice connection is not ready.'
                 };
             }
 
             return {
-
-                success:
-                    true,
-
+                success: true,
                 channelId:
                     voiceChannel.id,
-
                 channelName:
                     voiceChannel.name
             };
         }
-
-        // ----------------------------------------------------
-        // Move channel
-        // ----------------------------------------------------
 
         console.log(
             `🔄 Moving Voice connection [${guildId}]`
         );
 
         try {
-
             guild.connection.destroy();
-
         } catch {}
 
-        guild.connection =
-            null;
+        guild.connection = null;
     }
 
     // ========================================================
@@ -1270,11 +1031,8 @@ async function connectVoice(
                     interaction.guild
                         .voiceAdapterCreator,
 
-                selfDeaf:
-                    true,
-
-                selfMute:
-                    false
+                selfDeaf: true,
+                selfMute: false
             });
 
     } catch (error) {
@@ -1285,17 +1043,13 @@ async function connectVoice(
         );
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 I could not join your Voice Channel.'
         };
     }
 
-    guild.connection =
-        connection;
+    guild.connection = connection;
 
     connection.on(
         'stateChange',
@@ -1318,8 +1072,7 @@ async function connectVoice(
                     connection
                 ) {
 
-                    guild.connection =
-                        null;
+                    guild.connection = null;
                 }
             }
         }
@@ -1364,15 +1117,11 @@ async function connectVoice(
             connection
         ) {
 
-            guild.connection =
-                null;
+            guild.connection = null;
         }
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 Discord Voice could not be reached.'
         };
@@ -1383,13 +1132,9 @@ async function connectVoice(
     );
 
     return {
-
-        success:
-            true,
-
+        success: true,
         channelId:
             voiceChannel.id,
-
         channelName:
             voiceChannel.name
     };
@@ -1412,7 +1157,6 @@ function cleanupStream(
         playbackId !== null &&
         guild.activePlaybackId !== playbackId
     ) {
-
         return;
     }
 
@@ -1422,8 +1166,7 @@ function cleanupStream(
             guild.inputStream.destroy();
         } catch {}
 
-        guild.inputStream =
-            null;
+        guild.inputStream = null;
     }
 
     if (guild.ffmpeg) {
@@ -1442,9 +1185,7 @@ function cleanupStream(
 
         try {
 
-            if (
-                !guild.ffmpeg.killed
-            ) {
+            if (!guild.ffmpeg.killed) {
 
                 guild.ffmpeg.kill(
                     'SIGKILL'
@@ -1453,15 +1194,11 @@ function cleanupStream(
 
         } catch {}
 
-        guild.ffmpeg =
-            null;
+        guild.ffmpeg = null;
     }
 
-    guild.resource =
-        null;
-
-    guild.activePlaybackId =
-        null;
+    guild.resource = null;
+    guild.activePlaybackId = null;
 }
 
 // ============================================================
@@ -1481,50 +1218,85 @@ function stopPlayback(
         advance = false
     } = options;
 
-    updatePosition(
-        guild
-    );
+    updatePosition(guild);
 
     guild.playbackId += 1;
 
-    guild.autoAdvance =
-        false;
+    guild.autoAdvance = false;
 
     try {
-
-        guild.player.stop(
-            true
-        );
-
+        guild.player.stop(true);
     } catch {}
 
-    cleanupStream(
-        guild
-    );
+    cleanupStream(guild);
 
-    guild.state =
-        'stopped';
-
-    guild.position =
-        0;
-
-    guild.startedAt =
-        null;
-
-    guild.pausedAt =
-        null;
-
-    guild.pausedPosition =
-        0;
-
-    guild.updatedAt =
-        Date.now();
+    guild.state = 'stopped';
+    guild.position = 0;
+    guild.startedAt = null;
+    guild.pausedAt = null;
+    guild.pausedPosition = 0;
+    guild.updatedAt = Date.now();
 
     if (advance) {
-
-        guild.autoAdvance =
-            true;
+        guild.autoAdvance = true;
     }
+}
+
+// ============================================================
+// CREATE FFMPEG
+// ============================================================
+
+function createFFmpeg(input) {
+
+    return spawn(
+        ffmpegPath,
+        [
+            '-hide_banner',
+            '-loglevel',
+            'error',
+
+            '-reconnect',
+            '1',
+
+            '-reconnect_streamed',
+            '1',
+
+            '-reconnect_delay_max',
+            '5',
+
+            '-i',
+            'pipe:0',
+
+            '-vn',
+
+            '-map_metadata',
+            '-1',
+
+            '-ac',
+            '2',
+
+            '-ar',
+            '48000',
+
+            '-c:a',
+            'libopus',
+
+            '-b:a',
+            '160k',
+
+            '-f',
+            'ogg',
+
+            'pipe:1'
+        ],
+        {
+            stdio: [
+                'pipe',
+                'pipe',
+                'pipe'
+            ]
+        }
+    );
 }
 
 // ============================================================
@@ -1536,55 +1308,37 @@ async function play(
     guildId
 ) {
 
-    if (
-        !validGuildId(guildId)
-    ) {
+    if (!validGuildId(guildId)) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Invalid server.'
         };
     }
 
-    if (
-        playLocks.has(guildId)
-    ) {
+    if (playLocks.has(guildId)) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 The player is already starting.'
         };
     }
 
-    const guild =
-        getGuild(guildId);
-
-    const song =
-        getCurrentSong(guildId);
+    const guild = getGuild(guildId);
+    const song = getCurrentSong(guildId);
 
     if (!song) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 There is no song in the queue.'
         };
     }
 
-    playLocks.add(
-        guildId
-    );
+    playLocks.add(guildId);
 
     try {
 
@@ -1603,18 +1357,14 @@ async function play(
         }
 
         // ====================================================
-        // CANCEL PREVIOUS PLAYBACK
+        // CANCEL PREVIOUS
         // ====================================================
 
-        guild.autoAdvance =
-            false;
+        guild.autoAdvance = false;
 
-        stopPlayback(
-            guild
-        );
+        stopPlayback(guild);
 
-        guild.autoAdvance =
-            true;
+        guild.autoAdvance = true;
 
         const playbackId =
             guild.playbackId;
@@ -1639,10 +1389,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 This song has no valid YouTube source.'
             };
@@ -1675,10 +1422,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I found the song, but could not obtain its audio stream.'
             };
@@ -1696,10 +1440,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 YouTube did not provide a playable audio stream.'
             };
@@ -1723,10 +1464,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 Playback was cancelled.'
             };
@@ -1756,10 +1494,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not open the YouTube audio stream.'
             };
@@ -1775,10 +1510,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 Playback was cancelled.'
             };
@@ -1810,45 +1542,8 @@ async function play(
         try {
 
             ffmpeg =
-                spawn(
-                    ffmpegPath,
-                    [
-                        '-hide_banner',
-                        '-loglevel',
-                        'error',
-
-                        '-i',
-                        'pipe:0',
-
-                        '-vn',
-
-                        '-map_metadata',
-                        '-1',
-
-                        '-ac',
-                        '2',
-
-                        '-ar',
-                        '48000',
-
-                        '-c:a',
-                        'libopus',
-
-                        '-b:a',
-                        '160k',
-
-                        '-f',
-                        'ogg',
-
-                        'pipe:1'
-                    ],
-                    {
-                        stdio: [
-                            'pipe',
-                            'pipe',
-                            'pipe'
-                        ]
-                    }
+                createFFmpeg(
+                    guild.inputStream
                 );
 
         } catch (error) {
@@ -1864,20 +1559,15 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🦆 FFmpeg could not be started.'
             };
         }
 
-        guild.ffmpeg =
-            ffmpeg;
+        guild.ffmpeg = ffmpeg;
 
-        let ffmpegError =
-            '';
+        let ffmpegError = '';
 
         ffmpeg.stderr.on(
             'data',
@@ -1967,10 +1657,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not create the Discord audio resource.'
             };
@@ -2012,10 +1699,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not process the YouTube audio.'
             };
@@ -2035,10 +1719,7 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 Playback was cancelled.'
             };
@@ -2067,32 +1748,18 @@ async function play(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 Discord could not start playback.'
             };
         }
 
-        guild.state =
-            'playing';
-
-        guild.position =
-            0;
-
-        guild.startedAt =
-            Date.now();
-
-        guild.pausedAt =
-            null;
-
-        guild.pausedPosition =
-            0;
-
-        guild.updatedAt =
-            Date.now();
+        guild.state = 'playing';
+        guild.position = 0;
+        guild.startedAt = Date.now();
+        guild.pausedAt = null;
+        guild.pausedPosition = 0;
+        guild.updatedAt = Date.now();
 
         console.log(
             `▶️ PLAYING: ${song.title} — ${song.artist}`
@@ -2100,16 +1767,13 @@ async function play(
 
         return {
 
-            success:
-                true,
+            success: true,
 
-            state:
-                'playing',
+            state: 'playing',
 
             song,
 
-            voiceSource:
-                'youtube',
+            voiceSource: 'youtube',
 
             channelId:
                 voice.channelId
@@ -2117,9 +1781,7 @@ async function play(
 
     } finally {
 
-        playLocks.delete(
-            guildId
-        );
+        playLocks.delete(guildId);
     }
 }
 
@@ -2127,9 +1789,7 @@ async function play(
 // AUTO NEXT
 // ============================================================
 
-async function playNextFromIdle(
-    guild
-) {
+async function playNextFromIdle(guild) {
 
     if (!guild) {
         return;
@@ -2160,37 +1820,23 @@ async function playNextFromIdle(
         `⏭️ AUTO NEXT: ${guild.queue[nextIndex]?.title || 'Unknown'}`
     );
 
-    // --------------------------------------------------------
-    // We cannot call play() without an interaction because
-    // connectVoice() needs the member's voice channel.
-    //
-    // The existing Voice connection is already available, so
-    // playback can be started directly.
-    // --------------------------------------------------------
-
     await playFromExistingConnection(
         guild
     );
 }
 
 // ============================================================
-// PLAY USING EXISTING VOICE CONNECTION
+// PLAY EXISTING CONNECTION
 // ============================================================
 
-async function playFromExistingConnection(
-    guild
-) {
+async function playFromExistingConnection(guild) {
 
     if (!guild?.connection) {
 
-        guild.state =
-            'stopped';
+        guild.state = 'stopped';
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 Voice connection is no longer available.'
         };
@@ -2204,28 +1850,9 @@ async function playFromExistingConnection(
     if (!song) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 There is no next song.'
-        };
-    }
-
-    if (
-        playLocks.has(
-            guild.connection.joinConfig.guildId
-        )
-    ) {
-
-        return {
-
-            success:
-                false,
-
-            message:
-                '🔊 The player is already starting.'
         };
     }
 
@@ -2234,9 +1861,16 @@ async function playFromExistingConnection(
             .joinConfig
             .guildId;
 
-    playLocks.add(
-        guildId
-    );
+    if (playLocks.has(guildId)) {
+
+        return {
+            success: false,
+            message:
+                '🔊 The player is already starting.'
+        };
+    }
+
+    playLocks.add(guildId);
 
     try {
 
@@ -2245,19 +1879,16 @@ async function playFromExistingConnection(
         const playbackId =
             guild.playbackId;
 
-        cleanupStream(
-            guild
-        );
+        cleanupStream(guild);
 
         guild.activePlaybackId =
             playbackId;
 
-        guild.state =
-            'stopped';
+        guild.state = 'stopped';
 
-        // ----------------------------------------------------
-        // Source
-        // ----------------------------------------------------
+        // ====================================================
+        // SOURCE
+        // ====================================================
 
         const youtubeInput =
             song.permalink ||
@@ -2272,10 +1903,7 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 This song has no valid YouTube source.'
             };
@@ -2308,37 +1936,16 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not load the next song.'
             };
         }
 
         if (
-            guild.playbackId !== playbackId
-        ) {
-
-            cleanupStream(
-                guild,
-                playbackId
-            );
-
-            return {
-
-                success:
-                    false,
-
-                message:
-                    '🔊 Playback was cancelled.'
-            };
-        }
-
-        if (
             !extracted?.success ||
-            typeof extracted.url !== 'string'
+            typeof extracted.url !== 'string' ||
+            !extracted.url.trim()
         ) {
 
             cleanupStream(
@@ -2347,18 +1954,15 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 The next song could not be played.'
             };
         }
 
-        // ----------------------------------------------------
-        // Open stream
-        // ----------------------------------------------------
+        // ====================================================
+        // OPEN STREAM
+        // ====================================================
 
         try {
 
@@ -2380,10 +1984,7 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not open the next audio stream.'
             };
@@ -2399,63 +2000,40 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 Playback was cancelled.'
             };
         }
 
-        // ----------------------------------------------------
-        // FFmpeg
-        // ----------------------------------------------------
+        guild.inputStream.on(
+            'error',
+            error => {
+
+                if (
+                    guild.playbackId !== playbackId
+                ) {
+                    return;
+                }
+
+                console.error(
+                    '❌ Auto audio input error:',
+                    error
+                );
+            }
+        );
+
+        // ====================================================
+        // FFMPEG
+        // ====================================================
 
         let ffmpeg;
 
         try {
 
             ffmpeg =
-                spawn(
-                    ffmpegPath,
-                    [
-                        '-hide_banner',
-                        '-loglevel',
-                        'error',
-
-                        '-i',
-                        'pipe:0',
-
-                        '-vn',
-
-                        '-map_metadata',
-                        '-1',
-
-                        '-ac',
-                        '2',
-
-                        '-ar',
-                        '48000',
-
-                        '-c:a',
-                        'libopus',
-
-                        '-b:a',
-                        '160k',
-
-                        '-f',
-                        'ogg',
-
-                        'pipe:1'
-                    ],
-                    {
-                        stdio: [
-                            'pipe',
-                            'pipe',
-                            'pipe'
-                        ]
-                    }
+                createFFmpeg(
+                    guild.inputStream
                 );
 
         } catch (error) {
@@ -2471,17 +2049,15 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🦆 FFmpeg could not start the next song.'
             };
         }
 
-        guild.ffmpeg =
-            ffmpeg;
+        guild.ffmpeg = ffmpeg;
+
+        let ffmpegError = '';
 
         ffmpeg.stderr.on(
             'data',
@@ -2493,15 +2069,56 @@ async function playFromExistingConnection(
                     return;
                 }
 
-                console.error(
-                    `⚠️ FFmpeg: ${chunk.toString().trim()}`
-                );
+                ffmpegError +=
+                    chunk.toString();
+
+                if (
+                    ffmpegError.length > 5000
+                ) {
+
+                    ffmpegError =
+                        ffmpegError.slice(-5000);
+                }
             }
         );
 
-        // ----------------------------------------------------
-        // Resource
-        // ----------------------------------------------------
+        ffmpeg.on(
+            'error',
+            error => {
+
+                if (
+                    guild.playbackId === playbackId
+                ) {
+
+                    console.error(
+                        '❌ Auto FFmpeg error:',
+                        error
+                    );
+                }
+            }
+        );
+
+        ffmpeg.on(
+            'close',
+            code => {
+
+                if (
+                    code !== 0 &&
+                    guild.playbackId === playbackId
+                ) {
+
+                    console.error(
+                        `❌ Auto FFmpeg exited with ${code}:`,
+                        ffmpegError ||
+                        'No error output.'
+                    );
+                }
+            }
+        );
+
+        // ====================================================
+        // RESOURCE
+        // ====================================================
 
         try {
 
@@ -2530,14 +2147,15 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not prepare the next song.'
             };
         }
+
+        // ====================================================
+        // VOLUME
+        // ====================================================
 
         if (
             guild.resource?.volume
@@ -2548,9 +2166,9 @@ async function playFromExistingConnection(
             );
         }
 
-        // ----------------------------------------------------
-        // Pipe
-        // ----------------------------------------------------
+        // ====================================================
+        // PIPE
+        // ====================================================
 
         try {
 
@@ -2571,18 +2189,15 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🎵 I could not process the next song.'
             };
         }
 
-        // ----------------------------------------------------
-        // Start
-        // ----------------------------------------------------
+        // ====================================================
+        // START
+        // ====================================================
 
         try {
 
@@ -2603,50 +2218,31 @@ async function playFromExistingConnection(
             );
 
             return {
-
-                success:
-                    false,
-
+                success: false,
                 message:
                     '🔊 I could not start the next song.'
             };
         }
 
-        guild.state =
-            'playing';
-
-        guild.position =
-            0;
-
-        guild.startedAt =
-            Date.now();
-
-        guild.pausedAt =
-            null;
-
-        guild.pausedPosition =
-            0;
-
-        guild.updatedAt =
-            Date.now();
+        guild.state = 'playing';
+        guild.position = 0;
+        guild.startedAt = Date.now();
+        guild.pausedAt = null;
+        guild.pausedPosition = 0;
+        guild.updatedAt = Date.now();
 
         console.log(
             `▶️ AUTO PLAYING: ${song.title} — ${song.artist}`
         );
 
         return {
-
-            success:
-                true,
-
+            success: true,
             song
         };
 
     } finally {
 
-        playLocks.delete(
-            guildId
-        );
+        playLocks.delete(guildId);
     }
 }
 
@@ -2654,22 +2250,14 @@ async function playFromExistingConnection(
 // PAUSE
 // ============================================================
 
-function pause(
-    guildId
-) {
+function pause(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    if (
-        !getCurrentSong(guildId)
-    ) {
+    if (!getCurrentSong(guildId)) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 No song is selected.'
         };
@@ -2681,18 +2269,13 @@ function pause(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Nothing is currently playing.'
         };
     }
 
-    updatePosition(
-        guild
-    );
+    updatePosition(guild);
 
     const result =
         guild.player.pause();
@@ -2700,32 +2283,21 @@ function pause(
     if (!result) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 I could not pause the player.'
         };
     }
 
-    guild.state =
-        'paused';
-
+    guild.state = 'paused';
     guild.pausedPosition =
         guild.position;
-
     guild.updatedAt =
         Date.now();
 
     return {
-
-        success:
-            true,
-
-        state:
-            'paused',
-
+        success: true,
+        state: 'paused',
         position:
             guild.position
     };
@@ -2735,22 +2307,14 @@ function pause(
 // RESUME
 // ============================================================
 
-function resume(
-    guildId
-) {
+function resume(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    if (
-        !getCurrentSong(guildId)
-    ) {
+    if (!getCurrentSong(guildId)) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 No song is selected.'
         };
@@ -2762,10 +2326,7 @@ function resume(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Nothing is paused.'
         };
@@ -2777,10 +2338,7 @@ function resume(
     if (!result) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 I could not resume the player.'
         };
@@ -2788,24 +2346,15 @@ function resume(
 
     guild.startedAt =
         Date.now() -
-        (
-            guild.pausedPosition *
-            1000
-        );
+        (guild.pausedPosition * 1000);
 
-    guild.state =
-        'playing';
-
+    guild.state = 'playing';
     guild.updatedAt =
         Date.now();
 
     return {
-
-        success:
-            true,
-
-        state:
-            'playing'
+        success: true,
+        state: 'playing'
     };
 }
 
@@ -2813,24 +2362,15 @@ function resume(
 // STOP
 // ============================================================
 
-function stop(
-    guildId
-) {
+function stop(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    stopPlayback(
-        guild
-    );
+    stopPlayback(guild);
 
     return {
-
-        success:
-            true,
-
-        state:
-            'stopped'
+        success: true,
+        state: 'stopped'
     };
 }
 
@@ -2838,50 +2378,32 @@ function stop(
 // LEAVE
 // ============================================================
 
-function leave(
-    guildId
-) {
+function leave(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    stopPlayback(
-        guild
-    );
+    stopPlayback(guild);
 
-    if (
-        guild.connection
-    ) {
+    if (guild.connection) {
 
         try {
             guild.connection.destroy();
         } catch {}
     }
 
-    guild.connection =
-        null;
-
-    guild.state =
-        'stopped';
-
-    guild.position =
-        0;
-
-    guild.updatedAt =
-        Date.now();
+    guild.connection = null;
+    guild.state = 'stopped';
+    guild.position = 0;
+    guild.updatedAt = Date.now();
 
     return {
-
-        success:
-            true,
-
-        state:
-            'stopped'
+        success: true,
+        state: 'stopped'
     };
 }
 
 // ============================================================
-// NEXT / SKIP
+// SKIP
 // ============================================================
 
 async function skip(
@@ -2889,18 +2411,12 @@ async function skip(
     guildId
 ) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    if (
-        guild.queue.length === 0
-    ) {
+    if (guild.queue.length === 0) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 The queue is empty.'
         };
@@ -2911,62 +2427,36 @@ async function skip(
         guild.queue.length - 1
     ) {
 
-        stopPlayback(
-            guild
-        );
+        stopPlayback(guild);
 
         return {
-
-            success:
-                true,
-
-            state:
-                'stopped',
-
+            success: true,
+            state: 'stopped',
             message:
                 '🎵 The queue has ended.'
         };
     }
 
     guild.currentIndex++;
+    guild.updatedAt = Date.now();
 
-    guild.updatedAt =
-        Date.now();
+    if (guild.connection) {
 
-    // --------------------------------------------------------
-    // Existing connection
-    // --------------------------------------------------------
+        guild.autoAdvance = false;
 
-    if (
-        guild.connection
-    ) {
+        stopPlayback(guild);
 
-        guild.autoAdvance =
-            false;
-
-        stopPlayback(
-            guild
-        );
-
-        guild.autoAdvance =
-            true;
+        guild.autoAdvance = true;
 
         return playFromExistingConnection(
             guild
         );
     }
 
-    // --------------------------------------------------------
-    // No connection
-    // --------------------------------------------------------
-
     if (!interaction) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🔊 I need a Voice connection to continue playback.'
         };
@@ -2987,11 +2477,8 @@ function removeFromQueue(
     index
 ) {
 
-    const guild =
-        getGuild(guildId);
-
-    const value =
-        Number(index);
+    const guild = getGuild(guildId);
+    const value = Number(index);
 
     if (
         !Number.isInteger(value) ||
@@ -3000,10 +2487,7 @@ function removeFromQueue(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Invalid queue item.'
         };
@@ -3016,19 +2500,17 @@ function removeFromQueue(
         )[0];
 
     if (
-        value === guild.currentIndex
+        value ===
+        guild.currentIndex
     ) {
 
-        stopPlayback(
-            guild
-        );
+        stopPlayback(guild);
 
         if (
             guild.queue.length === 0
         ) {
 
-            guild.currentIndex =
-                -1;
+            guild.currentIndex = -1;
 
         } else if (
             value >=
@@ -3052,16 +2534,11 @@ function removeFromQueue(
         guild.currentIndex--;
     }
 
-    guild.updatedAt =
-        Date.now();
+    guild.updatedAt = Date.now();
 
     return {
-
-        success:
-            true,
-
+        success: true,
         removed,
-
         queue:
             guild.queue
     };
@@ -3071,42 +2548,23 @@ function removeFromQueue(
 // CLEAR QUEUE
 // ============================================================
 
-function clearQueue(
-    guildId
-) {
+function clearQueue(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    stopPlayback(
-        guild
-    );
+    stopPlayback(guild);
 
-    guild.queue =
-        [];
-
-    guild.currentIndex =
-        -1;
-
-    guild.updatedAt =
-        Date.now();
+    guild.queue = [];
+    guild.currentIndex = -1;
+    guild.updatedAt = Date.now();
 
     return {
-
-        success:
-            true
+        success: true
     };
 }
 
 // ============================================================
 // SEEK
-// ============================================================
-//
-// This updates the logical position.
-//
-// True YouTube seeking requires restarting the extraction at
-// the requested timestamp, which can be implemented later.
-//
 // ============================================================
 
 function seek(
@@ -3114,8 +2572,7 @@ function seek(
     position
 ) {
 
-    const value =
-        Number(position);
+    const value = Number(position);
 
     if (
         !Number.isFinite(value) ||
@@ -3123,22 +2580,16 @@ function seek(
     ) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Invalid playback position.'
         };
     }
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     const song =
-        getCurrentSong(
-            guildId
-        );
+        getCurrentSong(guildId);
 
     if (
         song?.duration &&
@@ -3150,8 +2601,7 @@ function seek(
 
     } else {
 
-        guild.position =
-            value;
+        guild.position = value;
     }
 
     if (
@@ -3160,10 +2610,7 @@ function seek(
 
         guild.startedAt =
             Date.now() -
-            (
-                guild.position *
-                1000
-            );
+            (guild.position * 1000);
     }
 
     guild.pausedPosition =
@@ -3173,10 +2620,7 @@ function seek(
         Date.now();
 
     return {
-
-        success:
-            true,
-
+        success: true,
         position:
             guild.position
     };
@@ -3191,32 +2635,21 @@ function setVolume(
     volume
 ) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
-    let value =
-        Number(volume);
+    let value = Number(volume);
 
-    if (
-        !Number.isFinite(value)
-    ) {
+    if (!Number.isFinite(value)) {
 
         return {
-
-            success:
-                false,
-
+            success: false,
             message:
                 '🎵 Invalid volume.'
         };
     }
 
-    if (
-        value > 1
-    ) {
-
-        value /=
-            100;
+    if (value > 1) {
+        value /= 100;
     }
 
     value =
@@ -3228,28 +2661,20 @@ function setVolume(
             )
         );
 
-    guild.volume =
-        value;
+    guild.volume = value;
 
-    if (
-        guild.resource?.volume
-    ) {
+    if (guild.resource?.volume) {
 
         guild.resource.volume.setVolume(
             value
         );
     }
 
-    guild.updatedAt =
-        Date.now();
+    guild.updatedAt = Date.now();
 
     return {
-
-        success:
-            true,
-
-        volume:
-            value
+        success: true,
+        volume: value
     };
 }
 
@@ -3257,12 +2682,9 @@ function setVolume(
 // CLEAR CURRENT SONG
 // ============================================================
 
-function clearSong(
-    guildId
-) {
+function clearSong(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     if (
         guild.currentIndex >= 0 &&
@@ -3276,16 +2698,13 @@ function clearSong(
         );
     }
 
-    stopPlayback(
-        guild
-    );
+    stopPlayback(guild);
 
     if (
         guild.queue.length === 0
     ) {
 
-        guild.currentIndex =
-            -1;
+        guild.currentIndex = -1;
 
     } else if (
         guild.currentIndex >=
@@ -3296,13 +2715,10 @@ function clearSong(
             guild.queue.length - 1;
     }
 
-    guild.updatedAt =
-        Date.now();
+    guild.updatedAt = Date.now();
 
     return {
-
-        success:
-            true
+        success: true
     };
 }
 
@@ -3310,12 +2726,9 @@ function clearSong(
 // CONNECTION
 // ============================================================
 
-function isConnected(
-    guildId
-) {
+function isConnected(guildId) {
 
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     return Boolean(
         guild?.connection
@@ -3326,22 +2739,16 @@ function isConnected(
 // PLAYER
 // ============================================================
 
-function getPlayer(
-    guildId
-) {
+function getPlayer(guildId) {
 
-    return getGuild(
-        guildId
-    )?.player;
+    return getGuild(guildId)?.player;
 }
 
 // ============================================================
 // DESTROY GUILD
 // ============================================================
 
-function destroyGuild(
-    guildId
-) {
+function destroyGuild(guildId) {
 
     const id =
         String(guildId || '');
@@ -3352,37 +2759,24 @@ function destroyGuild(
     if (!guild) {
 
         return {
-
-            success:
-                true
+            success: true
         };
     }
 
-    stopPlayback(
-        guild
-    );
+    stopPlayback(guild);
 
-    if (
-        guild.connection
-    ) {
+    if (guild.connection) {
 
         try {
             guild.connection.destroy();
         } catch {}
     }
 
-    guildStates.delete(
-        id
-    );
-
-    playLocks.delete(
-        id
-    );
+    guildStates.delete(id);
+    playLocks.delete(id);
 
     return {
-
-        success:
-            true
+        success: true
     };
 }
 
@@ -3402,9 +2796,7 @@ function getGuilds() {
             ]
         ) => {
 
-            updatePosition(
-                guild
-            );
+            updatePosition(guild);
 
             return {
 
@@ -3454,10 +2846,8 @@ function getGuilds() {
 
 module.exports = {
 
-    // Search
     search,
 
-    // Queue
     setSong,
     selectSearchResult,
     getCurrentSong,
@@ -3466,7 +2856,6 @@ module.exports = {
     clearQueue,
     clearSong,
 
-    // Playback
     play,
     pause,
     resume,
@@ -3475,14 +2864,11 @@ module.exports = {
     leave,
     seek,
 
-    // Audio
     setVolume,
 
-    // State
     getState,
     getGuilds,
 
-    // Discord
     isConnected,
     getPlayer,
     destroyGuild

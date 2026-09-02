@@ -1,3 +1,6 @@
 node_modules/
 .env
 secure/
+test-browser.js
+test-youtube-session.js
+test-youtube-session.js.save

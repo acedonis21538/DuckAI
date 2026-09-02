@@ -1,0 +1,3 @@
+{
+  "postStartCommand": "nohup ~/DuckAI/start-vnc.sh > ~/DuckAI/vnc.log 2>&1 &"
+}

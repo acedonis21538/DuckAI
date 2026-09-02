@@ -5,24 +5,19 @@
 // ============================================================
 //
 // Responsibilities:
-//
-// • Convert YouTube URL/video ID into an audio stream URL.
+// • Convert a YouTube URL/video ID into an audio stream URL.
 // • Try play-dl first.
 // • Fall back to yt-dlp.
-// • Support cookies.
-// • Support yt-dlp EJS/JS runtimes.
-// • Never download the complete audio file.
+// • Support an optional Netscape-format cookies file.
+// • Support yt-dlp JS runtimes.
+// • Never download the complete video.
+// • Cache short-lived stream URLs.
 //
 // ============================================================
 
-const { spawn } =
-    require('child_process');
-
-const fs =
-    require('fs');
-
-const path =
-    require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 // ============================================================
 // OPTIONAL PLAY-DL
@@ -31,20 +26,10 @@ const path =
 let playdl = null;
 
 try {
-
-    playdl =
-        require('play-dl');
-
-    console.log(
-        '✅ play-dl loaded.'
-    );
-
+    playdl = require('play-dl');
+    console.log('✅ play-dl loaded.');
 } catch (error) {
-
-    console.warn(
-        '⚠️ play-dl unavailable:',
-        error.message
-    );
+    console.warn('⚠️ play-dl unavailable:', error.message);
 }
 
 // ============================================================
@@ -52,16 +37,60 @@ try {
 // ============================================================
 
 const YTDLP_TIMEOUT =
-    Number(
-        process.env.YTDLP_TIMEOUT
-    ) || 30000;
+    Number(process.env.YTDLP_TIMEOUT) || 30000;
+
+const STREAM_CACHE_TTL =
+    Number(process.env.YOUTUBE_STREAM_CACHE_TTL) || 60 * 1000;
+
+// ============================================================
+// YT-DLP COMMAND
+// ============================================================
+
+const YTDLP_CANDIDATES = [
+    process.env.YTDLP_COMMAND,
+    'yt-dlp',
+    '/usr/local/bin/yt-dlp',
+    '/usr/bin/yt-dlp',
+    '/home/codespace/.python/current/bin/yt-dlp',
+    '/opt/render/project/.venv/bin/yt-dlp'
+].filter(Boolean);
+
+function resolveYtDlpCommand() {
+    for (const candidate of YTDLP_CANDIDATES) {
+        if (candidate === 'yt-dlp') {
+            return candidate;
+        }
+
+        try {
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+        } catch {
+            // Ignore inaccessible candidates.
+        }
+    }
+
+    return 'yt-dlp';
+}
+
+const YTDLP_COMMAND =
+    resolveYtDlpCommand();
+
+console.log(`🎬 yt-dlp command: ${YTDLP_COMMAND}`);
 
 // ============================================================
 // COOKIES
 // ============================================================
+//
+// Set in .env:
+//
+// YOUTUBE_COOKIES_PATH=/absolute/path/to/youtube-cookies.txt
+//
+// The file should be Netscape cookie format.
+//
+// ============================================================
 
 function getYouTubeCookiesPath() {
-
     const configured =
         process.env.YOUTUBE_COOKIES_PATH;
 
@@ -73,32 +102,38 @@ function getYouTubeCookiesPath() {
     }
 
     const cookiePath =
-        path.resolve(
-            configured.trim()
-        );
+        path.resolve(configured.trim());
 
     try {
-
         if (!fs.existsSync(cookiePath)) {
+            console.warn(
+                '⚠️ YouTube cookies file not found:',
+                cookiePath
+            );
+
             return null;
         }
 
-        if (
-            !fs.statSync(cookiePath).isFile()
-        ) {
+        if (!fs.statSync(cookiePath).isFile()) {
+            console.warn(
+                '⚠️ YouTube cookies path is not a file.'
+            );
+
             return null;
         }
 
         return cookiePath;
-
-    } catch {
+    } catch (error) {
+        console.warn(
+            '⚠️ Could not access YouTube cookies:',
+            error.message
+        );
 
         return null;
     }
 }
 
 function getYouTubeCookieArgs() {
-
     const cookiePath =
         getYouTubeCookiesPath();
 
@@ -113,134 +148,84 @@ function getYouTubeCookieArgs() {
 }
 
 // ============================================================
-// YT-DLP COMMAND
+// COMMAND EXISTS
 // ============================================================
 
-const YTDLP_CANDIDATES = [
-    process.env.YTDLP_COMMAND,
-    'yt-dlp',
-    '/home/codespace/.python/current/bin/yt-dlp',
-    '/usr/local/bin/yt-dlp',
-    '/usr/bin/yt-dlp',
-    '/opt/render/project/.venv/bin/yt-dlp'
-].filter(Boolean);
-
-function resolveYtDlpCommand() {
-
-    for (
-        const candidate
-        of YTDLP_CANDIDATES
-    ) {
-
-        if (
-            candidate ===
-            'yt-dlp'
-        ) {
-            return candidate;
-        }
+function commandExists(command) {
+    return new Promise(resolve => {
+        let child;
 
         try {
+            child = spawn(
+                command,
+                ['--version'],
+                {
+                    windowsHide: true,
+                    stdio: [
+                        'ignore',
+                        'ignore',
+                        'ignore'
+                    ]
+                }
+            );
+        } catch {
+            resolve(false);
+            return;
+        }
 
-            if (
-                fs.existsSync(
-                    candidate
-                )
-            ) {
-                return candidate;
+        let finished = false;
+
+        const finish = value => {
+            if (finished) {
+                return;
             }
 
-        } catch {}
-    }
+            finished = true;
+            resolve(value);
+        };
 
-    return 'yt-dlp';
+        child.once(
+            'error',
+            () => finish(false)
+        );
+
+        child.once(
+            'close',
+            code => finish(code === 0)
+        );
+    });
 }
 
-const YTDLP_COMMAND =
-    resolveYtDlpCommand();
-
-console.log(
-    `🎬 yt-dlp command: ${YTDLP_COMMAND}`
-);
-
 // ============================================================
-// RUNTIME
+// JS RUNTIME DETECTION
 // ============================================================
-
-function commandExists(
-    command
-) {
-
-    return new Promise(
-        resolve => {
-
-            const child =
-                spawn(
-                    command,
-                    ['--version'],
-                    {
-                        windowsHide:
-                            true,
-
-                        stdio: [
-                            'ignore',
-                            'ignore',
-                            'ignore'
-                        ]
-                    }
-                );
-
-            child.once(
-                'error',
-                () => resolve(false)
-            );
-
-            child.once(
-                'close',
-                code =>
-                    resolve(
-                        code === 0
-                    )
-            );
-        }
-    );
-}
 
 async function detectJsRuntimes() {
-
     const runtimes = [];
 
-    if (
-        await commandExists('node')
-    ) {
-        runtimes.push('node');
+    if (await commandExists('deno')) {
+        runtimes.push('deno');
     }
 
-    if (
-        await commandExists('deno')
-    ) {
-        runtimes.push('deno');
+    if (await commandExists('node')) {
+        runtimes.push('node');
     }
 
     return runtimes;
 }
 
 // ============================================================
-// BASE ARGS
+// BASE YT-DLP ARGS
 // ============================================================
 
 function getYtDlpBaseArgs() {
-
     return [
-
         '--no-playlist',
-
         '--no-warnings',
 
+        // Allows yt-dlp to use remotely provided EJS challenge code.
         '--remote-components',
         'ejs:github',
-
-        '--format',
-        'bestaudio/best',
 
         ...getYouTubeCookieArgs()
     ];
@@ -254,206 +239,151 @@ function runYtDlp(
     args,
     timeout = YTDLP_TIMEOUT
 ) {
+    return new Promise((resolve, reject) => {
+        let child;
 
-    return new Promise(
-        (resolve, reject) => {
+        try {
+            child = spawn(
+                YTDLP_COMMAND,
+                args,
+                {
+                    windowsHide: true,
+                    stdio: [
+                        'ignore',
+                        'pipe',
+                        'pipe'
+                    ]
+                }
+            );
+        } catch (error) {
+            reject(error);
+            return;
+        }
 
-            let child;
+        let stdout = '';
+        let stderr = '';
+        let settled = false;
 
-            try {
-
-                child =
-                    spawn(
-                        YTDLP_COMMAND,
-                        args,
-                        {
-                            windowsHide:
-                                true,
-
-                            stdio: [
-                                'ignore',
-                                'pipe',
-                                'pipe'
-                            ]
-                        }
-                    );
-
-            } catch (error) {
-
-                reject(error);
+        const timer = setTimeout(() => {
+            if (settled) {
                 return;
             }
 
-            let stdout = '';
-            let stderr = '';
-            let settled = false;
+            settled = true;
 
-            const timer =
-                setTimeout(
-                    () => {
+            try {
+                child.kill('SIGKILL');
+            } catch {
+                // Ignore kill errors.
+            }
 
-                        if (settled) {
-                            return;
-                        }
+            const error = new Error(
+                `yt-dlp timed out after ${timeout}ms`
+            );
 
-                        settled = true;
+            error.code = 'YTDLP_TIMEOUT';
 
-                        try {
-                            child.kill(
-                                'SIGKILL'
-                            );
-                        } catch {}
+            reject(error);
+        }, timeout);
 
-                        const error =
-                            new Error(
-                                `yt-dlp timed out after ${timeout}ms`
-                            );
+        child.stdout.on(
+            'data',
+            chunk => {
+                stdout += chunk.toString();
+            }
+        );
 
-                        error.code =
-                            'YTDLP_TIMEOUT';
+        child.stderr.on(
+            'data',
+            chunk => {
+                stderr += chunk.toString();
+            }
+        );
 
-                        reject(error);
+        child.once(
+            'error',
+            error => {
+                if (settled) {
+                    return;
+                }
 
-                    },
-                    timeout
+                settled = true;
+                clearTimeout(timer);
+
+                reject(error);
+            }
+        );
+
+        child.once(
+            'close',
+            code => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                clearTimeout(timer);
+
+                if (code === 0) {
+                    resolve({
+                        stdout: stdout.trim(),
+                        stderr: stderr.trim()
+                    });
+
+                    return;
+                }
+
+                const error = new Error(
+                    `yt-dlp exited with code ${code}: ${
+                        stderr.trim() ||
+                        'unknown error'
+                    }`
                 );
 
-            child.stdout.on(
-                'data',
-                chunk => {
-                    stdout +=
-                        chunk.toString();
-                }
-            );
+                error.code = code;
+                error.stdout = stdout;
+                error.stderr = stderr;
 
-            child.stderr.on(
-                'data',
-                chunk => {
-                    stderr +=
-                        chunk.toString();
-                }
-            );
-
-            child.once(
-                'error',
-                error => {
-
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-
-                    clearTimeout(
-                        timer
-                    );
-
-                    reject(error);
-                }
-            );
-
-            child.once(
-                'close',
-                code => {
-
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-
-                    clearTimeout(
-                        timer
-                    );
-
-                    if (code === 0) {
-
-                        resolve({
-
-                            stdout:
-                                stdout.trim(),
-
-                            stderr:
-                                stderr.trim()
-                        });
-
-                        return;
-                    }
-
-                    const error =
-                        new Error(
-                            `yt-dlp exited with code ${code}: ${
-                                stderr.trim() ||
-                                'unknown error'
-                            }`
-                        );
-
-                    error.code =
-                        code;
-
-                    error.stdout =
-                        stdout;
-
-                    error.stderr =
-                        stderr;
-
-                    reject(error);
-                }
-            );
-        }
-    );
+                reject(error);
+            }
+        );
+    });
 }
 
 // ============================================================
-// URL
+// YOUTUBE URL DETECTION
 // ============================================================
 
 function isYouTubeUrl(value) {
-
-    if (
-        typeof value !== 'string'
-    ) {
+    if (typeof value !== 'string') {
         return false;
     }
 
     try {
-
         const url =
             new URL(value);
 
         const hostname =
             url.hostname
                 .toLowerCase()
-                .replace(
-                    /^www\./,
-                    ''
-                );
+                .replace(/^www\./, '');
 
         return (
-
-            hostname ===
-                'youtube.com' ||
-
-            hostname ===
-                'youtu.be' ||
-
-            hostname ===
-                'm.youtube.com' ||
-
-            hostname ===
-                'music.youtube.com'
+            hostname === 'youtube.com' ||
+            hostname === 'youtu.be' ||
+            hostname === 'm.youtube.com' ||
+            hostname === 'music.youtube.com'
         );
-
     } catch {
-
         return false;
     }
 }
 
-function normalizeYouTubeInput(
-    input
-) {
+// ============================================================
+// NORMALIZE YOUTUBE INPUT
+// ============================================================
 
+function normalizeYouTubeInput(input) {
     if (
         typeof input !== 'string' ||
         !input.trim()
@@ -466,21 +396,14 @@ function normalizeYouTubeInput(
     const value =
         input.trim();
 
-    if (
-        isYouTubeUrl(value)
-    ) {
+    if (isYouTubeUrl(value)) {
         return value;
     }
 
     if (
-        /^[A-Za-z0-9_-]{11}$/.test(
-            value
-        )
+        /^[A-Za-z0-9_-]{11}$/.test(value)
     ) {
-
-        return (
-            `https://www.youtube.com/watch?v=${value}`
-        );
+        return `https://www.youtube.com/watch?v=${value}`;
     }
 
     throw new Error(
@@ -489,17 +412,13 @@ function normalizeYouTubeInput(
 }
 
 // ============================================================
-// PLAY-DL
+// PLAY-DL STREAM
 // ============================================================
 
-async function getPlayDlStream(
-    input
-) {
-
+async function getPlayDlStream(input) {
     if (
         !playdl ||
-        typeof playdl.stream !==
-            'function'
+        typeof playdl.stream !== 'function'
     ) {
         throw new Error(
             'play-dl is not available.'
@@ -507,22 +426,17 @@ async function getPlayDlStream(
     }
 
     const url =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
 
     console.log(
         `🎵 play-dl extracting: ${url}`
     );
 
     const result =
-        await playdl.stream(
-            url
-        );
+        await playdl.stream(url);
 
     const streamURL =
-        typeof result?.url ===
-            'string'
+        typeof result?.url === 'string'
             ? result.url
             : null;
 
@@ -533,21 +447,11 @@ async function getPlayDlStream(
     }
 
     return {
-
-        success:
-            true,
-
-        source:
-            'youtube',
-
-        provider:
-            'play-dl',
-
-        url:
-            streamURL,
-
-        playable:
-            true
+        success: true,
+        source: 'youtube',
+        provider: 'play-dl',
+        url: streamURL,
+        playable: true
     };
 }
 
@@ -555,33 +459,37 @@ async function getPlayDlStream(
 // YT-DLP STREAM
 // ============================================================
 
-async function getYtDlpStream(
-    input
-) {
-
+async function getYtDlpStream(input) {
     const url =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
 
     const runtimes =
         await detectJsRuntimes();
 
+    console.log(
+        '🧩 yt-dlp JS runtimes:',
+        runtimes.length
+            ? runtimes.join(', ')
+            : 'none'
+    );
+
     const attempts = [];
 
-    if (
-        runtimes.includes('node')
-    ) {
+    // --------------------------------------------------------
+    // DENO
+    // --------------------------------------------------------
 
+    if (runtimes.includes('deno')) {
         attempts.push({
-            name:
-                'node',
-
+            name: 'deno',
             args: [
                 ...getYtDlpBaseArgs(),
 
                 '--js-runtimes',
-                'node',
+                'deno',
+
+                '--format',
+                'bestaudio/best',
 
                 '--get-url',
 
@@ -590,19 +498,21 @@ async function getYtDlpStream(
         });
     }
 
-    if (
-        runtimes.includes('deno')
-    ) {
+    // --------------------------------------------------------
+    // NODE
+    // --------------------------------------------------------
 
+    if (runtimes.includes('node')) {
         attempts.push({
-            name:
-                'deno',
-
+            name: 'node',
             args: [
                 ...getYtDlpBaseArgs(),
 
                 '--js-runtimes',
-                'deno',
+                'node',
+
+                '--format',
+                'bestaudio/best',
 
                 '--get-url',
 
@@ -610,13 +520,18 @@ async function getYtDlpStream(
             ]
         });
     }
+
+    // --------------------------------------------------------
+    // AUTOMATIC
+    // --------------------------------------------------------
 
     attempts.push({
-        name:
-            'automatic',
-
+        name: 'automatic',
         args: [
             ...getYtDlpBaseArgs(),
+
+            '--format',
+            'bestaudio/best',
 
             '--get-url',
 
@@ -624,16 +539,10 @@ async function getYtDlpStream(
         ]
     });
 
-    let lastError =
-        null;
+    let lastError = null;
 
-    for (
-        const attempt
-        of attempts
-    ) {
-
+    for (const attempt of attempts) {
         try {
-
             console.log(
                 `🎬 yt-dlp attempt: ${attempt.name}`
             );
@@ -643,22 +552,21 @@ async function getYtDlpStream(
                     attempt.args
                 );
 
-            const streamURL =
+            const lines =
                 result.stdout
                     .split(/\r?\n/)
                     .map(
-                        line =>
-                            line.trim()
+                        line => line.trim()
                     )
-                    .find(
-                        line =>
-                            /^https?:\/\//i.test(
-                                line
-                            )
-                    );
+                    .filter(Boolean);
+
+            const streamURL =
+                lines.find(
+                    line =>
+                        /^https?:\/\//i.test(line)
+                );
 
             if (!streamURL) {
-
                 throw new Error(
                     'yt-dlp did not return a stream URL.'
                 );
@@ -669,27 +577,14 @@ async function getYtDlpStream(
             );
 
             return {
-
-                success:
-                    true,
-
-                source:
-                    'youtube',
-
-                provider:
-                    'yt-dlp',
-
-                url:
-                    streamURL,
-
-                playable:
-                    true
+                success: true,
+                source: 'youtube',
+                provider: 'yt-dlp',
+                url: streamURL,
+                playable: true
             };
-
         } catch (error) {
-
-            lastError =
-                error;
+            lastError = error;
 
             console.warn(
                 `⚠️ yt-dlp ${attempt.name} failed:`,
@@ -710,37 +605,30 @@ async function getYtDlpStream(
 // GET STREAM
 // ============================================================
 
-async function getStream(
-    input
-) {
-
+async function getStream(input) {
     const url =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
+
+    // --------------------------------------------------------
+    // PLAY-DL FIRST
+    // --------------------------------------------------------
 
     try {
-
-        return await getPlayDlStream(
-            url
-        );
-
+        return await getPlayDlStream(url);
     } catch (error) {
-
         console.warn(
             '⚠️ play-dl extraction failed:',
             error.message
         );
     }
 
+    // --------------------------------------------------------
+    // YT-DLP FALLBACK
+    // --------------------------------------------------------
+
     try {
-
-        return await getYtDlpStream(
-            url
-        );
-
+        return await getYtDlpStream(url);
     } catch (error) {
-
         throw new Error(
             `YouTube extraction failed: ${error.message}`
         );
@@ -751,34 +639,26 @@ async function getStream(
 // METADATA
 // ============================================================
 
-async function getMetadata(
-    input
-) {
-
+async function getMetadata(input) {
     const url =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
+
+    // --------------------------------------------------------
+    // PLAY-DL
+    // --------------------------------------------------------
 
     try {
-
         if (
             playdl &&
-            typeof playdl.video_basic_info ===
-                'function'
+            typeof playdl.video_basic_info === 'function'
         ) {
-
             const info =
-                await playdl.video_basic_info(
-                    url
-                );
+                await playdl.video_basic_info(url);
 
             const video =
-                info?.video_details ||
-                {};
+                info?.video_details || {};
 
             return {
-
                 id:
                     video.id ||
                     null,
@@ -803,13 +683,9 @@ async function getMetadata(
 
                 duration:
                     Number.isFinite(
-                        Number(
-                            video.durationInSec
-                        )
+                        Number(video.durationInSec)
                     )
-                        ? Number(
-                            video.durationInSec
-                        )
+                        ? Number(video.durationInSec)
                         : null,
 
                 artwork:
@@ -825,29 +701,28 @@ async function getMetadata(
                     url
             };
         }
-
     } catch (error) {
-
         console.warn(
             '⚠️ play-dl metadata failed:',
             error.message
         );
     }
 
+    // --------------------------------------------------------
+    // YT-DLP
+    // --------------------------------------------------------
+
     const runtimes =
         await detectJsRuntimes();
 
     const attempts = [];
 
-    if (
-        runtimes.includes('node')
-    ) {
-
+    if (runtimes.includes('deno')) {
         attempts.push([
             ...getYtDlpBaseArgs(),
 
             '--js-runtimes',
-            'node',
+            'deno',
 
             '--dump-single-json',
 
@@ -855,15 +730,12 @@ async function getMetadata(
         ]);
     }
 
-    if (
-        runtimes.includes('deno')
-    ) {
-
+    if (runtimes.includes('node')) {
         attempts.push([
             ...getYtDlpBaseArgs(),
 
             '--js-runtimes',
-            'deno',
+            'node',
 
             '--dump-single-json',
 
@@ -879,28 +751,23 @@ async function getMetadata(
         url
     ]);
 
-    let lastError =
-        null;
+    let lastError = null;
 
-    for (
-        const args
-        of attempts
-    ) {
-
+    for (const args of attempts) {
         try {
-
             const result =
-                await runYtDlp(
-                    args
+                await runYtDlp(args);
+
+            if (!result.stdout) {
+                throw new Error(
+                    'yt-dlp returned empty metadata.'
                 );
+            }
 
             const data =
-                JSON.parse(
-                    result.stdout
-                );
+                JSON.parse(result.stdout);
 
             return {
-
                 id:
                     data.id ||
                     null,
@@ -925,13 +792,9 @@ async function getMetadata(
 
                 duration:
                     Number.isFinite(
-                        Number(
-                            data.duration
-                        )
+                        Number(data.duration)
                     )
-                        ? Number(
-                            data.duration
-                        )
+                        ? Number(data.duration)
                         : null,
 
                 artwork:
@@ -946,11 +809,8 @@ async function getMetadata(
                     data.webpage_url ||
                     url
             };
-
         } catch (error) {
-
-            lastError =
-                error;
+            lastError = error;
         }
     }
 
@@ -966,32 +826,19 @@ async function getMetadata(
 // TRACK
 // ============================================================
 
-async function getTrack(
-    input
-) {
-
+async function getTrack(input) {
     const url =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
 
     const metadata =
-        await getMetadata(
-            url
-        );
+        await getMetadata(url);
 
     const stream =
-        await getCachedOrExtractStream(
-            url
-        );
+        await getCachedOrExtractStream(url);
 
     return {
-
-        success:
-            true,
-
-        source:
-            'youtube',
+        success: true,
+        source: 'youtube',
 
         provider:
             stream.provider,
@@ -999,8 +846,7 @@ async function getTrack(
         url:
             stream.url,
 
-        playable:
-            true,
+        playable: true,
 
         ...metadata
     };
@@ -1011,9 +857,7 @@ async function getTrack(
 // ============================================================
 
 async function checkAvailable() {
-
     try {
-
         const result =
             await runYtDlp(
                 ['--version'],
@@ -1021,25 +865,17 @@ async function checkAvailable() {
             );
 
         return {
-
-            available:
-                true,
+            available: true,
 
             version:
                 result.stdout ||
                 null
-
         };
-
     } catch (error) {
-
         return {
+            available: false,
 
-            available:
-                false,
-
-            version:
-                null,
+            version: null,
 
             error:
                 error.message
@@ -1047,15 +883,16 @@ async function checkAvailable() {
     }
 }
 
+// ============================================================
+// PLAY-DL AVAILABILITY
+// ============================================================
+
 function checkPlayDlAvailable() {
-
     return {
-
         available:
             Boolean(
                 playdl &&
-                typeof playdl.stream ===
-                    'function'
+                typeof playdl.stream === 'function'
             ),
 
         version:
@@ -1064,10 +901,12 @@ function checkPlayDlAvailable() {
     };
 }
 
+// ============================================================
+// COOKIES AVAILABILITY
+// ============================================================
+
 function checkYouTubeCookiesAvailable() {
-
     return {
-
         configured:
             Boolean(
                 process.env.YOUTUBE_COOKIES_PATH
@@ -1081,23 +920,15 @@ function checkYouTubeCookiesAvailable() {
 }
 
 // ============================================================
-// CACHE
+// STREAM CACHE
 // ============================================================
 
 const streamCache =
     new Map();
 
-const STREAM_CACHE_TTL =
-    60 * 1000;
-
-function getCachedStream(
-    key
-) {
-
+function getCachedStream(key) {
     const cached =
-        streamCache.get(
-            key
-        );
+        streamCache.get(key);
 
     if (!cached) {
         return null;
@@ -1108,10 +939,7 @@ function getCachedStream(
             cached.createdAt >
         STREAM_CACHE_TTL
     ) {
-
-        streamCache.delete(
-            key
-        );
+        streamCache.delete(key);
 
         return null;
     }
@@ -1123,7 +951,6 @@ function setCachedStream(
     key,
     value
 ) {
-
     streamCache.set(
         key,
         {
@@ -1137,28 +964,23 @@ function setCachedStream(
     return value;
 }
 
-async function getCachedOrExtractStream(
-    input
-) {
-
+async function getCachedOrExtractStream(input) {
     const normalized =
-        normalizeYouTubeInput(
-            input
-        );
+        normalizeYouTubeInput(input);
 
     const cached =
-        getCachedStream(
-            normalized
-        );
+        getCachedStream(normalized);
 
     if (cached) {
+        console.log(
+            '♻️ Using cached YouTube stream.'
+        );
+
         return cached;
     }
 
     const result =
-        await getStream(
-            normalized
-        );
+        await getStream(normalized);
 
     return setCachedStream(
         normalized,
@@ -1167,11 +989,10 @@ async function getCachedOrExtractStream(
 }
 
 // ============================================================
-// CLEANUP
+// CACHE CLEANUP
 // ============================================================
 
 function cleanupCache() {
-
     const now =
         Date.now();
 
@@ -1182,16 +1003,12 @@ function cleanupCache() {
         ]
         of streamCache
     ) {
-
         if (
             now -
                 cached.createdAt >
             STREAM_CACHE_TTL
         ) {
-
-            streamCache.delete(
-                key
-            );
+            streamCache.delete(key);
         }
     }
 }
@@ -1206,22 +1023,15 @@ setInterval(
 // ============================================================
 
 module.exports = {
-
     getStream,
-
     getCachedOrExtractStream,
-
     getTrack,
-
     getMetadata,
 
     checkAvailable,
-
     checkPlayDlAvailable,
-
     checkYouTubeCookiesAvailable,
 
     isYouTubeUrl,
-
     normalizeYouTubeInput
 };
