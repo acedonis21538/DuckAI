@@ -1,3 +1,3 @@
 {
-  "postStartCommand": "nohup ~/DuckAI/start-vnc.sh > ~/DuckAI/vnc.log 2>&1 &"
+  "postStartCommand": "nohup /workspaces/DuckAI/start-vnc.sh > /workspaces/DuckAI/vnc.log 2>&1 &"
 }
